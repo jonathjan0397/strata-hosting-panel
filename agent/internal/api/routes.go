@@ -56,6 +56,23 @@ func Routes() chi.Router {
 	r.Post("/mail/forwarder", handleForwarderCreate)
 	r.Delete("/mail/forwarder/{source}", handleForwarderDelete)
 
+	// DNS zone + record management (PowerDNS)
+	r.Post("/dns/zone", handleDNSCreateZone)
+	r.Delete("/dns/zone/{domain}", handleDNSDeleteZone)
+	r.Get("/dns/zone/{domain}", handleDNSGetZone)
+	r.Patch("/dns/zone/{domain}/record", handleDNSUpsertRecord)
+	r.Delete("/dns/zone/{domain}/record", handleDNSDeleteRecord)
+
+	// Database management (MariaDB)
+	r.Post("/databases", handleDatabaseCreate)
+	r.Delete("/databases/{name}", handleDatabaseDelete)
+	r.Put("/databases/users/{username}/password", handleDatabasePasswordChange)
+
+	// FTP account management (Pure-FTPd)
+	r.Post("/ftp/accounts", handleFTPCreate)
+	r.Delete("/ftp/accounts/{username}", handleFTPDelete)
+	r.Put("/ftp/accounts/{username}/password", handleFTPPassword)
+
 	// Self-upgrade
 	r.Post("/agent/upgrade", handleAgentUpgrade)
 

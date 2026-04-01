@@ -1,0 +1,73 @@
+package api
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jonathjan0397/strata-panel/agent/internal/database"
+)
+
+func handleDatabaseCreate(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DBName   string `json:"db_name"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.DBName == "" || req.Username == "" || req.Password == "" {
+		http.Error(w, "db_name, username, and password required", http.StatusBadRequest)
+		return
+	}
+	if err := database.CreateDatabase(req.DBName); err != nil {
+		http.Error(w, "create database: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	if err := database.CreateUser(req.Username, req.Password); err != nil {
+		database.DeleteDatabase(req.DBName) //nolint:errcheck
+		http.Error(w, "create user: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	if err := database.GrantPrivileges(req.DBName, req.Username); err != nil {
+		database.DeleteUser(req.Username)   //nolint:errcheck
+		database.DeleteDatabase(req.DBName) //nolint:errcheck
+		http.Error(w, "grant privileges: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusCreated, map[string]string{
+		"status":   "created",
+		"db_name":  req.DBName,
+		"username": req.Username,
+	})
+}
+
+func handleDatabaseDelete(w http.ResponseWriter, r *http.Request) {
+	dbName   := chi.URLParam(r, "name")
+	username := r.URL.Query().Get("username")
+
+	if username != "" {
+		database.RevokePrivileges(dbName, username) //nolint:errcheck
+		database.DeleteUser(username)               //nolint:errcheck
+	}
+	if err := database.DeleteDatabase(dbName); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "deleted", "db_name": dbName})
+}
+
+func handleDatabasePasswordChange(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	var req struct {
+		Password string `json:"password"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if err := database.ChangeUserPassword(username, req.Password); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "updated", "username": username})
+}

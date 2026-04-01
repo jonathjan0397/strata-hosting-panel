@@ -3,8 +3,11 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Admin\AccountController;
+use App\Http\Controllers\Admin\DatabaseController;
+use App\Http\Controllers\Admin\DnsController;
 use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EmailController;
+use App\Http\Controllers\Admin\FtpController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
 use Illuminate\Support\Facades\Route;
@@ -37,9 +40,27 @@ Route::middleware(['auth'])->group(function () {
         Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])->name('accounts.suspend');
         Route::post('accounts/{account}/unsuspend', [AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
 
+        // Databases (per account)
+        Route::get('accounts/{account}/databases', [DatabaseController::class, 'index'])->name('accounts.databases');
+        Route::post('accounts/{account}/databases', [DatabaseController::class, 'store'])->name('accounts.databases.store');
+        Route::delete('databases/{database}', [DatabaseController::class, 'destroy'])->name('databases.destroy');
+        Route::put('databases/{database}/password', [DatabaseController::class, 'changePassword'])->name('databases.password');
+
+        // FTP (per account)
+        Route::get('accounts/{account}/ftp', [FtpController::class, 'index'])->name('accounts.ftp');
+        Route::post('accounts/{account}/ftp', [FtpController::class, 'store'])->name('accounts.ftp.store');
+        Route::delete('ftp/{ftpAccount}', [FtpController::class, 'destroy'])->name('ftp.destroy');
+        Route::put('ftp/{ftpAccount}/password', [FtpController::class, 'changePassword'])->name('ftp.password');
+
         // Domains
         Route::resource('domains', DomainController::class)->except(['edit', 'update']);
         Route::post('domains/{domain}/ssl', [DomainController::class, 'issueSSL'])->name('domains.ssl');
+
+        // DNS (per domain)
+        Route::get('domains/{domain}/dns', [DnsController::class, 'show'])->name('dns.show');
+        Route::post('domains/{domain}/dns/provision', [DnsController::class, 'provision'])->name('dns.provision');
+        Route::post('dns/zones/{zone}/records', [DnsController::class, 'storeRecord'])->name('dns.records.store');
+        Route::delete('dns/records/{record}', [DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
 
         // Email management
         Route::get('domains/{domain}/email', [EmailController::class, 'domainIndex'])->name('email.domain');
