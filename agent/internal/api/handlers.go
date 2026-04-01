@@ -2,14 +2,14 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os/exec"
 	"runtime"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jonathjan0397/strata-panel/agent/internal/system"
 )
 
 // Version is injected at build time: -ldflags "-X api.Version=1.0.0"
@@ -20,6 +20,8 @@ func respond(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
 }
+
+// ── Health / Version ─────────────────────────────────────────────────────────
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, map[string]string{
@@ -35,83 +37,95 @@ func handleVersion(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleSystemInfo(w http.ResponseWriter, r *http.Request) {
-	// TODO: replace with proper /proc parsing
-	loadAvg := runCmd("cat", "/proc/loadavg")
-	memInfo := runCmd("free", "-m")
-	diskInfo := runCmd("df", "-h", "/")
+// ── System Info ───────────────────────────────────────────────────────────────
 
-	respond(w, http.StatusOK, map[string]string{
-		"load_avg":  loadAvg,
-		"mem_info":  memInfo,
-		"disk_info": diskInfo,
-	})
+func handleSystemInfo(w http.ResponseWriter, r *http.Request) {
+	info, err := system.GetInfo()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respond(w, http.StatusOK, info)
 }
 
+// ── Services ──────────────────────────────────────────────────────────────────
+
 func handleServiceList(w http.ResponseWriter, r *http.Request) {
-	services := []string{"nginx", "php8.1-fpm", "php8.2-fpm", "php8.3-fpm",
-		"postfix", "dovecot", "rspamd", "pdns", "mariadb", "pure-ftpd"}
+	respond(w, http.StatusOK, system.GetServiceStatuses())
+}
 
-	type serviceStatus struct {
-		Name   string `json:"name"`
-		Active bool   `json:"active"`
-	}
+func handleServiceStart(w http.ResponseWriter, r *http.Request) {
+	serviceAction(w, r, "start")
+}
 
-	result := make([]serviceStatus, 0, len(services))
-	for _, svc := range services {
-		out := runCmd("systemctl", "is-active", svc)
-		result = append(result, serviceStatus{
-			Name:   svc,
-			Active: strings.TrimSpace(out) == "active",
-		})
-	}
-
-	respond(w, http.StatusOK, result)
+func handleServiceStop(w http.ResponseWriter, r *http.Request) {
+	serviceAction(w, r, "stop")
 }
 
 func handleServiceRestart(w http.ResponseWriter, r *http.Request) {
-	name := chi.URLParam(r, "name")
-	if !isAllowedService(name) {
-		http.Error(w, "unknown service", http.StatusBadRequest)
-		return
-	}
-	if err := execCmd("systemctl", "restart", name); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	respond(w, http.StatusOK, map[string]string{"status": "restarted"})
+	serviceAction(w, r, "restart")
 }
 
 func handleServiceReload(w http.ResponseWriter, r *http.Request) {
-	name := chi.URLParam(r, "name")
-	if !isAllowedService(name) {
-		http.Error(w, "unknown service", http.StatusBadRequest)
-		return
-	}
-	if err := execCmd("systemctl", "reload", name); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	respond(w, http.StatusOK, map[string]string{"status": "reloaded"})
+	serviceAction(w, r, "reload")
 }
 
+func serviceAction(w http.ResponseWriter, r *http.Request, action string) {
+	name := chi.URLParam(r, "name")
+	if err := system.ServiceAction(name, action); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": action + "ed", "service": name})
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────────
+
+func handleLogList(w http.ResponseWriter, r *http.Request) {
+	respond(w, http.StatusOK, map[string][]string{"logs": system.ListLogs()})
+}
+
+func handleLogRead(w http.ResponseWriter, r *http.Request) {
+	service := chi.URLParam(r, "service")
+	lines := 100
+	if q := r.URL.Query().Get("lines"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil {
+			lines = n
+		}
+	}
+
+	entries, err := system.ReadLog(service, lines)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	respond(w, http.StatusOK, map[string]any{
+		"service": service,
+		"lines":   len(entries),
+		"entries": entries,
+	})
+}
+
+// ── Nginx ─────────────────────────────────────────────────────────────────────
+
 func handleNginxVhostCreate(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement nginx vhost provisioning
 	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
 }
 
 func handleNginxVhostDelete(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement nginx vhost removal
 	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
 }
 
 func handleNginxReload(w http.ResponseWriter, r *http.Request) {
-	if err := execCmd("systemctl", "reload", "nginx"); err != nil {
+	if err := system.ServiceAction("nginx", "reload"); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	respond(w, http.StatusOK, map[string]string{"status": "reloaded"})
 }
+
+// ── PHP ───────────────────────────────────────────────────────────────────────
 
 func handlePHPPoolCreate(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
@@ -125,6 +139,8 @@ func handlePHPPoolVersionSet(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
 }
 
+// ── SSL ───────────────────────────────────────────────────────────────────────
+
 func handleSSLIssue(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
 }
@@ -133,9 +149,11 @@ func handleSSLDelete(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
 }
 
+// ── Agent upgrade ─────────────────────────────────────────────────────────────
+
 func handleAgentUpgrade(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Version    string `json:"version"`
+		Version     string `json:"version"`
 		DownloadURL string `json:"download_url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -147,34 +165,9 @@ func handleAgentUpgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run upgrade in background — agent will restart itself via systemd
 	go func() {
 		exec.Command("/usr/sbin/strata-agent-upgrade", req.Version, req.DownloadURL).Run()
 	}()
 
 	respond(w, http.StatusAccepted, map[string]string{"status": "upgrade_started", "version": req.Version})
-}
-
-// isAllowedService prevents arbitrary service manipulation
-func isAllowedService(name string) bool {
-	allowed := map[string]bool{
-		"nginx": true, "apache2": true,
-		"php8.1-fpm": true, "php8.2-fpm": true, "php8.3-fpm": true,
-		"postfix": true, "dovecot": true, "rspamd": true, "opendkim": true,
-		"pdns": true, "mariadb": true, "pure-ftpd": true,
-		"fail2ban": true, "ufw": true,
-	}
-	return allowed[name]
-}
-
-func runCmd(name string, args ...string) string {
-	out, err := exec.Command(name, args...).Output()
-	if err != nil {
-		return fmt.Sprintf("error: %v", err)
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func execCmd(name string, args ...string) error {
-	return exec.Command(name, args...).Run()
 }

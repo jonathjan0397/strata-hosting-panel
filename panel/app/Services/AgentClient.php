@@ -35,6 +35,16 @@ class AgentClient
         return $this->get('/services');
     }
 
+    public function startService(string $name): Response
+    {
+        return $this->post("/services/{$name}/start");
+    }
+
+    public function stopService(string $name): Response
+    {
+        return $this->post("/services/{$name}/stop");
+    }
+
     public function restartService(string $name): Response
     {
         return $this->post("/services/{$name}/restart");
@@ -43,6 +53,16 @@ class AgentClient
     public function reloadService(string $name): Response
     {
         return $this->post("/services/{$name}/reload");
+    }
+
+    public function logs(string $service, int $lines = 100): Response
+    {
+        return $this->get("/logs/{$service}?lines={$lines}");
+    }
+
+    public function logList(): Response
+    {
+        return $this->get('/logs');
     }
 
     public function createVhost(array $config): Response

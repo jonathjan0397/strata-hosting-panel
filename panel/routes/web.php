@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Admin\NodeController;
+use App\Http\Controllers\Admin\NodeStatusController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect root to dashboard or login
@@ -29,5 +30,11 @@ Route::middleware(['auth'])->group(function () {
     // Admin-only
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
         Route::resource('nodes', NodeController::class);
+
+        // Node status page + live API endpoints
+        Route::get('nodes/{node}/status', [NodeStatusController::class, 'show'])->name('nodes.status');
+        Route::get('nodes/{node}/api/info', [NodeStatusController::class, 'info'])->name('nodes.api.info');
+        Route::get('nodes/{node}/api/logs/{service}', [NodeStatusController::class, 'logs'])->name('nodes.api.logs');
+        Route::post('nodes/{node}/api/services/{service}/action', [NodeStatusController::class, 'serviceAction'])->name('nodes.api.service-action');
     });
 });
