@@ -10,6 +10,48 @@
             />
         </div>
 
+        <!-- License status (only shown when managed / license server configured) -->
+        <div v-if="license.managed" class="mt-5">
+            <div
+                class="rounded-xl border px-5 py-3.5 flex items-center justify-between"
+                :class="{
+                    'border-emerald-800/50 bg-emerald-900/10': license.status === 'active',
+                    'border-red-800/50 bg-red-900/10':         license.status === 'suspended',
+                    'border-gray-700/50 bg-gray-800/30':       !['active','suspended'].includes(license.status),
+                }"
+            >
+                <div class="flex items-center gap-3">
+                    <span
+                        class="h-2.5 w-2.5 rounded-full"
+                        :class="{
+                            'bg-emerald-400': license.status === 'active',
+                            'bg-red-400':     license.status === 'suspended',
+                            'bg-gray-500':    !['active','suspended'].includes(license.status),
+                        }"
+                    ></span>
+                    <span class="text-sm font-medium"
+                        :class="{
+                            'text-emerald-300': license.status === 'active',
+                            'text-red-300':     license.status === 'suspended',
+                            'text-gray-400':    !['active','suspended'].includes(license.status),
+                        }"
+                    >
+                        Strata Panel — {{ license.status === 'active' ? 'Licensed' : license.status }}
+                    </span>
+                    <div v-if="license.features.length" class="flex items-center gap-1.5 ml-2">
+                        <span
+                            v-for="feat in license.features"
+                            :key="feat"
+                            class="rounded-full bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-300 font-mono"
+                        >{{ feat }}</span>
+                    </div>
+                </div>
+                <span v-if="license.synced_at" class="text-xs text-gray-600">
+                    Synced {{ formatDate(license.synced_at) }}
+                </span>
+            </div>
+        </div>
+
         <!-- Nodes status -->
         <div class="mt-8">
             <h2 class="mb-4 text-sm font-semibold text-gray-400 uppercase tracking-wide">Nodes</h2>
@@ -69,12 +111,20 @@
 </template>
 
 <script setup>
+import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StatCard from '@/Components/StatCard.vue';
 import { Link } from '@inertiajs/vue3';
 
-const props = defineProps({
+defineProps({
     nodes: Array,
     stats: Array,
 });
+
+const license = usePage().props.license;
+
+function formatDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 </script>

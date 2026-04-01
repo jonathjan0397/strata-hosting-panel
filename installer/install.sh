@@ -56,6 +56,8 @@ AGENT_NODE_ID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
 DB_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
 PDNS_DB_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
 PDNS_API_KEY=$(openssl rand -hex 32)
+INSTALL_TOKEN=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
+INSTALL_SECRET=$(openssl rand -hex 32)
 APP_KEY="base64:$(openssl rand -base64 32)"
 
 echo ""
@@ -309,6 +311,13 @@ STRATA_AGENT_LOCAL_NODE_ID=${AGENT_NODE_ID}
 
 STRATA_PDNS_API_KEY=${PDNS_API_KEY}
 STRATA_DB_ROOT_PASSWORD=${DB_PASSWORD}
+
+# License server — set STRATA_LICENSE_SERVER_URL to enable feature gating.
+# Leave blank for Community edition (all free features, no remote checks).
+STRATA_INSTALL_TOKEN=${INSTALL_TOKEN}
+STRATA_INSTALL_SECRET=${INSTALL_SECRET}
+STRATA_LICENSE_SERVER_URL=
+STRATA_VERSION=1.0.0
 EOF
 chmod 600 "$INSTALL_DIR/panel/.env"
 
@@ -319,6 +328,9 @@ composer install --no-dev --optimize-autoloader --no-interaction -q
 
 info "Running database migrations…"
 php artisan migrate --force --seed
+
+info "Initial license sync…"
+php artisan strata:license-sync || warn "License sync skipped (no server configured — OK for Community edition)."
 
 info "Building frontend assets…"
 npm ci --silent
@@ -554,6 +566,8 @@ echo -e "  ${BOLD}Agent log:${NC}       journalctl -u strata-agent -f"
 echo -e "  ${BOLD}Queue log:${NC}       journalctl -u strata-queue -f"
 echo -e "  ${BOLD}PowerDNS API:${NC}    127.0.0.1:8053 (key in .env)"
 echo -e "  ${BOLD}FTP:${NC}             port 21, virtual users via Pure-FTPd"
+echo -e "  ${BOLD}Install token:${NC}   ${INSTALL_TOKEN}"
+echo -e "  ${YELLOW}To enable premium features, set STRATA_LICENSE_SERVER_URL in .env${NC}"
 echo ""
 echo -e "  ${YELLOW}If using a self-signed cert, add DNS A record for ${PANEL_DOMAIN}"
 echo -e "  then run: /root/.acme.sh/acme.sh --issue --nginx -d ${PANEL_DOMAIN}${NC}"
