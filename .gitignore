@@ -1,0 +1,17 @@
+# Panel
+panel/vendor/
+panel/node_modules/
+panel/.env
+panel/public/build/
+panel/public/hot
+panel/storage/*.key
+panel/.phpunit.cache/
+panel/bootstrap/cache/*.php
+
+# Agent
+agent/strata-agent
+agent/*.exe
+
+# OS
+.DS_Store
+Thumbs.db
