@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jonathjan0397/strata-panel/agent/internal/account"
+	"github.com/jonathjan0397/strata-panel/agent/internal/nginx"
+	"github.com/jonathjan0397/strata-panel/agent/internal/php"
+	"github.com/jonathjan0397/strata-panel/agent/internal/ssl"
 	"github.com/jonathjan0397/strata-panel/agent/internal/system"
 )
 
-// Version is injected at build time: -ldflags "-X api.Version=1.0.0"
 var Version = "dev"
 
 func respond(w http.ResponseWriter, status int, v any) {
@@ -21,7 +24,15 @@ func respond(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
-// ── Health / Version ─────────────────────────────────────────────────────────
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return false
+	}
+	return true
+}
+
+// ── Health / Version ──────────────────────────────────────────────────────────
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, map[string]string{
@@ -54,21 +65,10 @@ func handleServiceList(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, system.GetServiceStatuses())
 }
 
-func handleServiceStart(w http.ResponseWriter, r *http.Request) {
-	serviceAction(w, r, "start")
-}
-
-func handleServiceStop(w http.ResponseWriter, r *http.Request) {
-	serviceAction(w, r, "stop")
-}
-
-func handleServiceRestart(w http.ResponseWriter, r *http.Request) {
-	serviceAction(w, r, "restart")
-}
-
-func handleServiceReload(w http.ResponseWriter, r *http.Request) {
-	serviceAction(w, r, "reload")
-}
+func handleServiceStart(w http.ResponseWriter, r *http.Request)   { serviceAction(w, r, "start") }
+func handleServiceStop(w http.ResponseWriter, r *http.Request)    { serviceAction(w, r, "stop") }
+func handleServiceRestart(w http.ResponseWriter, r *http.Request) { serviceAction(w, r, "restart") }
+func handleServiceReload(w http.ResponseWriter, r *http.Request)  { serviceAction(w, r, "reload") }
 
 func serviceAction(w http.ResponseWriter, r *http.Request, action string) {
 	name := chi.URLParam(r, "name")
@@ -93,13 +93,11 @@ func handleLogRead(w http.ResponseWriter, r *http.Request) {
 			lines = n
 		}
 	}
-
 	entries, err := system.ReadLog(service, lines)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	respond(w, http.StatusOK, map[string]any{
 		"service": service,
 		"lines":   len(entries),
@@ -107,18 +105,55 @@ func handleLogRead(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ── Accounts ──────────────────────────────────────────────────────────────────
+
+func handleAccountProvision(w http.ResponseWriter, r *http.Request) {
+	var req account.ProvisionRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	result, err := account.Provision(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusCreated, result)
+}
+
+func handleAccountDeprovision(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	if err := account.Deprovision(username); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "deprovisioned", "username": username})
+}
+
 // ── Nginx ─────────────────────────────────────────────────────────────────────
 
 func handleNginxVhostCreate(w http.ResponseWriter, r *http.Request) {
-	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
+	var cfg nginx.VhostConfig
+	if !decodeJSON(w, r, &cfg) {
+		return
+	}
+	if err := nginx.WriteVhost(cfg); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusCreated, map[string]string{"status": "created", "domain": cfg.Domain})
 }
 
 func handleNginxVhostDelete(w http.ResponseWriter, r *http.Request) {
-	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
+	domain := chi.URLParam(r, "domain")
+	if err := nginx.RemoveVhost(domain); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "removed", "domain": domain})
 }
 
 func handleNginxReload(w http.ResponseWriter, r *http.Request) {
-	if err := system.ServiceAction("nginx", "reload"); err != nil {
+	if err := nginx.TestAndReload(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -128,25 +163,86 @@ func handleNginxReload(w http.ResponseWriter, r *http.Request) {
 // ── PHP ───────────────────────────────────────────────────────────────────────
 
 func handlePHPPoolCreate(w http.ResponseWriter, r *http.Request) {
-	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
+	var cfg php.PoolConfig
+	if !decodeJSON(w, r, &cfg) {
+		return
+	}
+	if err := php.WritePool(cfg); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	if err := system.ServiceAction("php"+cfg.PHPVersion+"-fpm", "reload"); err != nil {
+		http.Error(w, "pool written but fpm reload failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respond(w, http.StatusCreated, map[string]string{"status": "created"})
 }
 
 func handlePHPPoolDelete(w http.ResponseWriter, r *http.Request) {
-	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
+	user    := chi.URLParam(r, "user")
+	version := r.URL.Query().Get("version")
+	if version == "" {
+		version = "8.3"
+	}
+	if err := php.RemovePool(user, version); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	system.ServiceAction("php"+version+"-fpm", "reload") //nolint:errcheck
+	respond(w, http.StatusOK, map[string]string{"status": "removed"})
 }
 
 func handlePHPPoolVersionSet(w http.ResponseWriter, r *http.Request) {
-	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
+	user := chi.URLParam(r, "user")
+	var req struct {
+		OldVersion string `json:"old_version"`
+		NewVersion string `json:"new_version"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	// Read old pool config and rewrite for new version
+	oldCfg := php.DefaultPool(user, req.OldVersion)
+	newCfg := oldCfg
+	newCfg.PHPVersion = req.NewVersion
+
+	if err := php.RemovePool(user, req.OldVersion); err != nil {
+		http.Error(w, "remove old pool: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := php.WritePool(newCfg); err != nil {
+		http.Error(w, "write new pool: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	system.ServiceAction("php"+req.OldVersion+"-fpm", "reload") //nolint:errcheck
+	system.ServiceAction("php"+req.NewVersion+"-fpm", "reload") //nolint:errcheck
+
+	respond(w, http.StatusOK, map[string]string{"status": "updated", "version": req.NewVersion})
 }
 
 // ── SSL ───────────────────────────────────────────────────────────────────────
 
 func handleSSLIssue(w http.ResponseWriter, r *http.Request) {
-	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
+	var req ssl.IssueRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	paths, err := ssl.Issue(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusOK, paths)
 }
 
 func handleSSLDelete(w http.ResponseWriter, r *http.Request) {
-	respond(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
+	domain := chi.URLParam(r, "domain")
+	if err := ssl.Remove(domain); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "removed", "domain": domain})
 }
 
 // ── Agent upgrade ─────────────────────────────────────────────────────────────
@@ -156,18 +252,15 @@ func handleAgentUpgrade(w http.ResponseWriter, r *http.Request) {
 		Version     string `json:"version"`
 		DownloadURL string `json:"download_url"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if req.Version == "" || req.DownloadURL == "" {
 		http.Error(w, "version and download_url required", http.StatusBadRequest)
 		return
 	}
-
 	go func() {
 		exec.Command("/usr/sbin/strata-agent-upgrade", req.Version, req.DownloadURL).Run()
 	}()
-
 	respond(w, http.StatusAccepted, map[string]string{"status": "upgrade_started", "version": req.Version})
 }

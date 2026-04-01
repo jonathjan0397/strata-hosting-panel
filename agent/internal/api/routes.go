@@ -11,7 +11,7 @@ func Routes() chi.Router {
 	r.Get("/health", handleHealth)
 	r.Get("/version", handleVersion)
 
-	// System info (CPU, RAM, disk, load, uptime)
+	// System info
 	r.Get("/system/info", handleSystemInfo)
 
 	// Service management
@@ -21,9 +21,13 @@ func Routes() chi.Router {
 	r.Post("/services/{name}/restart", handleServiceRestart)
 	r.Post("/services/{name}/reload", handleServiceReload)
 
-	// Log viewer (read-only, allowlisted paths only)
+	// Log viewer
 	r.Get("/logs", handleLogList)
 	r.Get("/logs/{service}", handleLogRead)
+
+	// Account provisioning
+	r.Post("/accounts", handleAccountProvision)
+	r.Delete("/accounts/{username}", handleAccountDeprovision)
 
 	// Nginx vhost management
 	r.Post("/nginx/vhost", handleNginxVhostCreate)
@@ -35,7 +39,7 @@ func Routes() chi.Router {
 	r.Delete("/php/pool/{user}", handlePHPPoolDelete)
 	r.Put("/php/pool/{user}/version", handlePHPPoolVersionSet)
 
-	// SSL certificate management
+	// SSL
 	r.Post("/ssl/issue", handleSSLIssue)
 	r.Delete("/ssl/{domain}", handleSSLDelete)
 

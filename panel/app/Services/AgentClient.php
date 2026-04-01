@@ -35,6 +35,36 @@ class AgentClient
         return $this->get('/services');
     }
 
+    public function provisionAccount(array $data): Response
+    {
+        return $this->post('/accounts', $data);
+    }
+
+    public function deprovisionAccount(string $username): Response
+    {
+        return $this->delete("/accounts/{$username}");
+    }
+
+    public function createDomain(array $config): Response
+    {
+        return $this->post('/nginx/vhost', $config);
+    }
+
+    public function removeDomain(string $domain): Response
+    {
+        return $this->delete("/nginx/vhost/{$domain}");
+    }
+
+    public function issueSSL(string $domain, bool $wildcard = false): Response
+    {
+        return $this->post('/ssl/issue', ['domain' => $domain, 'wildcard' => $wildcard]);
+    }
+
+    public function removeSSL(string $domain): Response
+    {
+        return $this->delete("/ssl/{$domain}");
+    }
+
     public function startService(string $name): Response
     {
         return $this->post("/services/{$name}/start");

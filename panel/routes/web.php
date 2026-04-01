@@ -2,11 +2,12 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Admin\AccountController;
+use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
 use Illuminate\Support\Facades\Route;
 
-// Redirect root to dashboard or login
 Route::redirect('/', '/dashboard');
 
 // Auth
@@ -19,22 +20,24 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware('auth')
     ->name('logout');
 
-// Authenticated routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
-    // Account management
-    Route::get('/accounts', fn () => inertia('Accounts/Index'))->name('accounts.index');
-    Route::get('/domains', fn () => inertia('Domains/Index'))->name('domains.index');
-
-    // Admin-only
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
+        // Nodes
         Route::resource('nodes', NodeController::class);
-
-        // Node status page + live API endpoints
         Route::get('nodes/{node}/status', [NodeStatusController::class, 'show'])->name('nodes.status');
         Route::get('nodes/{node}/api/info', [NodeStatusController::class, 'info'])->name('nodes.api.info');
         Route::get('nodes/{node}/api/logs/{service}', [NodeStatusController::class, 'logs'])->name('nodes.api.logs');
         Route::post('nodes/{node}/api/services/{service}/action', [NodeStatusController::class, 'serviceAction'])->name('nodes.api.service-action');
+
+        // Accounts
+        Route::resource('accounts', AccountController::class)->except(['edit', 'update']);
+        Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])->name('accounts.suspend');
+        Route::post('accounts/{account}/unsuspend', [AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
+
+        // Domains
+        Route::resource('domains', DomainController::class)->except(['edit', 'update']);
+        Route::post('domains/{domain}/ssl', [DomainController::class, 'issueSSL'])->name('domains.ssl');
     });
 });
