@@ -14,8 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
-        // Sync license / feature flags daily at 04:15.
-        $schedule->command(LicenseSync::class)->dailyAt('04:15');
+        // Sync license / feature flags every 12 hours at 04:15 and 16:15.
+        $schedule->command(LicenseSync::class)->twiceDaily(4, 16);
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [

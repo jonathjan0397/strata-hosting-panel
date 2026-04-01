@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DnsController;
 use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EmailController;
 use App\Http\Controllers\Admin\FtpController;
+use App\Http\Controllers\Admin\LicenseSyncController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
+        // License sync
+        Route::post('license/sync', LicenseSyncController::class)->name('license.sync');
+
         // Nodes
         Route::resource('nodes', NodeController::class);
         Route::get('nodes/{node}/status', [NodeStatusController::class, 'show'])->name('nodes.status');

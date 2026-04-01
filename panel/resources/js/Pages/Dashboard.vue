@@ -46,9 +46,22 @@
                         >{{ feat }}</span>
                     </div>
                 </div>
-                <span v-if="license.synced_at" class="text-xs text-gray-600">
-                    Synced {{ formatDate(license.synced_at) }}
-                </span>
+                <div class="flex items-center gap-3">
+                    <span v-if="license.synced_at" class="text-xs text-gray-600">
+                        Synced {{ formatDate(license.synced_at) }}
+                    </span>
+                    <button
+                        @click="forceSync"
+                        :disabled="syncing"
+                        class="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 flex items-center gap-1 transition-colors"
+                        title="Force license sync now"
+                    >
+                        <svg :class="['h-3.5 w-3.5', syncing ? 'animate-spin' : '']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {{ syncing ? 'Syncing…' : 'Sync now' }}
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -111,10 +124,10 @@
 </template>
 
 <script setup>
-import { usePage } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { usePage, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StatCard from '@/Components/StatCard.vue';
-import { Link } from '@inertiajs/vue3';
 
 defineProps({
     nodes: Array,
@@ -122,9 +135,18 @@ defineProps({
 });
 
 const license = usePage().props.license;
+const syncing = ref(false);
 
 function formatDate(iso) {
     if (!iso) return '';
     return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function forceSync() {
+    syncing.value = true;
+    router.post(route('admin.license.sync'), {}, {
+        preserveScroll: true,
+        onFinish: () => { syncing.value = false; },
+    });
 }
 </script>
