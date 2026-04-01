@@ -43,6 +43,19 @@ func Routes() chi.Router {
 	r.Post("/ssl/issue", handleSSLIssue)
 	r.Delete("/ssl/{domain}", handleSSLDelete)
 
+	// Mail domain provisioning
+	r.Post("/mail/domain", handleMailDomainProvision)
+	r.Delete("/mail/domain/{domain}", handleMailDomainDeprovision)
+
+	// Mailbox management
+	r.Post("/mail/mailbox", handleMailboxCreate)
+	r.Delete("/mail/mailbox/{email}", handleMailboxDelete)
+	r.Put("/mail/mailbox/{email}/password", handleMailboxPassword)
+
+	// Forwarders
+	r.Post("/mail/forwarder", handleForwarderCreate)
+	r.Delete("/mail/forwarder/{source}", handleForwarderDelete)
+
 	// Self-upgrade
 	r.Post("/agent/upgrade", handleAgentUpgrade)
 

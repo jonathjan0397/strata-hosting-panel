@@ -16,6 +16,12 @@
                     <p class="text-sm text-gray-400">{{ domain.account?.username }} · {{ domain.node?.name }}</p>
                 </div>
             </div>
+            <Link
+                :href="route('admin.email.domain', domain.id)"
+                class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+            >
+                Email
+            </Link>
             <ConfirmButton
                 :href="route('admin.domains.destroy', domain.id)"
                 method="delete"

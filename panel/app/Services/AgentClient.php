@@ -137,22 +137,22 @@ class AgentClient
     // Internal HTTP helpers
     // -----------------------------------------------------------------------
 
-    private function get(string $path): Response
+    public function get(string $path): Response
     {
         return $this->request('GET', $path);
     }
 
-    private function post(string $path, array $body = []): Response
+    public function post(string $path, array $body = []): Response
     {
         return $this->request('POST', $path, $body);
     }
 
-    private function put(string $path, array $body = []): Response
+    public function put(string $path, array $body = []): Response
     {
         return $this->request('PUT', $path, $body);
     }
 
-    private function delete(string $path): Response
+    public function delete(string $path): Response
     {
         return $this->request('DELETE', $path);
     }
