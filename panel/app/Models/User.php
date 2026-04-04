@@ -12,8 +12,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'reseller_id', 'quota_accounts', 'quota_disk_mb', 'quota_bandwidth_mb', 'quota_domains', 'quota_email_accounts', 'quota_databases'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['name', 'email', 'password', 'reseller_id', 'quota_accounts', 'quota_disk_mb', 'quota_bandwidth_mb', 'quota_domains', 'quota_email_accounts', 'quota_databases', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */

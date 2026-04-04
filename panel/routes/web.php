@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\DatabaseController;
 use App\Http\Controllers\Admin\DnsController;
@@ -28,6 +30,12 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware('auth')
     ->name('logout');
+
+// Two-factor challenge (auth but not yet 2FA-verified)
+Route::middleware('auth')->group(function () {
+    Route::get('/two-factor-challenge', [TwoFactorChallengeController::class, 'create'])->name('two-factor.challenge');
+    Route::post('/two-factor-challenge', [TwoFactorChallengeController::class, 'store']);
+});
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
@@ -120,6 +128,15 @@ Route::middleware(['auth'])->group(function () {
         // Resellers
         Route::resource('resellers', ResellerController::class)->except(['edit']);
     });
+
+    // Profile / Security
+    Route::get('profile/security', [ProfileController::class, 'show'])->name('profile.security');
+    Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    Route::post('profile/two-factor/enable', [ProfileController::class, 'enableTwoFactor'])->name('profile.two-factor.enable');
+    Route::post('profile/two-factor/confirm', [ProfileController::class, 'confirmTwoFactor'])->name('profile.two-factor.confirm');
+    Route::delete('profile/two-factor/disable', [ProfileController::class, 'disableTwoFactor'])->name('profile.two-factor.disable');
+    Route::delete('profile/two-factor/disable-unconfirmed', [ProfileController::class, 'cancelTwoFactorSetup'])->name('profile.two-factor.disable-unconfirmed');
+    Route::post('profile/two-factor/recovery-codes', [ProfileController::class, 'regenerateRecoveryCodes'])->name('profile.two-factor.recovery-codes');
 
     // Webmail SSO — accessible by admin, reseller, and end user
     Route::post('webmail/sso/{mailbox}', [WebmailController::class, 'sso'])->name('webmail.sso');
