@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\LicenseSync;
+use App\Console\Commands\NodeHealthCheck;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
@@ -16,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         // Sync license / feature flags every 12 hours at 04:15 and 16:15.
         $schedule->command(LicenseSync::class)->twiceDaily(4, 16);
+
+        // Ping all nodes every 5 minutes and update their status.
+        $schedule->command(NodeHealthCheck::class)->everyFiveMinutes();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [

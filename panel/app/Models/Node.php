@@ -14,13 +14,14 @@ class Node extends Model
         'name', 'hostname', 'ip_address', 'port',
         'node_id', 'hmac_secret', 'tls_fingerprint',
         'status', 'agent_version', 'last_health', 'last_seen_at',
-        'is_primary',
+        'is_primary', 'web_server', 'accelerators',
     ];
 
     protected $casts = [
         'last_health'   => 'array',
         'last_seen_at'  => 'datetime',
         'is_primary'    => 'boolean',
+        'accelerators'  => 'array',
     ];
 
     protected $hidden = ['hmac_secret'];

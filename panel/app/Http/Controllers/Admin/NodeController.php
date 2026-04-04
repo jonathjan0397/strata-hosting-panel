@@ -25,24 +25,31 @@ class NodeController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('Admin/Nodes/Create');
+        return Inertia::render('Admin/Nodes/Create', [
+            'webServers'   => ['nginx', 'apache'],
+            'accelerators' => ['varnish', 'redis', 'memcached'],
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'name'       => ['required', 'string', 'max:100'],
-            'hostname'   => ['required', 'string', 'max:253'],
-            'ip_address' => ['required', 'ip'],
-            'port'       => ['nullable', 'integer', 'between:1,65535'],
+            'name'         => ['required', 'string', 'max:100'],
+            'hostname'     => ['required', 'string', 'max:253'],
+            'ip_address'   => ['required', 'ip'],
+            'port'         => ['nullable', 'integer', 'between:1,65535'],
+            'web_server'   => ['required', 'in:nginx,apache'],
+            'accelerators' => ['nullable', 'array'],
+            'accelerators.*' => ['in:varnish,redis,memcached'],
         ]);
 
         $node = Node::create([
             ...$data,
-            'port'        => $data['port'] ?? 8743,
-            'node_id'     => Str::uuid()->toString(),
-            'hmac_secret' => Str::random(64),
-            'status'      => 'unknown',
+            'port'         => $data['port'] ?? 8743,
+            'node_id'      => Str::uuid()->toString(),
+            'hmac_secret'  => Str::random(64),
+            'status'       => 'unknown',
+            'accelerators' => $data['accelerators'] ?? [],
         ]);
 
         AuditLog::record('node.created', $node);

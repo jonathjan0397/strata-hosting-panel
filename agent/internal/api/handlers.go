@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jonathjan0397/strata-panel/agent/internal/account"
+	"github.com/jonathjan0397/strata-panel/agent/internal/apache"
 	"github.com/jonathjan0397/strata-panel/agent/internal/nginx"
 	"github.com/jonathjan0397/strata-panel/agent/internal/php"
 	"github.com/jonathjan0397/strata-panel/agent/internal/ssl"
@@ -136,7 +137,20 @@ func handleNginxVhostCreate(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &cfg) {
 		return
 	}
-	if err := nginx.WriteVhost(cfg); err != nil {
+
+	var err error
+	if cfg.WebServer == "apache" {
+		err = apache.WriteVhost(apache.VhostConfig{
+			Domain: cfg.Domain, Username: cfg.Username, DocumentRoot: cfg.DocumentRoot,
+			PHPVersion: cfg.PHPVersion, PHPSocket: cfg.PHPSocket,
+			SSLEnabled: cfg.SSLEnabled, SSLCert: cfg.SSLCert, SSLKey: cfg.SSLKey,
+			CustomDirectives: cfg.CustomDirectives,
+		})
+	} else {
+		err = nginx.WriteVhost(cfg)
+	}
+
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
@@ -145,7 +159,16 @@ func handleNginxVhostCreate(w http.ResponseWriter, r *http.Request) {
 
 func handleNginxVhostDelete(w http.ResponseWriter, r *http.Request) {
 	domain := chi.URLParam(r, "domain")
-	if err := nginx.RemoveVhost(domain); err != nil {
+	webServer := r.URL.Query().Get("web_server")
+
+	var err error
+	if webServer == "apache" {
+		err = apache.RemoveVhost(domain)
+	} else {
+		err = nginx.RemoveVhost(domain)
+	}
+
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}

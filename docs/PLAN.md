@@ -1,5 +1,7 @@
 # Strata Panel — Project Plan
-Created: 2026-03-31
+
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
+Created: 2026-03-31 | Last Updated: 2026-04-04
 
 ## Overview
 Strata Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
@@ -8,7 +10,7 @@ A single install gives you a fully functional hosting server — the panel and a
 
 **License:** MIT
 **GitHub:** jonathjan0397/strata-panel
-**Target OS:** Debian 11/12
+**Target OS:** Debian 11/12/13
 
 ---
 
@@ -17,7 +19,7 @@ A single install gives you a fully functional hosting server — the panel and a
 ### Main Panel
 | Layer | Technology |
 |---|---|
-| Backend | Laravel 12 |
+| Backend | Laravel 13 |
 | Frontend | Vue 3 + Inertia.js |
 | Queue | Redis + Laravel Horizon |
 | Cache | Redis |
@@ -27,7 +29,7 @@ A single install gives you a fully functional hosting server — the panel and a
 ### Agent (Remote Node Daemon)
 | Layer | Technology |
 |---|---|
-| Language | Go |
+| Language | Go 1.23 |
 | Distribution | Single binary via apt package |
 | Communication | HTTPS + HMAC-SHA256 |
 | Runs as | systemd service |
@@ -35,7 +37,7 @@ A single install gives you a fully functional hosting server — the panel and a
 ### Managed Server Stack
 | Component | Technology |
 |---|---|
-| Web Server | Nginx (default) / Apache (optional) |
+| Web Server | Nginx (default) / Apache (optional, per-node) |
 | PHP | PHP-FPM multi-version (8.1, 8.2, 8.3) via Ondrej PPA |
 | Mail | Postfix + Dovecot + Rspamd + OpenDKIM (2048-bit) |
 | DNS | PowerDNS + PowerDNS Admin API |
@@ -44,6 +46,7 @@ A single install gives you a fully functional hosting server — the panel and a
 | Webmail | Roundcube |
 | Database | MariaDB (per-user databases + users) |
 | Firewall | UFW + fail2ban |
+| Accelerators | Varnish, Redis, Memcached (per-node, optional) |
 
 ---
 
@@ -91,6 +94,11 @@ Child nodes run only the agent. The primary panel manages all nodes.
 └──────────────┘  └──────────────┘
 ```
 
+### Node Stack Configuration
+Each node stores its own web server and accelerator choices:
+- **Web server:** `nginx` or `apache` — determines how vhosts are generated
+- **Accelerators:** `varnish`, `redis`, `memcached` — reflects what is installed on the node
+
 ### Upgrade Flow
 
 ```
@@ -137,59 +145,72 @@ Admin
 ## MVP Feature Set (v1.0-Beta)
 
 ### Server / Node Management (Admin)
-- [ ] Add/remove servers (nodes)
+- [x] Add/remove servers (nodes)
+- [x] Node web server + accelerator configuration per node
+- [x] Node health dashboard (CPU, RAM, disk, load)
+- [x] Service status (Nginx, PHP-FPM, Postfix, MySQL)
+- [x] Restart/reload services
+- [x] Log viewer per node (real-time, multi-service)
 - [ ] Install strata-agent via one-line command
-- [ ] Node health dashboard (CPU, RAM, disk, load)
-- [ ] Service status (Nginx, PHP-FPM, Postfix, MySQL)
-- [ ] Restart/reload services
 - [ ] OS update management (safe updates, exclude critical packages)
 - [ ] Firewall management (UFW rules)
 
 ### Account Management
-- [ ] Create/suspend/terminate accounts
-- [ ] Resource limits (disk, bandwidth, email accounts, databases, subdomains)
-- [ ] Assign accounts to nodes
+- [x] Create/suspend/terminate accounts
+- [x] Resource limits (disk, bandwidth, email accounts, databases, subdomains)
+- [x] Assign accounts to nodes
+- [x] System user + PHP-FPM pool provisioning on agent
 - [ ] Reseller management with quota allocation
 
 ### Domain Management
-- [ ] Add/remove domains and subdomains
-- [ ] Document root configuration
-- [ ] Nginx/Apache vhost generation
-- [ ] SSL via acme.sh (auto-renew)
+- [x] Add/remove domains and subdomains
+- [x] Document root configuration
+- [x] Nginx vhost generation
+- [x] Apache vhost generation
+- [x] SSL via acme.sh (auto-renew)
+- [x] PHP version per domain
 - [ ] Redirect management (301/302)
-- [ ] Custom Nginx/Apache directives
+- [ ] Custom Nginx/Apache directives (UI)
 
 ### Email
-- [ ] Create/delete/edit mailboxes
-- [ ] Email forwarders
+- [x] Create/delete/edit mailboxes
+- [x] Email forwarders
+- [x] DKIM (2048-bit, auto-generated on domain add)
+- [x] SPF auto-generated on domain add
+- [x] DMARC auto-generated on domain add
 - [ ] Autoresponders
-- [ ] DKIM (2048-bit, auto-generated on domain add)
-- [ ] SPF auto-generated on domain add
-- [ ] DMARC auto-generated on domain add
 - [ ] Spam filter settings (Rspamd)
 - [ ] Roundcube webmail SSO
 
 ### DNS
-- [ ] PowerDNS zone management
-- [ ] Full record type support (A, AAAA, CNAME, MX, TXT, SRV, CAA)
-- [ ] Auto-populate standard records on domain add
+- [x] PowerDNS zone management
+- [x] Full record type support (A, AAAA, CNAME, MX, TXT, SRV, CAA)
+- [x] Auto-populate standard records on domain add
 - [ ] Import/export zone files
 
 ### Databases
-- [ ] Create/delete MariaDB databases
-- [ ] Create/delete database users
+- [x] Create/delete MariaDB databases
+- [x] Create/delete database users
 - [ ] Assign user permissions
 - [ ] phpMyAdmin SSO
 
 ### FTP
-- [ ] Create/delete FTP accounts
-- [ ] Jailed to account directory
+- [x] Create/delete FTP accounts
+- [x] Jailed to account directory
 - [ ] FTPS (TLS) enforced
 
 ### PHP
-- [ ] Per-account PHP version selection (8.1 / 8.2 / 8.3)
-- [ ] PHP-FPM per account (process isolation)
+- [x] Per-account PHP version selection (8.1 / 8.2 / 8.3)
+- [x] PHP-FPM per account (process isolation)
 - [ ] php.ini overrides per account (upload_max, memory_limit, etc.)
+
+### End User Portal
+- [x] User dashboard with resource summary
+- [x] Domain management (add, view, SSL, PHP version)
+- [x] Email management (mailboxes, forwarders)
+- [x] Database management
+- [x] FTP management
+- [x] DNS zone management
 
 ### File Manager
 - [ ] Browser-based file manager
@@ -199,7 +220,7 @@ Admin
 - [ ] Code editor (basic)
 
 ### SSL
-- [ ] Let's Encrypt via acme.sh
+- [x] Let's Encrypt via acme.sh
 - [ ] Auto-renew
 - [ ] Wildcard cert support
 - [ ] Custom cert upload
@@ -217,6 +238,12 @@ Admin
 - [ ] Suspend/unsuspend via API
 - [ ] Usage reporting via API (disk, bandwidth)
 
+### Reseller Portal
+- [ ] Reseller dashboard
+- [ ] Create/manage end user accounts
+- [ ] Resource quota management
+- [ ] White-label support
+
 ### Security
 - [ ] fail2ban integration
 - [ ] SSH key management
@@ -228,42 +255,50 @@ Admin
 
 ## Development Phases
 
-### Phase 1 — Foundation (Panel + Agent skeleton)
+### Phase 1 — Foundation ✅
 - Laravel project scaffold
 - Authentication (Admin/Reseller/User roles)
 - Node/agent system (Go agent, HMAC auth, health reporting)
 - Basic UI shell (AppLayout, nav, dark mode)
 - Database schema
 
-### Phase 2 — Core Server Functions
+### Phase 2 — Core Server Functions ✅
 - Account management
-- Domain + vhost management (Nginx)
+- Domain + vhost management (Nginx + Apache)
 - SSL (acme.sh integration)
 - PHP-FPM multi-version
+- Per-node web server and accelerator configuration
 
-### Phase 3 — Email Stack
+### Phase 3 — Email Stack ✅
 - Postfix + Dovecot provisioning
 - DKIM/SPF/DMARC auto-setup
 - Rspamd
-- Roundcube SSO
+- Roundcube SSO (pending)
 
-### Phase 4 — DNS + Databases + FTP
+### Phase 4 — DNS + Databases + FTP ✅
 - PowerDNS integration
 - MariaDB account management
 - Pure-FTPd
-- phpMyAdmin SSO
+- phpMyAdmin SSO (pending)
 
-### Phase 5 — End User Features
-- File manager
-- Backup system
-- End user portal polish
+### Phase 5 — End User Portal + Agent (In Progress)
+- [x] End user portal (domains, email, databases, FTP, DNS)
+- [x] strata-agent deployed, systemd, health checks
+- [x] Account provisioning end-to-end
+- [ ] File manager
+- [ ] Backup system
 
-### Phase 6 — Billing API + Integrations
+### Phase 6 — Reseller Portal
+- Reseller dashboard
+- Account creation with quota allocation
+- White-label support
+
+### Phase 7 — Billing API + Integrations
 - REST provisioning API
 - Strata Billing plugin
 - WHMCS module
 
-### Phase 7 — Hardening + Release
+### Phase 8 — Hardening + Release
 - Security audit
 - Installer (one-line bash)
 - Documentation
@@ -283,7 +318,8 @@ strata-panel/
 │   ├── cmd/
 │   ├── internal/
 │   │   ├── api/        # HTTP handlers
-│   │   ├── nginx/      # Nginx management
+│   │   ├── nginx/      # Nginx vhost management
+│   │   ├── apache/     # Apache vhost management
 │   │   ├── php/        # PHP-FPM management
 │   │   ├── mail/       # Postfix/Dovecot management
 │   │   ├── dns/        # PowerDNS management
@@ -302,11 +338,12 @@ strata-panel/
 1. **True open source** — MIT, no IonCube, no license keys, forkable
 2. **API-first** — every UI action is an API call; full REST surface
 3. **Multi-server native** — not bolted on, core architecture
-4. **Sane secure defaults** — 2048-bit DKIM, DMARC on domain add, TLS enforced, fail2ban
-5. **Billing agnostic** — standardized provisioning API; works with Strata, WHMCS, anything
-6. **Auditable** — every change logged with actor + timestamp
-7. **Modern stack** — not built on 15-year-old PHP patterns
-8. **Plugin ready** — Laravel packages + Vue component injection
+4. **Per-node stack config** — each node declares its web server and accelerators
+5. **Sane secure defaults** — 2048-bit DKIM, DMARC on domain add, TLS enforced, fail2ban
+6. **Billing agnostic** — standardized provisioning API; works with Strata, WHMCS, anything
+7. **Auditable** — every change logged with actor + timestamp
+8. **Modern stack** — not built on 15-year-old PHP patterns
+9. **Plugin ready** — Laravel packages + Vue component injection
 
 ---
 
@@ -315,3 +352,4 @@ strata-panel/
 - Agent communication is one-way: panel → agent (no callbacks)
 - All provisioned config files generated from templates (Blade/Go templates)
 - DKIM wrapper approach used on mercury.hosted-tech.com proves the pattern for agent
+- Node web server is declared at node registration time; changing it requires re-provisioning all vhosts on that node

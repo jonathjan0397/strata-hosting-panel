@@ -126,22 +126,24 @@ func RemovePHPPool(username, phpVersion string) {
 }
 
 func createUser(username, homeDir string) error {
-	// Check if user already exists
-	if _, err := exec.Command("id", username).Output(); err == nil {
-		return nil // already exists
+	// Create user only if they don't already exist.
+	if _, err := exec.Command("id", username).Output(); err != nil {
+		cmd := exec.Command("useradd",
+			"--home-dir", homeDir,
+			"--create-home",
+			"--shell", "/sbin/nologin",
+			"--user-group",
+			username,
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%w: %s", err, string(out))
+		}
 	}
 
-	cmd := exec.Command("useradd",
-		"--home-dir", homeDir,
-		"--create-home",
-		"--shell", "/sbin/nologin",
-		"--no-user-group",
-		"--gid", "www-data",
-		username,
-	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%w: %s", err, string(out))
+	// Always ensure www-data is in the user's group so Nginx can read their files.
+	if out, err := exec.Command("usermod", "-aG", username, "www-data").CombinedOutput(); err != nil {
+		return fmt.Errorf("usermod www-data: %w: %s", err, string(out))
 	}
 	return nil
 }

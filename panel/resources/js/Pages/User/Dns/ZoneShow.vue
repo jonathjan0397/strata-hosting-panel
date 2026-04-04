@@ -1,47 +1,26 @@
 <template>
     <AppLayout :title="`DNS — ${domain.domain}`">
-
         <!-- Header -->
-        <div class="mb-6 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <Link :href="route('admin.domains.show', domain.id)" class="text-gray-500 hover:text-gray-300 transition-colors">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                    </svg>
-                </Link>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h2 class="text-lg font-semibold font-mono text-gray-100">{{ domain.domain }}</h2>
-                        <span v-if="zone" class="inline-flex items-center gap-1.5 rounded-full bg-emerald-900/40 px-2.5 py-0.5 text-xs text-emerald-400">
-                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>Zone active
-                        </span>
-                        <span v-else class="rounded-full bg-gray-800 px-2.5 py-0.5 text-xs text-gray-500">No zone</span>
-                    </div>
-                    <p class="text-sm text-gray-400">{{ domain.account?.username }} · {{ domain.node?.name }}</p>
-                </div>
+        <div class="mb-6 flex items-center gap-3">
+            <Link :href="route('my.domains.show', domain.id)" class="text-gray-500 hover:text-gray-300 transition-colors">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+            </Link>
+            <div class="flex items-center gap-2">
+                <h2 class="text-lg font-semibold font-mono text-gray-100">{{ domain.domain }}</h2>
+                <span v-if="zone" class="inline-flex items-center gap-1.5 rounded-full bg-emerald-900/40 px-2.5 py-0.5 text-xs text-emerald-400">
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>Zone active
+                </span>
+                <span v-else class="rounded-full bg-gray-800 px-2.5 py-0.5 text-xs text-gray-500">No zone</span>
             </div>
         </div>
 
-        <!-- No zone — provision prompt -->
+        <!-- No zone -->
         <template v-if="!zone">
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-8 text-center max-w-lg mx-auto">
-                <div class="h-12 w-12 rounded-full bg-indigo-900/50 flex items-center justify-center mx-auto mb-4">
-                    <svg class="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
-                    </svg>
-                </div>
-                <h3 class="text-base font-semibold text-gray-100 mb-2">DNS not configured</h3>
-                <p class="text-sm text-gray-400 mb-5">
-                    Provisioning will create an authoritative PowerDNS zone with default A and CNAME records.
-                </p>
-                <Link
-                    :href="route('admin.dns.provision', domain.id)"
-                    method="post"
-                    as="button"
-                    class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
-                >
-                    Create DNS Zone
-                </Link>
+                <h3 class="text-base font-semibold text-gray-200 mb-2">DNS zone not configured</h3>
+                <p class="text-sm text-gray-400">Your administrator needs to provision a DNS zone for this domain.</p>
             </div>
         </template>
 
@@ -62,7 +41,7 @@
                 <div v-if="showAddRecord" class="border-b border-gray-800 px-5 py-4 bg-gray-800/30">
                     <form @submit.prevent="submitRecord" class="space-y-3">
                         <div class="grid grid-cols-4 gap-2">
-                            <input v-model="recForm.name" type="text" placeholder="Name (@, www, _dmarc…)" class="field col-span-2 font-mono text-xs" required />
+                            <input v-model="recForm.name" type="text" placeholder="Name (@, www…)" class="field col-span-2 font-mono text-xs" required />
                             <select v-model="recForm.type" class="field text-xs">
                                 <option v-for="t in recordTypes" :key="t" :value="t">{{ t }}</option>
                             </select>
@@ -87,15 +66,14 @@
                 <!-- Records list -->
                 <div class="divide-y divide-gray-800">
                     <div v-for="rec in records" :key="rec.id" class="flex items-center gap-3 px-5 py-3 group">
-                        <span class="w-12 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold text-center"
-                            :class="typeClass(rec.type)">{{ rec.type }}</span>
+                        <span class="w-12 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold text-center" :class="typeClass(rec.type)">{{ rec.type }}</span>
                         <span class="w-40 shrink-0 font-mono text-xs text-gray-300 truncate">{{ rec.name }}</span>
                         <span class="text-xs text-gray-500 shrink-0">{{ rec.ttl }}s</span>
                         <span class="flex-1 font-mono text-xs text-gray-400 truncate">{{ rec.value }}</span>
                         <span v-if="rec.managed" class="text-xs text-gray-600 shrink-0">managed</span>
                         <ConfirmButton
                             v-if="!rec.managed"
-                            :href="route('admin.dns.records.destroy', rec.id)"
+                            :href="route('my.dns.records.destroy', rec.id)"
                             method="delete"
                             label="Delete"
                             :confirm-message="`Delete ${rec.type} record for ${rec.name}?`"
@@ -103,7 +81,7 @@
                         />
                     </div>
                     <div v-if="records.length === 0" class="px-5 py-6 text-center text-sm text-gray-500">
-                        No records yet.
+                        No records yet. Use the button above to add one.
                     </div>
                 </div>
             </div>
@@ -151,7 +129,7 @@ function typeClass(type) {
 }
 
 function submitRecord() {
-    router.post(route('admin.dns.records.store', props.zone.id), recForm.value, {
+    router.post(route('my.dns.records.store', props.zone.id), recForm.value, {
         onSuccess: () => {
             recForm.value = { name: '', type: 'A', ttl: 300, value: '' };
             showAddRecord.value = false;

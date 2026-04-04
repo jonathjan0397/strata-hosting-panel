@@ -86,6 +86,7 @@ function submit() {
 </script>
 
 <style scoped>
+@reference "tailwindcss";
 .field {
     @apply block w-full rounded-lg border border-gray-700 bg-gray-800 px-3.5 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500;
 }

@@ -17,15 +17,16 @@ const (
 var validDomain = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`)
 
 type VhostConfig struct {
-	Domain       string
-	Username     string
-	DocumentRoot string
-	PHPVersion   string
-	PHPSocket    string
-	SSLEnabled   bool
-	SSLCert      string
-	SSLKey       string
-	CustomDirectives string
+	WebServer        string `json:"web_server"` // "nginx" (default) or "apache" — handled by dispatcher in api layer
+	Domain           string `json:"domain"`
+	Username         string `json:"username"`
+	DocumentRoot     string `json:"document_root"`
+	PHPVersion       string `json:"php_version"`
+	PHPSocket        string `json:"php_socket"`
+	SSLEnabled       bool   `json:"ssl_enabled"`
+	SSLCert          string `json:"ssl_cert"`
+	SSLKey           string `json:"ssl_key"`
+	CustomDirectives string `json:"custom_directives"`
 }
 
 var vhostTemplate = template.Must(template.New("vhost").Parse(`# Strata Panel managed — do not edit manually

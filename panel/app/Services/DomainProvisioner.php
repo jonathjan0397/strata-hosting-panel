@@ -17,6 +17,7 @@ class DomainProvisioner
             $phpSocket  = "/run/php/php{$phpVersion}-fpm-{$account->username}.sock";
 
             $response = AgentClient::for($domain->node)->createDomain([
+                'web_server'    => $domain->node->web_server ?? 'nginx',
                 'domain'        => $domain->domain,
                 'username'      => $account->username,
                 'document_root' => $domain->document_root,
@@ -63,6 +64,27 @@ class DomainProvisioner
     }
 
     /**
+     * Change the PHP version for a domain's FPM pool.
+     */
+    public function changePhpVersion(Domain $domain, string $newVersion): array
+    {
+        try {
+            $account    = $domain->account;
+            $oldVersion = $domain->php_version ?? $account->php_version;
+
+            $response = AgentClient::for($domain->node)->setPhpVersion(
+                $account->username,
+                $oldVersion,
+                $newVersion
+            );
+
+            return $response->successful() ? [true, null] : [false, $response->body()];
+        } catch (\Throwable $e) {
+            return [false, $e->getMessage()];
+        }
+    }
+
+    /**
      * Issue an SSL certificate and update the vhost.
      */
     public function issueSSL(Domain $domain): array
@@ -87,6 +109,7 @@ class DomainProvisioner
             $phpSocket  = "/run/php/php{$phpVersion}-fpm-{$account->username}.sock";
 
             AgentClient::for($domain->node)->createDomain([
+                'web_server'    => $domain->node->web_server ?? 'nginx',
                 'domain'        => $domain->domain,
                 'username'      => $account->username,
                 'document_root' => $domain->document_root,

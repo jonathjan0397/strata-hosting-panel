@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\FtpController;
 use App\Http\Controllers\Admin\LicenseSyncController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
+use App\Http\Controllers\User;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -27,6 +28,44 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    // User portal
+    Route::middleware('role:user')->prefix('my')->name('my.')->group(function () {
+        Route::get('/', [User\DashboardController::class, 'index'])->name('dashboard');
+
+        // Domains
+        Route::get('domains', [User\DomainController::class, 'index'])->name('domains.index');
+        Route::get('domains/create', [User\DomainController::class, 'create'])->name('domains.create');
+        Route::post('domains', [User\DomainController::class, 'store'])->name('domains.store');
+        Route::get('domains/{domain}', [User\DomainController::class, 'show'])->name('domains.show');
+        Route::post('domains/{domain}/ssl', [User\DomainController::class, 'issueSSL'])->name('domains.ssl');
+        Route::put('domains/{domain}/php', [User\DomainController::class, 'changePhp'])->name('domains.php');
+
+        // Email (per-domain)
+        Route::get('domains/{domain}/email', [User\EmailController::class, 'index'])->name('email.domain');
+        Route::post('domains/{domain}/email/mailboxes', [User\EmailController::class, 'createMailbox'])->name('email.mailbox.store');
+        Route::delete('email/mailboxes/{mailbox}', [User\EmailController::class, 'deleteMailbox'])->name('email.mailbox.destroy');
+        Route::put('email/mailboxes/{mailbox}/password', [User\EmailController::class, 'changePassword'])->name('email.mailbox.password');
+        Route::post('domains/{domain}/email/forwarders', [User\EmailController::class, 'createForwarder'])->name('email.forwarder.store');
+        Route::delete('email/forwarders/{forwarder}', [User\EmailController::class, 'deleteForwarder'])->name('email.forwarder.destroy');
+
+        // Databases
+        Route::get('databases', [User\DatabaseController::class, 'index'])->name('databases.index');
+        Route::post('databases', [User\DatabaseController::class, 'store'])->name('databases.store');
+        Route::delete('databases/{database}', [User\DatabaseController::class, 'destroy'])->name('databases.destroy');
+        Route::put('databases/{database}/password', [User\DatabaseController::class, 'changePassword'])->name('databases.password');
+
+        // FTP
+        Route::get('ftp', [User\FtpController::class, 'index'])->name('ftp.index');
+        Route::post('ftp', [User\FtpController::class, 'store'])->name('ftp.store');
+        Route::delete('ftp/{ftpAccount}', [User\FtpController::class, 'destroy'])->name('ftp.destroy');
+        Route::put('ftp/{ftpAccount}/password', [User\FtpController::class, 'changePassword'])->name('ftp.password');
+
+        // DNS
+        Route::get('domains/{domain}/dns', [User\DnsController::class, 'show'])->name('dns.show');
+        Route::post('dns/zones/{zone}/records', [User\DnsController::class, 'storeRecord'])->name('dns.records.store');
+        Route::delete('dns/records/{record}', [User\DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
+    });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
         // License sync

@@ -6,13 +6,20 @@ use App\Models\Account;
 use App\Models\Domain;
 use App\Models\Node;
 use App\Services\AgentClient;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(): Response|RedirectResponse
     {
+        $user = auth()->user();
+
+        if (! $user->isAdmin()) {
+            return redirect()->route('my.dashboard');
+        }
+
         $nodes = Node::orderBy('is_primary', 'desc')
             ->orderBy('name')
             ->get(['id', 'name', 'hostname', 'status', 'agent_version', 'last_seen_at', 'is_primary']);
