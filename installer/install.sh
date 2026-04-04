@@ -72,6 +72,11 @@ PDNS_API_KEY=$(openssl rand -hex 32)
 INSTALL_TOKEN=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
 INSTALL_SECRET=$(openssl rand -hex 32)
 APP_KEY="base64:$(openssl rand -base64 32)"
+WEBMAIL_SSO_SECRET=$(openssl rand -hex 32)
+SNAPPYMAIL_VERSION="2.38.2"
+SNAPPYMAIL_ADMIN_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
+WEBMAIL_DIR="/var/www/webmail"
+WEBMAIL_DATA="/var/lib/snappymail"
 
 echo ""
 info "Starting installation…"
@@ -338,6 +343,10 @@ STRATA_INSTALL_TOKEN=${INSTALL_TOKEN}
 STRATA_INSTALL_SECRET=${INSTALL_SECRET}
 STRATA_LICENSE_SERVER_URL=
 STRATA_VERSION=1.0.0
+
+# Webmail SSO
+STRATA_WEBMAIL_SSO_SECRET=${WEBMAIL_SSO_SECRET}
+STRATA_WEBMAIL_URL=/webmail/
 EOF
 chmod 600 "$INSTALL_DIR/panel/.env"
 
@@ -486,6 +495,19 @@ if [[ "$WEB_SERVER" == "apache" ]]; then
     </FilesMatch>
 
     LimitRequestBody 67108864
+
+    # ── Webmail (SnappyMail) ──────────────────────────────────────────────────
+    Alias /webmail /var/www/webmail
+
+    <Directory /var/www/webmail>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <FilesMatch "^/var/www/webmail/.+\.php$">
+        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
+    </FilesMatch>
 </VirtualHost>
 EOF
 
@@ -557,6 +579,26 @@ server {
     location ~* \.(env|git|log|sql)$ { deny all; }
 
     client_max_body_size 64M;
+
+    # ── Webmail (SnappyMail) ──────────────────────────────────────────────────
+    location /webmail {
+        root /var/www;
+        index index.php;
+        try_files \$uri \$uri/ /webmail/index.php?\$query_string;
+
+        location ~ ^/webmail/.+\.php$ {
+            root /var/www;
+            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+            include fastcgi_params;
+        }
+
+        location ~* ^/webmail/.+\.(js|css|png|jpg|gif|ico|svg|woff|woff2|ttf)$ {
+            root /var/www;
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+    }
 }
 EOF
 
@@ -630,7 +672,94 @@ Node::updateOrCreate(
 TINKER
 success "Primary node registered."
 
-# ── 22. Update admin password ─────────────────────────────────────────────────
+# ── 22. SnappyMail webmail ────────────────────────────────────────────────────
+info "Installing SnappyMail v${SNAPPYMAIL_VERSION}…"
+mkdir -p "$WEBMAIL_DIR" "$WEBMAIL_DATA"
+
+SNAPPY_ZIP="/tmp/snappymail-${SNAPPYMAIL_VERSION}.zip"
+wget -q "https://github.com/the-djmaze/snappymail/releases/download/v${SNAPPYMAIL_VERSION}/snappymail-${SNAPPYMAIL_VERSION}.zip" \
+    -O "$SNAPPY_ZIP" || die "Failed to download SnappyMail."
+
+unzip -q "$SNAPPY_ZIP" -d "$WEBMAIL_DIR"
+rm "$SNAPPY_ZIP"
+
+# Move data directory out of webroot for security
+if [[ -d "$WEBMAIL_DIR/data" ]]; then
+    mv "$WEBMAIL_DIR/data" "$WEBMAIL_DATA" 2>/dev/null || true
+fi
+mkdir -p "$WEBMAIL_DATA/_data_/_default_/configs"
+mkdir -p "$WEBMAIL_DATA/_data_/_default_/themes"
+
+# Point SnappyMail at the external data path
+if [[ -f "$WEBMAIL_DIR/index.php" ]]; then
+    sed -i "s|define('APP_DATA_FOLDER_PATH'.*|define('APP_DATA_FOLDER_PATH', '${WEBMAIL_DATA}/');|" \
+        "$WEBMAIL_DIR/index.php" 2>/dev/null || true
+fi
+
+# Write application config from template
+SNAPPY_SRC="$INSTALL_DIR/agent-src"
+if [[ -f "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" ]]; then
+    cp "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" \
+       "$WEBMAIL_DATA/_data_/_default_/configs/application.ini"
+fi
+
+# Deploy Strata Dark theme
+if [[ -d "${SNAPPY_SRC}/../webmail-skin/themes/strata-dark" ]]; then
+    cp -r "${SNAPPY_SRC}/../webmail-skin/themes/strata-dark" \
+        "$WEBMAIL_DATA/_data_/_default_/themes/Strata Dark"
+fi
+
+# Deploy SSO bridge
+if [[ -f "${SNAPPY_SRC}/../webmail-skin/sso.php" ]]; then
+    cp "${SNAPPY_SRC}/../webmail-skin/sso.php" "$WEBMAIL_DIR/sso.php"
+fi
+
+# Write SSO config (from template with substituted values)
+mkdir -p /etc/strata-panel
+cat > /etc/strata-panel/webmail-sso.php <<EOF
+<?php
+return [
+    'hmac_secret'  => '${WEBMAIL_SSO_SECRET}',
+    'redis_host'   => '127.0.0.1',
+    'redis_port'   => 6379,
+    'redis_password' => null,
+    'redis_db'     => 0,
+    'webmail_root' => '${WEBMAIL_DIR}',
+    'data_path'    => '${WEBMAIL_DATA}/',
+    'token_ttl'    => 60,
+];
+EOF
+chmod 600 /etc/strata-panel/webmail-sso.php
+
+# Set SnappyMail admin password via CLI (if supported in this version)
+if command -v php >/dev/null 2>&1; then
+    php -r "
+        if (file_exists('${WEBMAIL_DIR}/snappymail/v/0.0.0/app/include.php')) {
+            define('APP_DATA_FOLDER_PATH', '${WEBMAIL_DATA}/');
+            require_once '${WEBMAIL_DIR}/snappymail/v/0.0.0/app/include.php';
+            if (class_exists('RainLoop\\\\Api')) {
+                \\\$admin = \\\\RainLoop\\\\Api::Actions();
+                if (method_exists(\\\$admin, 'GetAdminDomain')) {
+                    \\\$cfg = \\\\RainLoop\\\\Api::Config();
+                    \\\$cfg->Set('security', 'admin_password', hash('sha256', '${SNAPPYMAIL_ADMIN_PASS}'));
+                    \\\$cfg->Save();
+                }
+            }
+        }
+    " 2>/dev/null || true
+fi
+
+# Permissions
+chown -R www-data:www-data "$WEBMAIL_DIR" "$WEBMAIL_DATA"
+find "$WEBMAIL_DIR" -type f -exec chmod 644 {} \;
+find "$WEBMAIL_DIR" -type d -exec chmod 755 {} \;
+chmod 755 "$WEBMAIL_DIR/sso.php" 2>/dev/null || true
+find "$WEBMAIL_DATA" -type f -exec chmod 600 {} \;
+find "$WEBMAIL_DATA" -type d -exec chmod 700 {} \;
+
+success "SnappyMail installed at https://${PANEL_DOMAIN}/webmail/"
+
+# ── 23. Update admin password ─────────────────────────────────────────────────
 info "Updating admin account password…"
 cd "$INSTALL_DIR/panel"
 php artisan tinker --no-interaction <<TINKER 2>/dev/null
@@ -649,9 +778,11 @@ echo -e "${BOLD}${GREEN}║   Strata Panel installation complete!               
 echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Panel URL:${NC}       https://${PANEL_DOMAIN}"
+echo -e "  ${BOLD}Webmail URL:${NC}     https://${PANEL_DOMAIN}/webmail/"
 echo -e "  ${BOLD}Admin login:${NC}     ${ADMIN_EMAIL}"
 echo -e "  ${BOLD}Admin password:${NC}  (as entered)"
 echo -e "  ${BOLD}Web server:${NC}      ${WEB_SERVER}"
+echo -e "  ${BOLD}Webmail admin:${NC}   https://${PANEL_DOMAIN}/webmail/?admin  (pass: ${SNAPPYMAIL_ADMIN_PASS})"
 echo ""
 echo -e "  ${BOLD}MariaDB root:${NC}    /root/.my.cnf"
 echo -e "  ${BOLD}Panel .env:${NC}      ${INSTALL_DIR}/panel/.env"

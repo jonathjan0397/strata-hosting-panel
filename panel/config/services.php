@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'webmail' => [
+        'sso_secret' => env('STRATA_WEBMAIL_SSO_SECRET'),
+        'url'        => env('STRATA_WEBMAIL_URL', '/webmail/'),
+    ],
+
 ];

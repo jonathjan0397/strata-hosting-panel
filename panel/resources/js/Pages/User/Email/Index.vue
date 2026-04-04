@@ -66,13 +66,23 @@
                             <tr v-for="mb in mailboxes" :key="mb.id" class="hover:bg-gray-800/40">
                                 <td class="px-4 py-3 text-sm font-mono text-gray-200">{{ mb.email }}</td>
                                 <td class="px-4 py-3 text-right">
-                                    <ConfirmButton
-                                        :href="route('my.email.mailbox.destroy', mb.id)"
-                                        method="delete"
-                                        label="Delete"
-                                        color="red"
-                                        :confirm-message="`Delete mailbox ${mb.email}?`"
-                                    />
+                                    <div class="flex items-center justify-end gap-4">
+                                        <Link
+                                            :href="route('webmail.sso', mb.id)"
+                                            method="post"
+                                            as="button"
+                                            class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                                        >
+                                            Open Webmail ↗
+                                        </Link>
+                                        <ConfirmButton
+                                            :href="route('my.email.mailbox.destroy', mb.id)"
+                                            method="delete"
+                                            label="Delete"
+                                            color="red"
+                                            :confirm-message="`Delete mailbox ${mb.email}?`"
+                                        />
+                                    </div>
                                 </td>
                             </tr>
                             <tr v-if="mailboxes.length === 0">

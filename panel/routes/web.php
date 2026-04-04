@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\NodeStatusController;
 use App\Http\Controllers\Admin\ResellerController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
+use App\Http\Controllers\WebmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -119,6 +120,9 @@ Route::middleware(['auth'])->group(function () {
         // Resellers
         Route::resource('resellers', ResellerController::class)->except(['edit']);
     });
+
+    // Webmail SSO — accessible by admin, reseller, and end user
+    Route::post('webmail/sso/{mailbox}', [WebmailController::class, 'sso'])->name('webmail.sso');
 
     // Reseller portal
     Route::middleware('role:reseller')->prefix('reseller')->name('reseller.')->group(function () {

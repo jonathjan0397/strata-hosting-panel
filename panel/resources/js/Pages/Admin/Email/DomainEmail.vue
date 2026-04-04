@@ -113,6 +113,15 @@
                                 </p>
                             </div>
                             <div class="flex items-center gap-2">
+                                <Link
+                                    :href="route('webmail.sso', mbox.id)"
+                                    method="post"
+                                    as="button"
+                                    class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                                    title="Open webmail as this user"
+                                >
+                                    Webmail ↗
+                                </Link>
                                 <button
                                     @click="openPasswordModal(mbox)"
                                     class="text-xs text-gray-500 hover:text-gray-300 transition-colors"
