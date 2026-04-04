@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeliverabilityController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\DatabaseController;
@@ -92,6 +93,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('files/compress', [User\FileManagerController::class, 'compress'])->name('files.compress');
         Route::post('files/extract', [User\FileManagerController::class, 'extract'])->name('files.extract');
         Route::post('files/upload', [User\FileManagerController::class, 'upload'])->name('files.upload');
+
+        // Email deliverability troubleshooter
+        Route::get('deliverability', [DeliverabilityController::class, 'userIndex'])->name('deliverability.index');
+        Route::post('deliverability/check', [DeliverabilityController::class, 'check'])->name('deliverability.check');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
@@ -147,6 +152,10 @@ Route::middleware(['auth'])->group(function () {
 
         // Audit log
         Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
+
+        // Email deliverability troubleshooter
+        Route::get('deliverability', [DeliverabilityController::class, 'adminIndex'])->name('deliverability.index');
+        Route::post('deliverability/check', [DeliverabilityController::class, 'check'])->name('deliverability.check');
     });
 
     // Profile / Security
