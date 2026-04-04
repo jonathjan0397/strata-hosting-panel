@@ -24,8 +24,8 @@ die()     { echo -e "${RED}[fail]${NC} $*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "Must be run as root."
 
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
-[[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" ]] \
-    || die "Unsupported OS. Debian 11 or 12 required (detected: $DEBIAN_VERSION)."
+[[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" || "$DEBIAN_VERSION" == "13" ]] \
+    || die "Unsupported OS. Debian 11, 12, or 13 required (detected: $DEBIAN_VERSION)."
 
 HOSTNAME_FQDN=$(hostname -f 2>/dev/null || hostname)
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
@@ -46,6 +46,19 @@ read -rp "$(echo -e "${CYAN}Admin email${NC}: ")" ADMIN_EMAIL
 read -rsp "$(echo -e "${CYAN}Admin password${NC} (min 12 chars): ")" ADMIN_PASSWORD
 echo ""
 [[ ${#ADMIN_PASSWORD} -ge 12 ]] || die "Password must be at least 12 characters."
+
+echo ""
+echo -e "  ${BOLD}Web server for hosted accounts${NC}"
+echo -e "    ${CYAN}1)${NC} nginx   — Nginx handles all vhosts (recommended)"
+echo -e "    ${CYAN}2)${NC} apache  — Apache2 handles all vhosts"
+echo ""
+read -rp "$(echo -e "${CYAN}Choice${NC} [1]: ")" WEB_SERVER_CHOICE
+case "${WEB_SERVER_CHOICE:-1}" in
+    2|apache|Apache) WEB_SERVER="apache" ;;
+    *)               WEB_SERVER="nginx"  ;;
+esac
+echo -e "  ${GREEN}Selected:${NC} $WEB_SERVER"
+echo ""
 
 # ── Install directory ─────────────────────────────────────────────────────────
 INSTALL_DIR="/opt/strata-panel"
@@ -77,17 +90,15 @@ apt-get install -y -qq \
 
 # ── 2. PHP (Ondrej PPA) ───────────────────────────────────────────────────────
 info "Adding PHP repository (ondrej/php)…"
-if [[ "$DEBIAN_VERSION" == "12" ]]; then
-    curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg \
-        https://packages.sury.org/php/apt.gpg
-    echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ bookworm main" \
-        > /etc/apt/sources.list.d/php.list
-else
-    curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg \
-        https://packages.sury.org/php/apt.gpg
-    echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ bullseye main" \
-        > /etc/apt/sources.list.d/php.list
-fi
+curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg \
+    https://packages.sury.org/php/apt.gpg
+case "$DEBIAN_VERSION" in
+    13) PHP_CODENAME="trixie"   ;;
+    12) PHP_CODENAME="bookworm" ;;
+    *)  PHP_CODENAME="bullseye" ;;
+esac
+echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ ${PHP_CODENAME} main" \
+    > /etc/apt/sources.list.d/php.list
 apt-get update -qq
 
 PHP_VERSIONS=(8.1 8.2 8.3)
@@ -223,11 +234,20 @@ sed -i 's/^supervised no/supervised systemd/' /etc/redis/redis.conf
 systemctl enable --now redis-server
 success "Redis ready."
 
-# ── 5. Nginx ──────────────────────────────────────────────────────────────────
-info "Installing Nginx…"
-apt-get install -y -qq nginx
-systemctl enable nginx
-success "Nginx installed."
+# ── 5. Web server ─────────────────────────────────────────────────────────────
+if [[ "$WEB_SERVER" == "apache" ]]; then
+    info "Installing Apache2…"
+    apt-get install -y -qq apache2
+    # Enable modules needed for PHP-FPM proxying, SSL, and .htaccess
+    a2enmod proxy_fcgi setenvif headers rewrite ssl >/dev/null 2>&1
+    systemctl enable apache2
+    success "Apache2 installed (modules: proxy_fcgi setenvif headers rewrite ssl)."
+else
+    info "Installing Nginx…"
+    apt-get install -y -qq nginx
+    systemctl enable nginx
+    success "Nginx installed."
+fi
 
 # ── 6. Node.js 20 ─────────────────────────────────────────────────────────────
 info "Installing Node.js 20…"
@@ -423,9 +443,82 @@ systemctl daemon-reload
 systemctl enable --now strata-queue
 success "Queue worker running."
 
-# ── 18. Nginx vhost for panel ─────────────────────────────────────────────────
-info "Configuring Nginx for $PANEL_DOMAIN…"
-cat > /etc/nginx/sites-available/strata-panel <<EOF
+# ── 18. Web server vhost for panel ───────────────────────────────────────────
+mkdir -p /etc/strata-panel/tls
+
+if [[ "$WEB_SERVER" == "apache" ]]; then
+    info "Configuring Apache2 for $PANEL_DOMAIN…"
+    cat > /etc/apache2/sites-available/strata-panel.conf <<EOF
+<VirtualHost *:80>
+    ServerName ${PANEL_DOMAIN}
+    Redirect permanent / https://${PANEL_DOMAIN}/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName ${PANEL_DOMAIN}
+
+    SSLEngine on
+    SSLCertificateFile    /etc/strata-panel/tls/fullchain.pem
+    SSLCertificateKeyFile /etc/strata-panel/tls/privkey.pem
+    SSLProtocol           all -SSLv3 -TLSv1 -TLSv1.1
+    SSLCipherSuite        ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+
+    DocumentRoot ${INSTALL_DIR}/panel/public
+    DirectoryIndex index.php
+
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+    <Directory ${INSTALL_DIR}/panel/public>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+
+    <FilesMatch "\.(env|git|log|sql)$">
+        Require all denied
+    </FilesMatch>
+
+    LimitRequestBody 67108864
+</VirtualHost>
+EOF
+
+    a2ensite strata-panel.conf >/dev/null 2>&1
+    a2dissite 000-default.conf >/dev/null 2>&1 || true
+
+    # ── 19. SSL for panel domain (Apache) ─────────────────────────────────────
+    info "Issuing SSL certificate for $PANEL_DOMAIN via Let's Encrypt…"
+
+    # Start Apache on port 80 for ACME challenge (self-signed placeholder first)
+    openssl req -x509 -newkey rsa:4096 \
+        -keyout /etc/strata-panel/tls/privkey.pem \
+        -out    /etc/strata-panel/tls/fullchain.pem \
+        -days   90 -nodes -subj "/CN=${PANEL_DOMAIN}" >/dev/null 2>&1
+    apache2ctl configtest 2>/dev/null && systemctl restart apache2 || true
+
+    if /root/.acme.sh/acme.sh --issue --apache -d "$PANEL_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
+        /root/.acme.sh/acme.sh --install-cert -d "$PANEL_DOMAIN" \
+            --key-file       /etc/strata-panel/tls/privkey.pem \
+            --fullchain-file /etc/strata-panel/tls/fullchain.pem \
+            --reloadcmd      "systemctl reload apache2"
+        success "SSL certificate issued for $PANEL_DOMAIN."
+    else
+        warn "Let's Encrypt failed (DNS may not be pointing here yet). Using self-signed cert."
+        warn "Re-run: /root/.acme.sh/acme.sh --issue --apache -d ${PANEL_DOMAIN} once DNS is ready."
+    fi
+
+    apache2ctl configtest && systemctl restart apache2
+    success "Apache2 configured."
+
+else
+    info "Configuring Nginx for $PANEL_DOMAIN…"
+    cat > /etc/nginx/sites-available/strata-panel <<EOF
 server {
     listen 80;
     server_name ${PANEL_DOMAIN};
@@ -467,35 +560,33 @@ server {
 }
 EOF
 
-ln -sf /etc/nginx/sites-available/strata-panel /etc/nginx/sites-enabled/strata-panel
-rm -f /etc/nginx/sites-enabled/default
+    ln -sf /etc/nginx/sites-available/strata-panel /etc/nginx/sites-enabled/strata-panel
+    rm -f /etc/nginx/sites-enabled/default
 
-# ── 19. SSL for panel domain ──────────────────────────────────────────────────
-info "Issuing SSL certificate for $PANEL_DOMAIN via Let's Encrypt…"
-mkdir -p /etc/strata-panel/tls
+    # ── 19. SSL for panel domain (Nginx) ──────────────────────────────────────
+    info "Issuing SSL certificate for $PANEL_DOMAIN via Let's Encrypt…"
 
-# Temporarily serve on port 80 for ACME challenge
-nginx -t 2>/dev/null && systemctl reload nginx || true
-
-# Issue cert (will fail if DNS not pointing here — fallback to self-signed)
-if /root/.acme.sh/acme.sh --issue --nginx -d "$PANEL_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
-    /root/.acme.sh/acme.sh --install-cert -d "$PANEL_DOMAIN" \
-        --key-file       /etc/strata-panel/tls/privkey.pem \
-        --fullchain-file /etc/strata-panel/tls/fullchain.pem \
-        --reloadcmd      "systemctl reload nginx"
-    success "SSL certificate issued for $PANEL_DOMAIN."
-else
-    warn "Let's Encrypt failed (DNS may not be pointing here yet). Using self-signed cert."
+    # Temporary self-signed so Nginx starts cleanly before the real cert is issued
     openssl req -x509 -newkey rsa:4096 \
         -keyout /etc/strata-panel/tls/privkey.pem \
         -out    /etc/strata-panel/tls/fullchain.pem \
-        -days   90 -nodes \
-        -subj "/CN=${PANEL_DOMAIN}" >/dev/null 2>&1
-    warn "Re-run: /root/.acme.sh/acme.sh --issue --nginx -d ${PANEL_DOMAIN} once DNS is ready."
-fi
+        -days   90 -nodes -subj "/CN=${PANEL_DOMAIN}" >/dev/null 2>&1
+    nginx -t 2>/dev/null && systemctl reload nginx || true
 
-nginx -t && systemctl reload nginx
-success "Nginx configured."
+    if /root/.acme.sh/acme.sh --issue --nginx -d "$PANEL_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
+        /root/.acme.sh/acme.sh --install-cert -d "$PANEL_DOMAIN" \
+            --key-file       /etc/strata-panel/tls/privkey.pem \
+            --fullchain-file /etc/strata-panel/tls/fullchain.pem \
+            --reloadcmd      "systemctl reload nginx"
+        success "SSL certificate issued for $PANEL_DOMAIN."
+    else
+        warn "Let's Encrypt failed (DNS may not be pointing here yet). Using self-signed cert."
+        warn "Re-run: /root/.acme.sh/acme.sh --issue --nginx -d ${PANEL_DOMAIN} once DNS is ready."
+    fi
+
+    nginx -t && systemctl reload nginx
+    success "Nginx configured."
+fi
 
 # ── 20. Firewall ──────────────────────────────────────────────────────────────
 info "Configuring UFW firewall…"
@@ -530,6 +621,7 @@ Node::updateOrCreate(
         'ip_address'  => '127.0.0.1',
         'port'        => 8743,
         'hmac_secret' => '${AGENT_HMAC_SECRET}',
+        'web_server'  => '${WEB_SERVER}',
         'status'      => 'online',
         'is_primary'  => true,
         'last_seen_at'=> now(),
@@ -559,6 +651,7 @@ echo ""
 echo -e "  ${BOLD}Panel URL:${NC}       https://${PANEL_DOMAIN}"
 echo -e "  ${BOLD}Admin login:${NC}     ${ADMIN_EMAIL}"
 echo -e "  ${BOLD}Admin password:${NC}  (as entered)"
+echo -e "  ${BOLD}Web server:${NC}      ${WEB_SERVER}"
 echo ""
 echo -e "  ${BOLD}MariaDB root:${NC}    /root/.my.cnf"
 echo -e "  ${BOLD}Panel .env:${NC}      ${INSTALL_DIR}/panel/.env"
@@ -570,5 +663,5 @@ echo -e "  ${BOLD}Install token:${NC}   ${INSTALL_TOKEN}"
 echo -e "  ${YELLOW}To enable premium features, set STRATA_LICENSE_SERVER_URL in .env${NC}"
 echo ""
 echo -e "  ${YELLOW}If using a self-signed cert, add DNS A record for ${PANEL_DOMAIN}"
-echo -e "  then run: /root/.acme.sh/acme.sh --issue --nginx -d ${PANEL_DOMAIN}${NC}"
+echo -e "  then run: /root/.acme.sh/acme.sh --issue --${WEB_SERVER} -d ${PANEL_DOMAIN}${NC}"
 echo ""
