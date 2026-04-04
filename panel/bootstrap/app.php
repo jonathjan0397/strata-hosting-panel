@@ -2,6 +2,7 @@
 
 use App\Console\Commands\LicenseSync;
 use App\Console\Commands\NodeHealthCheck;
+use App\Console\Commands\SslRenew;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
@@ -20,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Ping all nodes every 5 minutes and update their status.
         $schedule->command(NodeHealthCheck::class)->everyFiveMinutes();
+
+        // Auto-renew SSL certificates expiring within 14 days, daily at 03:00.
+        $schedule->command(SslRenew::class)->dailyAt('03:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
