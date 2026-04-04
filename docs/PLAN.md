@@ -154,6 +154,7 @@ Admin
 - [ ] Install strata-agent via one-line command
 - [ ] OS update management (safe updates, exclude critical packages)
 - [ ] Firewall management (UFW rules)
+- [ ] Browser-based SSH terminal (admin only, per-node, xterm.js + WebSocket)
 
 ### Account Management
 - [x] Create/suspend/terminate accounts

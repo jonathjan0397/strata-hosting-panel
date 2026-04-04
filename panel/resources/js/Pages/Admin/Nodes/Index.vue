@@ -36,6 +36,12 @@
                         <td class="px-5 py-3.5 text-sm text-gray-400">{{ node.last_seen_at ?? 'Never' }}</td>
                         <td class="px-5 py-3.5 text-right">
                             <Link
+                                :href="route('admin.nodes.shell', node.id)"
+                                class="mr-3 text-xs text-gray-400 hover:text-gray-200 transition-colors font-mono"
+                            >
+                                Shell
+                            </Link>
+                            <Link
                                 :href="route('admin.nodes.status', node.id)"
                                 class="mr-3 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                             >

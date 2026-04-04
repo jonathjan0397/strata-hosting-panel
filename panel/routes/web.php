@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\LicenseSyncController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
 use App\Http\Controllers\Admin\ResellerController;
+use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
 use App\Http\Controllers\WebmailController;
@@ -100,6 +101,7 @@ Route::middleware(['auth'])->group(function () {
         // Nodes
         Route::resource('nodes', NodeController::class);
         Route::get('nodes/{node}/status', [NodeStatusController::class, 'show'])->name('nodes.status');
+        Route::get('nodes/{node}/shell', [ShellController::class, 'show'])->name('nodes.shell');
         Route::get('nodes/{node}/api/info', [NodeStatusController::class, 'info'])->name('nodes.api.info');
         Route::get('nodes/{node}/api/logs/{service}', [NodeStatusController::class, 'logs'])->name('nodes.api.logs');
         Route::post('nodes/{node}/api/services/{service}/action', [NodeStatusController::class, 'serviceAction'])->name('nodes.api.service-action');

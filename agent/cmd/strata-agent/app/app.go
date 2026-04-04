@@ -26,12 +26,18 @@ func Run() error {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
 
-	// HMAC authentication middleware applied to all routes
-	r.Use(api.HMACAuth(cfg.HMACSecret))
+	// Shell WebSocket — uses short-lived query-param token; must be mounted
+	// before the HMAC middleware because browsers cannot set custom headers
+	// on WebSocket upgrades.
+	r.Get("/v1/shell", api.HandleShell(cfg.HMACSecret))
 
-	r.Mount("/v1", api.Routes())
+	// All other routes require HMAC header authentication.
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Timeout(60 * time.Second))
+		r.Use(api.HMACAuth(cfg.HMACSecret))
+		r.Mount("/v1", api.Routes())
+	})
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
