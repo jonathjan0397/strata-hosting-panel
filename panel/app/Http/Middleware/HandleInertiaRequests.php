@@ -25,10 +25,11 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user() ? [
-                    'id'    => $request->user()->id,
-                    'name'  => $request->user()->name,
-                    'email' => $request->user()->email,
-                    'roles' => $request->user()->getRoleNames(),
+                    'id'               => $request->user()->id,
+                    'name'             => $request->user()->name,
+                    'email'            => $request->user()->email,
+                    'roles'            => $request->user()->getRoleNames(),
+                    'two_factor_enabled' => (bool) $request->user()->two_factor_confirmed_at,
                 ] : null,
             ],
             'flash' => [

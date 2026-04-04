@@ -172,6 +172,29 @@
                 </div>
             </header>
 
+            <!-- 2FA nudge banner -->
+            <div
+                v-if="show2faNudge"
+                class="mx-6 mt-5 flex items-center justify-between gap-4 rounded-xl border border-amber-700/60 bg-amber-900/20 px-4 py-3"
+            >
+                <div class="flex items-center gap-3 text-sm text-amber-300">
+                    <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                    <span>
+                        Your account is not protected by two-factor authentication.
+                        <Link :href="route('profile.security')" class="ml-1 font-semibold underline underline-offset-2 hover:text-amber-200 transition-colors">
+                            Enable 2FA now
+                        </Link>
+                    </span>
+                </div>
+                <button @click="dismiss2faNudge" class="shrink-0 text-amber-500 hover:text-amber-300 transition-colors" aria-label="Dismiss">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
             <!-- Flash messages -->
             <div v-if="$page.props.flash?.success" class="mx-6 mt-5">
                 <div class="rounded-xl border border-emerald-700 bg-emerald-900/30 px-4 py-3 text-sm text-emerald-300">
@@ -193,7 +216,8 @@
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
 import NavItem from '@/Components/NavItem.vue';
 import NavGroup from '@/Components/NavGroup.vue';
 
@@ -203,4 +227,20 @@ defineProps({
         default: '',
     },
 });
+
+const page = usePage();
+
+const nudgeDismissed = ref(localStorage.getItem('2fa_nudge_dismissed') === '1');
+
+const show2faNudge = computed(() =>
+    !nudgeDismissed.value &&
+    page.props.auth?.user &&
+    !page.props.auth.user.two_factor_enabled &&
+    !page.props.ziggy?.location?.includes('/profile')
+);
+
+function dismiss2faNudge() {
+    localStorage.setItem('2fa_nudge_dismissed', '1');
+    nudgeDismissed.value = true;
+}
 </script>
