@@ -76,5 +76,18 @@ func Routes() chi.Router {
 	// Self-upgrade
 	r.Post("/agent/upgrade", handleAgentUpgrade)
 
+	// File manager (jailed to /var/www/{username}/)
+	r.Get("/files/{username}", handleFileList)
+	r.Get("/files/{username}/read", handleFileRead)
+	r.Get("/files/{username}/download", handleFileDownload)
+	r.Post("/files/{username}/write", handleFileWrite)
+	r.Post("/files/{username}/mkdir", handleFileMkdir)
+	r.Post("/files/{username}/rename", handleFileRename)
+	r.Delete("/files/{username}", handleFileDelete)
+	r.Post("/files/{username}/chmod", handleFileChmod)
+	r.Post("/files/{username}/compress", handleFileCompress)
+	r.Post("/files/{username}/extract", handleFileExtract)
+	r.Post("/files/{username}/upload", handleFileUpload)
+
 	return r
 }

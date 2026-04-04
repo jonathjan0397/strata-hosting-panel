@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Http;
 
 class AgentClient
 {
-    public function __construct(private readonly Node $node) {}
+    public function __construct(public readonly Node $node) {}
 
     public static function for(Node $node): static
     {
@@ -246,6 +246,62 @@ class AgentClient
     public function changeFtpPassword(string $username, string $password): Response
     {
         return $this->put("/ftp/accounts/{$username}/password", ['password' => $password]);
+    }
+
+    // ── File manager ──────────────────────────────────────────────────────────
+
+    public function fileList(string $username, string $path = '/'): Response
+    {
+        return $this->get("/files/{$username}?path=" . urlencode($path));
+    }
+
+    public function fileRead(string $username, string $path): Response
+    {
+        return $this->get("/files/{$username}/read?path=" . urlencode($path));
+    }
+
+    public function fileWrite(string $username, string $path, string $content): Response
+    {
+        return $this->post("/files/{$username}/write", ['path' => $path, 'content' => $content]);
+    }
+
+    public function fileMkdir(string $username, string $path): Response
+    {
+        return $this->post("/files/{$username}/mkdir", ['path' => $path]);
+    }
+
+    public function fileRename(string $username, string $from, string $to): Response
+    {
+        return $this->post("/files/{$username}/rename", ['from' => $from, 'to' => $to]);
+    }
+
+    public function fileDelete(string $username, string $path): Response
+    {
+        return $this->delete("/files/{$username}?path=" . urlencode($path));
+    }
+
+    public function fileChmod(string $username, string $path, string $mode): Response
+    {
+        return $this->post("/files/{$username}/chmod", ['path' => $path, 'mode' => $mode]);
+    }
+
+    public function fileCompress(string $username, array $paths, string $dest, string $format = 'zip'): Response
+    {
+        return $this->post("/files/{$username}/compress", [
+            'paths'  => $paths,
+            'dest'   => $dest,
+            'format' => $format,
+        ]);
+    }
+
+    public function fileExtract(string $username, string $path, string $dest = ''): Response
+    {
+        return $this->post("/files/{$username}/extract", ['path' => $path, 'dest' => $dest]);
+    }
+
+    public function fileDownloadUrl(string $username, string $path): string
+    {
+        return $this->node->apiUrl("/files/{$username}/download?path=" . urlencode($path));
     }
 
     // ── Agent upgrade ─────────────────────────────────────────────────────────

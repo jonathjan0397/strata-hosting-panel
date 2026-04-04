@@ -77,6 +77,20 @@ Route::middleware(['auth'])->group(function () {
         Route::get('domains/{domain}/dns', [User\DnsController::class, 'show'])->name('dns.show');
         Route::post('dns/zones/{zone}/records', [User\DnsController::class, 'storeRecord'])->name('dns.records.store');
         Route::delete('dns/records/{record}', [User\DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
+
+        // File manager
+        Route::get('files', [User\FileManagerController::class, 'index'])->name('files.index');
+        Route::get('files/list', [User\FileManagerController::class, 'list'])->name('files.list');
+        Route::get('files/read', [User\FileManagerController::class, 'read'])->name('files.read');
+        Route::get('files/download', [User\FileManagerController::class, 'download'])->name('files.download');
+        Route::post('files/write', [User\FileManagerController::class, 'write'])->name('files.write');
+        Route::post('files/mkdir', [User\FileManagerController::class, 'mkdir'])->name('files.mkdir');
+        Route::post('files/rename', [User\FileManagerController::class, 'rename'])->name('files.rename');
+        Route::delete('files/delete', [User\FileManagerController::class, 'delete'])->name('files.delete');
+        Route::post('files/chmod', [User\FileManagerController::class, 'chmod'])->name('files.chmod');
+        Route::post('files/compress', [User\FileManagerController::class, 'compress'])->name('files.compress');
+        Route::post('files/extract', [User\FileManagerController::class, 'extract'])->name('files.extract');
+        Route::post('files/upload', [User\FileManagerController::class, 'upload'])->name('files.upload');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
