@@ -9,13 +9,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            // Reseller foreign key — add if not present
+            if (! Schema::hasColumn('users', 'reseller_id')) {
+                $table->unsignedBigInteger('reseller_id')->nullable();
+            }
+
             // Reseller pool quotas — null means unlimited
-            $table->unsignedInteger('quota_accounts')->nullable()->after('reseller_id');
-            $table->unsignedBigInteger('quota_disk_mb')->nullable()->after('quota_accounts');
-            $table->unsignedBigInteger('quota_bandwidth_mb')->nullable()->after('quota_disk_mb');
-            $table->unsignedInteger('quota_domains')->nullable()->after('quota_bandwidth_mb');
-            $table->unsignedInteger('quota_email_accounts')->nullable()->after('quota_domains');
-            $table->unsignedInteger('quota_databases')->nullable()->after('quota_email_accounts');
+            $table->unsignedInteger('quota_accounts')->nullable();
+            $table->unsignedBigInteger('quota_disk_mb')->nullable();
+            $table->unsignedBigInteger('quota_bandwidth_mb')->nullable();
+            $table->unsignedInteger('quota_domains')->nullable();
+            $table->unsignedInteger('quota_email_accounts')->nullable();
+            $table->unsignedInteger('quota_databases')->nullable();
         });
     }
 
