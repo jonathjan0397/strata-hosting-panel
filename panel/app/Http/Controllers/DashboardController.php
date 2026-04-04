@@ -16,6 +16,10 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
+        if ($user->isReseller()) {
+            return redirect()->route('reseller.dashboard');
+        }
+
         if (! $user->isAdmin()) {
             return redirect()->route('my.dashboard');
         }

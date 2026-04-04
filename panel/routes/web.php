@@ -11,6 +11,8 @@ use App\Http\Controllers\Admin\FtpController;
 use App\Http\Controllers\Admin\LicenseSyncController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
+use App\Http\Controllers\Admin\ResellerController;
+use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
 use Illuminate\Support\Facades\Route;
 
@@ -113,5 +115,21 @@ Route::middleware(['auth'])->group(function () {
         Route::put('email/mailboxes/{mailbox}/password', [EmailController::class, 'changePassword'])->name('email.mailbox.password');
         Route::post('domains/{domain}/email/forwarders', [EmailController::class, 'createForwarder'])->name('email.forwarder.store');
         Route::delete('email/forwarders/{forwarder}', [EmailController::class, 'deleteForwarder'])->name('email.forwarder.destroy');
+
+        // Resellers
+        Route::resource('resellers', ResellerController::class)->except(['edit']);
+    });
+
+    // Reseller portal
+    Route::middleware('role:reseller')->prefix('reseller')->name('reseller.')->group(function () {
+        Route::get('/', [Reseller\DashboardController::class, 'index'])->name('dashboard');
+
+        // Client account management
+        Route::get('accounts', [Reseller\AccountController::class, 'index'])->name('accounts.index');
+        Route::get('accounts/create', [Reseller\AccountController::class, 'create'])->name('accounts.create');
+        Route::post('accounts', [Reseller\AccountController::class, 'store'])->name('accounts.store');
+        Route::post('accounts/{account}/suspend', [Reseller\AccountController::class, 'suspend'])->name('accounts.suspend');
+        Route::post('accounts/{account}/unsuspend', [Reseller\AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
+        Route::delete('accounts/{account}', [Reseller\AccountController::class, 'destroy'])->name('accounts.destroy');
     });
 });
