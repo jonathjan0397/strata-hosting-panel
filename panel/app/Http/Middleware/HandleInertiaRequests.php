@@ -11,6 +11,27 @@ class HandleInertiaRequests extends Middleware
 {
     protected $rootView = 'app';
 
+    private function resolveBranding(Request $request): ?array
+    {
+        $user = $request->user();
+        if (! $user) return null;
+
+        // Reseller viewing their own portal — show their own branding
+        if ($user->isReseller() && ($user->brand_name || $user->brand_color)) {
+            return ['name' => $user->brand_name, 'color' => $user->brand_color];
+        }
+
+        // End user whose reseller has branding set
+        if ($user->reseller_id) {
+            $reseller = $user->reseller;
+            if ($reseller && ($reseller->brand_name || $reseller->brand_color)) {
+                return ['name' => $reseller->brand_name, 'color' => $reseller->brand_color];
+            }
+        }
+
+        return null;
+    }
+
     public function version(Request $request): ?string
     {
         return parent::version($request);
@@ -47,6 +68,9 @@ class HandleInertiaRequests extends Middleware
                 'version'   => config('strata.version', 'dev'),
                 'demo_mode' => (bool) config('strata.demo_mode'),
             ],
+            // White-label: if the authenticated user has a reseller with branding,
+            // pass it through so the UI can swap the panel name/colour.
+            'branding' => fn () => $this->resolveBranding($request),
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),

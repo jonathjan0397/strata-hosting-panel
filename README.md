@@ -5,7 +5,7 @@
 
 Open-source hosting control panel — Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT &nbsp;·&nbsp; **Target OS:** Debian 11 / 12 / 13 &nbsp;·&nbsp; **Status:** Phase 5 complete — active development
+**License:** MIT &nbsp;·&nbsp; **Target OS:** Debian 11 / 12 / 13 &nbsp;·&nbsp; **Status:** Phase 6 complete — active development
 
 ---
 
@@ -43,6 +43,7 @@ Click any account card on the login page to autofill credentials, or use them di
 | Category | Features |
 |---|---|
 | **Accounts** | Create/suspend/terminate, resource limits, system user provisioning |
+| **Reseller Portal** | Dashboard with quota meters, create/manage client accounts, white-label branding |
 | **Domains** | Nginx/Apache vhosts, SSL (Let's Encrypt auto-renew), PHP version per domain |
 | **Email** | Postfix/Dovecot mailboxes, forwarders, DKIM/SPF/DMARC auto-setup |
 | **DNS** | PowerDNS zone management, full record type support |

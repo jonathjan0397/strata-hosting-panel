@@ -1,7 +1,7 @@
 # Strata Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
-Created: 2026-03-31 | Last Updated: 2026-04-04 | Phase 5 Complete
+Created: 2026-03-31 | Last Updated: 2026-04-04 | Phase 6 Complete
 
 ## Overview
 Strata Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
@@ -305,10 +305,13 @@ Admin
 - [x] Browser-based SSH terminal (admin, per-node, xterm.js + PTY)
 - [x] Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, PTR, blacklists)
 
-### Phase 6 — Reseller Portal
-- Reseller dashboard
-- Account creation with quota allocation
-- White-label support
+### Phase 6 — Reseller Portal ✅
+- [x] Reseller dashboard with quota meters (accounts, disk, bandwidth, domains, email, databases)
+- [x] Create client accounts with quota enforcement
+- [x] Suspend / unsuspend / delete client accounts
+- [x] Client detail page with resource limit editing
+- [x] Admin: create/view/update reseller quotas, delete resellers
+- [x] White-label branding (panel name + accent colour per reseller, shown to clients)
 
 ### Phase 7 — Billing API + Integrations
 - REST provisioning API

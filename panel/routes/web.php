@@ -193,5 +193,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('accounts/{account}/suspend', [Reseller\AccountController::class, 'suspend'])->name('accounts.suspend');
         Route::post('accounts/{account}/unsuspend', [Reseller\AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
         Route::delete('accounts/{account}', [Reseller\AccountController::class, 'destroy'])->name('accounts.destroy');
+
+        // Client detail + limit editing
+        Route::get('clients/{account}', [Reseller\ClientController::class, 'show'])->name('clients.show');
+        Route::put('clients/{account}', [Reseller\ClientController::class, 'update'])->name('clients.update');
+
+        // White-label branding
+        Route::get('branding', [Reseller\BrandingController::class, 'edit'])->name('branding');
+        Route::put('branding', [Reseller\BrandingController::class, 'update'])->name('branding.update');
     });
 });

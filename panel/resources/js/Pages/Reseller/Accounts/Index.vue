@@ -56,6 +56,10 @@
                                         @click="unsuspendAccount(a)"
                                         class="text-xs text-emerald-400 hover:text-emerald-300"
                                     >Unsuspend</button>
+                                    <Link
+                                        :href="route('reseller.clients.show', a.id)"
+                                        class="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                                    >Details</Link>
                                     <button
                                         @click="deleteAccount(a)"
                                         class="text-xs text-red-400 hover:text-red-300"
