@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\DnsController;
 use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EmailController;
 use App\Http\Controllers\Admin\FtpController;
+use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\LicenseSyncController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
@@ -127,6 +128,9 @@ Route::middleware(['auth'])->group(function () {
 
         // Resellers
         Route::resource('resellers', ResellerController::class)->except(['edit']);
+
+        // Audit log
+        Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
     });
 
     // Profile / Security
