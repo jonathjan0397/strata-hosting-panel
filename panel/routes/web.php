@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EmailController;
 use App\Http\Controllers\Admin\FtpController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\LicenseSyncController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
@@ -97,6 +98,12 @@ Route::middleware(['auth'])->group(function () {
         // Email deliverability troubleshooter
         Route::get('deliverability', [DeliverabilityController::class, 'userIndex'])->name('deliverability.index');
         Route::post('deliverability/check', [DeliverabilityController::class, 'check'])->name('deliverability.check');
+
+        // Backups
+        Route::get('backups', [User\BackupController::class, 'index'])->name('backups.index');
+        Route::post('backups', [User\BackupController::class, 'store'])->name('backups.store');
+        Route::delete('backups/{backup}', [User\BackupController::class, 'destroy'])->name('backups.destroy');
+        Route::get('backups/{backup}/download', [User\BackupController::class, 'download'])->name('backups.download');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
@@ -156,6 +163,11 @@ Route::middleware(['auth'])->group(function () {
         // Email deliverability troubleshooter
         Route::get('deliverability', [DeliverabilityController::class, 'adminIndex'])->name('deliverability.index');
         Route::post('deliverability/check', [DeliverabilityController::class, 'check'])->name('deliverability.check');
+
+        // Backups
+        Route::get('backups', [AdminBackupController::class, 'index'])->name('backups.index');
+        Route::post('backups', [AdminBackupController::class, 'store'])->name('backups.store');
+        Route::delete('backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
     });
 
     // Profile / Security

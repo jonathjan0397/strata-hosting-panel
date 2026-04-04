@@ -304,6 +304,28 @@ class AgentClient
         return $this->node->apiUrl("/files/{$username}/download?path=" . urlencode($path));
     }
 
+    // ── Backups ───────────────────────────────────────────────────────────────
+
+    public function backupCreate(string $username, string $type = 'full'): Response
+    {
+        return $this->post("/backups/{$username}", ['type' => $type]);
+    }
+
+    public function backupList(string $username): Response
+    {
+        return $this->get("/backups/{$username}");
+    }
+
+    public function backupDelete(string $username, string $filename): Response
+    {
+        return $this->delete("/backups/{$username}/" . urlencode($filename));
+    }
+
+    public function backupDownloadUrl(string $username, string $filename): string
+    {
+        return $this->node->url("/backups/{$username}/download/" . urlencode($filename));
+    }
+
     // ── Agent upgrade ─────────────────────────────────────────────────────────
 
     public function upgradeAgent(string $version, string $downloadUrl): Response

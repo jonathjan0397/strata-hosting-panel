@@ -3,9 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
-Open-source hosting control panel — Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, and more.
+Open-source hosting control panel — Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT &nbsp;·&nbsp; **Target OS:** Debian 11 / 12 / 13
+**License:** MIT &nbsp;·&nbsp; **Target OS:** Debian 11 / 12 / 13 &nbsp;·&nbsp; **Status:** Phase 5 complete — active development
 
 ---
 
@@ -37,6 +37,22 @@ Click any account card on the login page to autofill credentials, or use them di
 | SSL | acme.sh (Let's Encrypt / ZeroSSL) |
 | FTP | Pure-FTPd |
 | Database | MariaDB |
+
+## Features (v0.1 — Phase 5 complete)
+
+| Category | Features |
+|---|---|
+| **Accounts** | Create/suspend/terminate, resource limits, system user provisioning |
+| **Domains** | Nginx/Apache vhosts, SSL (Let's Encrypt auto-renew), PHP version per domain |
+| **Email** | Postfix/Dovecot mailboxes, forwarders, DKIM/SPF/DMARC auto-setup |
+| **DNS** | PowerDNS zone management, full record type support |
+| **Databases** | MariaDB create/delete/password |
+| **FTP** | Pure-FTPd jailed accounts |
+| **File Manager** | Browser-based, upload/download/edit/chmod/compress/extract |
+| **Backups** | Files + databases, nightly scheduled, manual trigger, download |
+| **Security** | 2FA (TOTP), audit log, fail2ban (planned) |
+| **Admin Tools** | Browser SSH terminal, email deliverability troubleshooter |
+| **Multi-node** | Remote nodes via Go agent (HMAC auth), health monitoring |
 
 ## Architecture
 

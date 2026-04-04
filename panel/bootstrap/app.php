@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\BackupRun;
 use App\Console\Commands\LicenseSync;
 use App\Console\Commands\NodeHealthCheck;
 use App\Console\Commands\SslRenew;
@@ -24,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Auto-renew SSL certificates expiring within 14 days, daily at 03:00.
         $schedule->command(SslRenew::class)->dailyAt('03:00');
+
+        // Run full backups for all accounts nightly at 02:00.
+        $schedule->command(BackupRun::class, ['--type' => 'full'])->dailyAt('02:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [

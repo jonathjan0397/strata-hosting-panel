@@ -1,7 +1,7 @@
 # Strata Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
-Created: 2026-03-31 | Last Updated: 2026-04-04
+Created: 2026-03-31 | Last Updated: 2026-04-04 | Phase 5 Complete
 
 ## Overview
 Strata Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
@@ -214,23 +214,34 @@ Admin
 - [x] DNS zone management
 
 ### File Manager
-- [ ] Browser-based file manager
-- [ ] Upload/download/rename/delete
-- [ ] Archive (zip/tar) and extract
-- [ ] Permissions management
-- [ ] Code editor (basic)
+- [x] Browser-based file manager
+- [x] Upload/download/rename/delete
+- [x] Archive (zip/tar) and extract
+- [x] Permissions management
+- [x] Code editor (basic)
 
 ### SSL
 - [x] Let's Encrypt via acme.sh
-- [ ] Auto-renew
+- [x] Auto-renew
 - [ ] Wildcard cert support
 - [ ] Custom cert upload
 
 ### Backups
-- [ ] Per-account backup (files + databases)
-- [ ] Scheduled automated backups
+- [x] Per-account backup (files + databases)
+- [x] Scheduled automated backups (nightly at 02:00)
 - [ ] Remote backup destination (S3, FTP, SFTP)
 - [ ] One-click restore
+
+### Security
+- [x] 2FA (TOTP) for all user levels
+- [x] Audit log (every action logged with user + timestamp)
+- [ ] fail2ban integration
+- [ ] SSH key management
+- [ ] ModSecurity (optional WAF)
+
+### Admin Tools
+- [x] Browser-based SSH terminal (per-node, xterm.js)
+- [x] Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, PTR, blacklists)
 
 ### Billing Integration (API)
 - [ ] REST webhook endpoints for account provisioning
@@ -282,12 +293,17 @@ Admin
 - Pure-FTPd
 - phpMyAdmin SSO (pending)
 
-### Phase 5 — End User Portal + Agent (In Progress)
+### Phase 5 — End User Portal + Agent ✅
 - [x] End user portal (domains, email, databases, FTP, DNS)
 - [x] strata-agent deployed, systemd, health checks
 - [x] Account provisioning end-to-end
-- [ ] File manager
-- [ ] Backup system
+- [x] File manager (Go agent + Vue UI, upload/download/edit/chmod/compress/extract)
+- [x] Backup system (files + databases, nightly scheduled, manual trigger, download)
+- [x] 2FA (TOTP) — admin, reseller, end user
+- [x] Audit log viewer (admin, filterable, paginated)
+- [x] SSL auto-renew (artisan command + scheduler)
+- [x] Browser-based SSH terminal (admin, per-node, xterm.js + PTY)
+- [x] Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, PTR, blacklists)
 
 ### Phase 6 — Reseller Portal
 - Reseller dashboard

@@ -73,6 +73,12 @@ func Routes() chi.Router {
 	r.Delete("/ftp/accounts/{username}", handleFTPDelete)
 	r.Put("/ftp/accounts/{username}/password", handleFTPPassword)
 
+	// Backups
+	r.Post("/backups/{username}", handleBackupCreate)
+	r.Get("/backups/{username}", handleBackupList)
+	r.Delete("/backups/{username}/{filename}", handleBackupDelete)
+	r.Get("/backups/{username}/download/{filename}", handleBackupDownload)
+
 	// Self-upgrade
 	r.Post("/agent/upgrade", handleAgentUpgrade)
 
