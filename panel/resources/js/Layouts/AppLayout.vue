@@ -141,6 +141,26 @@
                 </template>
             </nav>
 
+            <!-- License status (admin only) -->
+            <div
+                v-if="$page.props.auth.user.roles?.includes('admin') && $page.props.license"
+                class="px-4 py-2 border-t border-gray-800/60"
+            >
+                <div class="flex items-center gap-2">
+                    <span
+                        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                        :class="licenseClass"
+                    >
+                        <span class="h-1.5 w-1.5 rounded-full" :class="licenseDot"></span>
+                        {{ licenseLabel }}
+                    </span>
+                    <span v-if="$page.props.app?.demo_mode" class="inline-flex items-center rounded-full bg-indigo-900/40 px-2 py-0.5 text-xs font-medium text-indigo-300">
+                        Demo
+                    </span>
+                    <span class="ml-auto text-xs text-gray-600 font-mono">{{ $page.props.app?.version }}</span>
+                </div>
+            </div>
+
             <!-- User menu -->
             <div class="border-t border-gray-800 p-4 space-y-2">
                 <Link
@@ -219,6 +239,19 @@
             <main class="flex-1 px-6 py-6">
                 <slot />
             </main>
+
+            <!-- Footer -->
+            <footer class="border-t border-gray-800/60 px-6 py-3 flex items-center gap-4 text-xs text-gray-600">
+                <span>&copy; {{ year }} Strata Panel &mdash; MIT License</span>
+                <a href="https://github.com/jonathjan0397/strata-panel/issues" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 hover:text-gray-400 transition-colors">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+                    Report issue
+                </a>
+                <a href="https://buymeacoffee.com/jonathan0397" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 hover:text-yellow-400 transition-colors ml-auto">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20.216 6.415l-.132-.666c-.119-.598-.388-1.163-1.001-1.379-.197-.069-.42-.098-.57-.241-.152-.143-.196-.366-.231-.572-.065-.378-.125-.756-.192-1.133-.057-.325-.102-.69-.25-.987-.195-.4-.597-.634-.996-.788a5.723 5.723 0 00-.626-.194c-1-.263-2.05-.36-3.077-.416a25.834 25.834 0 00-3.7.062c-.915.083-1.88.184-2.75.5-.318.116-.646.256-.888.501-.297.302-.393.77-.177 1.146.154.267.415.456.692.58.36.162.737.284 1.123.366 1.075.238 2.189.262-.043 3.276-.013 4.245.021.47.017.959.067 1.35.39.266.219.437.512.495.846.049.27.064.558.029.832-.054.437-.23.899-.632 1.157-.356.231-.813.302-1.23.236-1.037-.166-1.917-.736-2.697-1.427-.285-.25-.583-.491-.897-.695-.39-.249-.843-.443-1.306-.294-.413.132-.729.488-.87.892-.188.548-.124 1.158.013 1.717.145.592.392 1.15.673 1.685.344.657.756 1.282 1.218 1.861.428.537.904 1.039 1.408 1.51a9.513 9.513 0 001.657 1.182c.56.3 1.148.536 1.764.686a8.59 8.59 0 001.9.213 8.19 8.19 0 001.828-.197 7.45 7.45 0 001.708-.617 6.956 6.956 0 001.46-1.029 6.29 6.29 0 001.117-1.394 5.78 5.78 0 00.623-1.71 5.573 5.573 0 00.068-1.889z"/></svg>
+                    Buy me a coffee
+                </a>
+            </footer>
         </div>
     </div>
 </template>
@@ -228,6 +261,8 @@ import { ref, computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import NavItem from '@/Components/NavItem.vue';
 import NavGroup from '@/Components/NavGroup.vue';
+
+const year = new Date().getFullYear();
 
 defineProps({
     title: {
@@ -251,4 +286,24 @@ function dismiss2faNudge() {
     localStorage.setItem('2fa_nudge_dismissed', '1');
     nudgeDismissed.value = true;
 }
+
+const licenseStatus = computed(() => page.props.license?.status ?? 'active');
+
+const licenseLabel = computed(() => ({
+    active:    'License Active',
+    suspended: 'License Suspended',
+    unknown:   'License Unknown',
+}[licenseStatus.value] ?? 'License Active'));
+
+const licenseClass = computed(() => ({
+    active:    'bg-emerald-900/40 text-emerald-300',
+    suspended: 'bg-red-900/40 text-red-300',
+    unknown:   'bg-gray-800 text-gray-400',
+}[licenseStatus.value] ?? 'bg-emerald-900/40 text-emerald-300'));
+
+const licenseDot = computed(() => ({
+    active:    'bg-emerald-400',
+    suspended: 'bg-red-400',
+    unknown:   'bg-gray-500',
+}[licenseStatus.value] ?? 'bg-emerald-400'));
 </script>

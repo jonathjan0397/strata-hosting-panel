@@ -11,11 +11,11 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Create roles
-        $admin    = Role::firstOrCreate(['name' => 'admin']);
-        $reseller = Role::firstOrCreate(['name' => 'reseller']);
-        $user     = Role::firstOrCreate(['name' => 'user']);
+        $adminRole    = Role::firstOrCreate(['name' => 'admin']);
+        $resellerRole = Role::firstOrCreate(['name' => 'reseller']);
+        $userRole     = Role::firstOrCreate(['name' => 'user']);
 
-        // Create default admin account (change password on first login)
+        // Default admin (production — change password on first login)
         $adminUser = User::firstOrCreate(
             ['email' => 'admin@localhost'],
             [
@@ -23,7 +23,27 @@ class DatabaseSeeder extends Seeder
                 'password' => bcrypt('ChangeMe123!'),
             ]
         );
+        $adminUser->assignRole($adminRole);
 
-        $adminUser->assignRole($admin);
+        // Demo accounts — only created when STRATA_DEMO_MODE=true
+        if (config('strata.demo_mode')) {
+            $demoAdmin = User::firstOrCreate(
+                ['email' => 'demo-admin@example.com'],
+                [
+                    'name'     => 'Demo Admin',
+                    'password' => bcrypt('DemoAdmin2026'),
+                ]
+            );
+            $demoAdmin->assignRole($adminRole);
+
+            $demoUser = User::firstOrCreate(
+                ['email' => 'demo-user@example.com'],
+                [
+                    'name'     => 'Demo User',
+                    'password' => bcrypt('DemoUser2026!'),
+                ]
+            );
+            $demoUser->assignRole($userRole);
+        }
     }
 }

@@ -43,6 +43,10 @@ class HandleInertiaRequests extends Middleware
                 'managed'   => StrataLicense::isManaged(),
                 'synced_at' => StrataLicense::cached()['synced_at'] ?? null,
             ],
+            'app' => [
+                'version'   => config('strata.version', 'dev'),
+                'demo_mode' => (bool) config('strata.demo_mode'),
+            ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),

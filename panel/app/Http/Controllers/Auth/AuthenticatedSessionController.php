@@ -13,7 +13,15 @@ class AuthenticatedSessionController extends Controller
 {
     public function create(): Response
     {
-        return Inertia::render('Auth/Login');
+        $demo = (bool) config('strata.demo_mode');
+
+        return Inertia::render('Auth/Login', [
+            'demoMode' => $demo,
+            'demoCredentials' => $demo ? [
+                ['role' => 'Admin',    'email' => 'demo-admin@example.com', 'password' => 'DemoAdmin2026'],
+                ['role' => 'End User', 'email' => 'demo-user@example.com',  'password' => 'DemoUser2026!'],
+            ] : [],
+        ]);
     }
 
     public function store(Request $request): RedirectResponse

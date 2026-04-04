@@ -48,6 +48,7 @@ class StrataLicense
                     'software'       => 'strata-panel',
                     'version'        => config('strata.version', 'dev'),
                     'app_url'        => config('app.url'),
+                    'demo_mode'      => (bool) config('strata.demo_mode'),
                 ]);
 
             if (! $response->successful()) {

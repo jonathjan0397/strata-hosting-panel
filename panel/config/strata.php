@@ -32,4 +32,16 @@ return [
 
     'version' => env('STRATA_VERSION', 'dev'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Mode
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, the login page shows publicly accessible test credentials
+    | and the license ping includes a demo_mode flag.
+    |
+    */
+
+    'demo_mode' => env('STRATA_DEMO_MODE', false),
+
 ];
