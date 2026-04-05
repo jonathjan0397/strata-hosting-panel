@@ -20,6 +20,19 @@ class DnsController extends Controller
         return auth()->user()->account()->firstOrFail();
     }
 
+    public function index(): Response
+    {
+        $account = $this->account();
+        $domains = Domain::where('account_id', $account->id)
+            ->with(['dnsZone' => fn ($q) => $q->withCount('records')])
+            ->orderBy('domain')
+            ->get();
+
+        return Inertia::render('User/Dns/Index', [
+            'domains' => $domains,
+        ]);
+    }
+
     public function show(Domain $domain): Response
     {
         $account = $this->account();

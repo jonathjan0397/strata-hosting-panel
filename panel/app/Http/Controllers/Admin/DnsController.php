@@ -17,6 +17,24 @@ use Inertia\Response;
 class DnsController extends Controller
 {
     /**
+     * DNS zones index — list all domains with their zone status.
+     */
+    public function index(Request $request): Response
+    {
+        $query = Domain::with(['account.user', 'dnsZone' => fn ($q) => $q->withCount('records')])
+            ->orderBy('domain');
+
+        if ($search = $request->query('search')) {
+            $query->where('domain', 'like', "%{$search}%");
+        }
+
+        return Inertia::render('Admin/Dns/Index', [
+            'domains' => $query->paginate(50)->withQueryString(),
+            'filters' => ['search' => $search],
+        ]);
+    }
+
+    /**
      * DNS zone management page for a domain.
      */
     public function show(Domain $domain): Response

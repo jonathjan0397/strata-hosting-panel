@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Domain extends Model
@@ -34,6 +35,11 @@ class Domain extends Model
     public function node(): BelongsTo
     {
         return $this->belongsTo(Node::class);
+    }
+
+    public function dnsZone(): HasOne
+    {
+        return $this->hasOne(DnsZone::class);
     }
 
     public function sslExpiresSoon(int $days = 14): bool

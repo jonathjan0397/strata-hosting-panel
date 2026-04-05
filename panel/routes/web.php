@@ -44,8 +44,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
-    // User portal
-    Route::middleware('role:user')->prefix('my')->name('my.')->group(function () {
+    // User portal (also accessible by admin for testing/support)
+    Route::middleware('role:user|admin')->prefix('my')->name('my.')->group(function () {
         Route::get('/', [User\DashboardController::class, 'index'])->name('dashboard');
 
         // Domains
@@ -77,6 +77,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('ftp/{ftpAccount}/password', [User\FtpController::class, 'changePassword'])->name('ftp.password');
 
         // DNS
+        Route::get('dns', [User\DnsController::class, 'index'])->name('dns.index');
         Route::get('domains/{domain}/dns', [User\DnsController::class, 'show'])->name('dns.show');
         Route::post('dns/zones/{zone}/records', [User\DnsController::class, 'storeRecord'])->name('dns.records.store');
         Route::delete('dns/records/{record}', [User\DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
@@ -139,7 +140,8 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('domains', DomainController::class)->except(['edit', 'update']);
         Route::post('domains/{domain}/ssl', [DomainController::class, 'issueSSL'])->name('domains.ssl');
 
-        // DNS (per domain)
+        // DNS
+        Route::get('dns', [DnsController::class, 'index'])->name('dns.index');
         Route::get('domains/{domain}/dns', [DnsController::class, 'show'])->name('dns.show');
         Route::post('domains/{domain}/dns/provision', [DnsController::class, 'provision'])->name('dns.provision');
         Route::post('dns/zones/{zone}/records', [DnsController::class, 'storeRecord'])->name('dns.records.store');
