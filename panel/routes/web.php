@@ -18,9 +18,11 @@ use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
 use App\Http\Controllers\Admin\ResellerController;
 use App\Http\Controllers\Admin\ApiTokenController;
+use App\Http\Controllers\Admin\BackupScheduleController;
 use App\Http\Controllers\Admin\RemoteBackupDestinationController;
 use App\Http\Controllers\Admin\SecurityController;
 use App\Http\Controllers\Admin\SpamController;
+use App\Http\Controllers\Admin\StandaloneDnsController;
 use App\Http\Controllers\Admin\UpdateController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\User\AutoresponderController;
@@ -206,6 +208,10 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
         Route::post('backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
 
+        // Backup schedules
+        Route::get('backups/schedules', [BackupScheduleController::class, 'index'])->name('backups.schedules');
+        Route::put('backups/schedules/{account}', [BackupScheduleController::class, 'update'])->name('backups.schedules.update');
+
         // Security (fail2ban + firewall)
         Route::get('security', [SecurityController::class, 'index'])->name('security.index');
         Route::get('security/fail2ban', [SecurityController::class, 'fail2banStatus'])->name('security.fail2ban');
@@ -234,6 +240,14 @@ Route::middleware(['auth'])->group(function () {
         // Spam filter (Rspamd)
         Route::get('security/spam', [SpamController::class, 'index'])->name('security.spam');
         Route::get('security/spam/stats', [SpamController::class, 'stats'])->name('security.spam.stats');
+
+        // Standalone / server DNS zones
+        Route::get('dns/server', [StandaloneDnsController::class, 'index'])->name('dns.server.index');
+        Route::post('dns/server', [StandaloneDnsController::class, 'store'])->name('dns.server.store');
+        Route::get('dns/server/{zone}', [StandaloneDnsController::class, 'show'])->name('dns.server.show');
+        Route::delete('dns/server/{zone}', [StandaloneDnsController::class, 'destroy'])->name('dns.server.destroy');
+        Route::post('dns/server/{zone}/records', [StandaloneDnsController::class, 'storeRecord'])->name('dns.server.records.store');
+        Route::delete('dns/server/records/{record}', [StandaloneDnsController::class, 'destroyRecord'])->name('dns.server.records.destroy');
     });
 
     // Profile / Security

@@ -27,8 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Auto-renew SSL certificates expiring within 14 days, daily at 03:00.
         $schedule->command(SslRenew::class)->dailyAt('03:00');
 
-        // Run full backups for all accounts nightly at 02:00.
-        $schedule->command(BackupRun::class, ['--type' => 'full'])->dailyAt('02:00');
+        // Run scheduled backups every hour — BackupRun filters by each account's configured time.
+        $schedule->command(BackupRun::class, ['--type' => 'full', '--scheduled' => true])->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [

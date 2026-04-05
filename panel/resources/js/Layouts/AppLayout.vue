@@ -56,13 +56,21 @@
                             </template>
                             Deliverability
                         </NavItem>
-                        <NavItem :href="route('admin.backups.index')" :active="$page.url.startsWith('/admin/backups') && !$page.url.startsWith('/admin/backups/destinations')">
+                        <NavItem :href="route('admin.backups.index')" :active="$page.url.startsWith('/admin/backups') && !$page.url.startsWith('/admin/backups/destinations') && !$page.url.startsWith('/admin/backups/schedules')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
                                 </svg>
                             </template>
                             Backups
+                        </NavItem>
+                        <NavItem :href="route('admin.backups.schedules')" :active="$page.url.startsWith('/admin/backups/schedules')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                            </template>
+                            Backup Schedules
                         </NavItem>
                         <NavItem :href="route('admin.backups.destinations')" :active="$page.url.startsWith('/admin/backups/destinations')">
                             <template #icon>
@@ -141,13 +149,21 @@
                             </template>
                             Domains
                         </NavItem>
-                        <NavItem :href="route('admin.dns.index')" :active="$page.url.startsWith('/admin/dns')">
+                        <NavItem :href="route('admin.dns.index')" :active="$page.url.startsWith('/admin/dns') && !$page.url.startsWith('/admin/dns/server')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5" />
                                 </svg>
                             </template>
                             DNS Zones
+                        </NavItem>
+                        <NavItem :href="route('admin.dns.server.index')" :active="$page.url.startsWith('/admin/dns/server')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 17.25v.75a3 3 0 0 1-3 3h-15a3 3 0 0 1-3-3v-.75m19.5 0a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3m19.5 0h.008v.015h-.008v-.015Zm-19.5 0h.008v.015H2.25v-.015ZM12 12.75h.008v.015H12v-.015Zm0-4.5h.008v.015H12V8.25Z" />
+                                </svg>
+                            </template>
+                            Server DNS
                         </NavItem>
                     </NavGroup>
                 </template>
