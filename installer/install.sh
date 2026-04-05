@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  Strata Panel — Installer
-#  Supported: Debian 11 (Bullseye) · Debian 12 (Bookworm)
+#  Supported: Debian 11 (Bullseye) · Debian 12 (Bookworm) · Debian 13 (Trixie)
 #  Run as root on a fresh server.
 #
 #  Usage:
-#    curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/install.sh | bash
+#    bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/install.sh)
 #  Or:
 #    bash install.sh
 # =============================================================================
@@ -19,8 +19,9 @@ info()    { echo -e "${CYAN}[info]${NC} $*"; }
 success() { echo -e "${GREEN}[ok]${NC}   $*"; }
 warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 die()     { echo -e "${RED}[fail]${NC} $*" >&2; exit 1; }
+prompt()  { echo -e "${CYAN}$*${NC}"; }
 
-# ── Checks ────────────────────────────────────────────────────────────────────
+# ── Root check ────────────────────────────────────────────────────────────────
 [[ $EUID -eq 0 ]] || die "Must be run as root."
 
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
@@ -30,70 +31,134 @@ DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
 HOSTNAME_FQDN=$(hostname -f 2>/dev/null || hostname)
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
 
-echo -e "\n${BOLD}╔══════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║        Strata Panel Installer            ║${NC}"
-echo -e "${BOLD}╚══════════════════════════════════════════╝${NC}\n"
+echo -e "\n${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}║           Strata Panel Installer  v1.0-Beta          ║${NC}"
+echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${NC}\n"
 info "Debian $DEBIAN_VERSION · $HOSTNAME_FQDN · $SERVER_IP"
 echo ""
 
-# ── Configuration prompts ─────────────────────────────────────────────────────
-read -rp "$(echo -e "${CYAN}Panel domain${NC} (e.g. panel.example.com): ")" PANEL_DOMAIN
-[[ -n "$PANEL_DOMAIN" ]] || die "Panel domain is required."
+# ── Helper: generate a random password ───────────────────────────────────────
+gen_pass()  { openssl rand -base64 40 | tr -dc 'a-zA-Z0-9' | head -c "${1:-32}"; }
+gen_hex()   { openssl rand -hex "${1:-32}"; }
+gen_uuid()  { cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen; }
 
-read -rp "$(echo -e "${CYAN}Admin email${NC}: ")" ADMIN_EMAIL
-[[ -n "$ADMIN_EMAIL" ]] || die "Admin email is required."
-
-read -rsp "$(echo -e "${CYAN}Admin password${NC} (min 12 chars): ")" ADMIN_PASSWORD
+# ── 1. Panel domain & web server ──────────────────────────────────────────────
+echo -e "${BOLD}── Server configuration ─────────────────────────────────${NC}"
 echo ""
-[[ ${#ADMIN_PASSWORD} -ge 12 ]] || die "Password must be at least 12 characters."
+
+read -rp "$(prompt 'Panel domain (e.g. panel.example.com): ')" PANEL_DOMAIN
+[[ -n "$PANEL_DOMAIN" ]] || die "Panel domain is required."
 
 echo ""
 echo -e "  ${BOLD}Web server for hosted accounts${NC}"
 echo -e "    ${CYAN}1)${NC} nginx   — Nginx handles all vhosts (recommended)"
 echo -e "    ${CYAN}2)${NC} apache  — Apache2 handles all vhosts"
 echo ""
-read -rp "$(echo -e "${CYAN}Choice${NC} [1]: ")" WEB_SERVER_CHOICE
+read -rp "$(prompt 'Choice [1]: ')" WEB_SERVER_CHOICE
 case "${WEB_SERVER_CHOICE:-1}" in
     2|apache|Apache) WEB_SERVER="apache" ;;
     *)               WEB_SERVER="nginx"  ;;
 esac
-echo -e "  ${GREEN}Selected:${NC} $WEB_SERVER"
+echo -e "  Selected: ${GREEN}$WEB_SERVER${NC}"
+
+# ── 2. Admin account ──────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}── Admin account ────────────────────────────────────────${NC}"
 echo ""
 
-# ── Install directory ─────────────────────────────────────────────────────────
-INSTALL_DIR="/opt/strata-panel"
-AGENT_DIR="/opt/strata-agent"
-PANEL_USER="strata"
-AGENT_HMAC_SECRET=$(openssl rand -hex 32)
-AGENT_NODE_ID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
-DB_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-PDNS_DB_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-PDNS_API_KEY=$(openssl rand -hex 32)
-INSTALL_TOKEN=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
-INSTALL_SECRET=$(openssl rand -hex 32)
+read -rp "$(prompt 'Admin name: ')" ADMIN_NAME
+[[ -n "$ADMIN_NAME" ]] || die "Admin name is required."
+
+read -rp "$(prompt 'Admin email: ')" ADMIN_EMAIL
+[[ -n "$ADMIN_EMAIL" ]] || die "Admin email is required."
+
+while true; do
+    read -rsp "$(prompt 'Admin password (min 12 chars): ')" ADMIN_PASSWORD; echo ""
+    [[ ${#ADMIN_PASSWORD} -ge 12 ]] && break
+    echo -e "  ${RED}Password must be at least 12 characters. Try again.${NC}"
+done
+
+read -rsp "$(prompt 'Confirm admin password: ')" ADMIN_PASSWORD_CONFIRM; echo ""
+[[ "$ADMIN_PASSWORD" == "$ADMIN_PASSWORD_CONFIRM" ]] || die "Passwords do not match."
+
+# ── 3. Service passwords ──────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}── Service passwords ────────────────────────────────────${NC}"
+echo ""
+echo "  Each service (MariaDB, PowerDNS, Redis, Webmail) needs a password."
+echo "  You can let the installer generate secure random passwords (recommended),"
+echo "  or enter your own."
+echo ""
+read -rp "$(prompt 'Auto-generate all service passwords? [Y/n]: ')" AUTO_PASS
+AUTO_PASS="${AUTO_PASS:-Y}"
+
+if [[ "${AUTO_PASS,,}" =~ ^(n|no)$ ]]; then
+    echo ""
+    echo -e "  ${YELLOW}Enter a password for each service, or press Enter to generate that one.${NC}"
+    echo ""
+
+    read -rsp "$(prompt '  MariaDB root password [generate]: ')" DB_PASSWORD; echo ""
+    [[ -z "$DB_PASSWORD" ]] && DB_PASSWORD=$(gen_pass)
+
+    read -rsp "$(prompt '  PowerDNS DB password [generate]: ')" PDNS_DB_PASSWORD; echo ""
+    [[ -z "$PDNS_DB_PASSWORD" ]] && PDNS_DB_PASSWORD=$(gen_pass)
+
+    read -rsp "$(prompt '  Redis password [generate]: ')" REDIS_PASSWORD; echo ""
+    [[ -z "$REDIS_PASSWORD" ]] && REDIS_PASSWORD=$(gen_pass)
+
+    read -rsp "$(prompt '  SnappyMail admin password [generate]: ')" SNAPPYMAIL_ADMIN_PASS; echo ""
+    [[ -z "$SNAPPYMAIL_ADMIN_PASS" ]] && SNAPPYMAIL_ADMIN_PASS=$(gen_pass 20)
+else
+    DB_PASSWORD=$(gen_pass)
+    PDNS_DB_PASSWORD=$(gen_pass)
+    REDIS_PASSWORD=$(gen_pass)
+    SNAPPYMAIL_ADMIN_PASS=$(gen_pass 20)
+    echo -e "  ${GREEN}All service passwords will be generated automatically.${NC}"
+fi
+
+# ── Internal / generated values ───────────────────────────────────────────────
+AGENT_HMAC_SECRET=$(gen_hex 32)
+AGENT_NODE_ID=$(gen_uuid)
+PDNS_API_KEY=$(gen_hex 32)
+INSTALL_TOKEN=$(gen_uuid)
+INSTALL_SECRET=$(gen_hex 32)
 APP_KEY="base64:$(openssl rand -base64 32)"
-WEBMAIL_SSO_SECRET=$(openssl rand -hex 32)
+WEBMAIL_SSO_SECRET=$(gen_hex 32)
 SNAPPYMAIL_VERSION="2.38.2"
-SNAPPYMAIL_ADMIN_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
 WEBMAIL_DIR="/var/www/webmail"
 WEBMAIL_DATA="/var/lib/snappymail"
+INSTALL_DIR="/opt/strata-panel"
+PANEL_USER="strata"
+
+# ── Confirm before proceeding ─────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}── Summary ──────────────────────────────────────────────${NC}"
+echo ""
+echo -e "  Panel domain:   ${BOLD}${PANEL_DOMAIN}${NC}"
+echo -e "  Web server:     ${BOLD}${WEB_SERVER}${NC}"
+echo -e "  Admin email:    ${BOLD}${ADMIN_EMAIL}${NC}"
+echo -e "  Admin name:     ${BOLD}${ADMIN_NAME}${NC}"
+echo -e "  Service creds:  will be saved to ${BOLD}/root/strata-credentials.txt${NC}"
+echo ""
+read -rp "$(prompt 'Proceed with installation? [Y/n]: ')" CONFIRM
+[[ "${CONFIRM:-Y}" =~ ^(y|Y|yes|YES|)$ ]] || { echo "Aborted."; exit 0; }
 
 echo ""
 info "Starting installation…"
 echo ""
 
-# ── 1. System update ──────────────────────────────────────────────────────────
+# ── Step 1. System update ─────────────────────────────────────────────────────
 info "Updating package lists…"
 apt-get update -qq
 
 info "Installing base packages…"
-apt-get install -y -qq \
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
     curl wget gnupg2 ca-certificates lsb-release \
     software-properties-common apt-transport-https \
     git unzip zip openssl ufw fail2ban \
-    acl sudo
+    acl sudo cron
 
-# ── 2. PHP (Ondrej PPA) ───────────────────────────────────────────────────────
+# ── Step 2. PHP (Ondrej PPA) ──────────────────────────────────────────────────
 info "Adding PHP repository (ondrej/php)…"
 curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg \
     https://packages.sury.org/php/apt.gpg
@@ -115,59 +180,76 @@ for VER in "${PHP_VERSIONS[@]}"; do
     for EXT in $PHP_EXTENSIONS; do
         PKG_LIST="$PKG_LIST php${VER}-${EXT}"
     done
-    apt-get install -y -qq $PKG_LIST
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $PKG_LIST
 done
 success "PHP installed."
 
-# ── 3. MariaDB ────────────────────────────────────────────────────────────────
+# ── Step 3. MariaDB ───────────────────────────────────────────────────────────
 info "Installing MariaDB…"
-apt-get install -y -qq mariadb-server mariadb-client
-
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq mariadb-server mariadb-client
 systemctl enable --now mariadb
 
-info "Securing MariaDB…"
-mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';" 2>/dev/null || true
-mysql -u root -p"${DB_PASSWORD}" -e "
+info "Securing MariaDB and creating databases…"
+# Set root password
+mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';" 2>/dev/null || \
+    mysql -e "UPDATE mysql.user SET Password=PASSWORD('${DB_PASSWORD}') WHERE User='root'; FLUSH PRIVILEGES;" 2>/dev/null || true
+
+MYSQL_CMD() { mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
+
+MYSQL_CMD -e "
     DELETE FROM mysql.user WHERE User='';
     DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
     DROP DATABASE IF EXISTS test;
-    DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+    DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%';
     CREATE DATABASE IF NOT EXISTS strata_panel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     CREATE USER IF NOT EXISTS 'strata'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
     GRANT ALL PRIVILEGES ON strata_panel.* TO 'strata'@'localhost';
     FLUSH PRIVILEGES;
-" 2>/dev/null
-success "MariaDB ready. Root password saved to /root/.my.cnf"
-echo "[client]
+"
+
+cat > /root/.my.cnf <<EOF
+[client]
 user=root
-password=${DB_PASSWORD}" > /root/.my.cnf
+password=${DB_PASSWORD}
+host=127.0.0.1
+EOF
 chmod 600 /root/.my.cnf
+success "MariaDB ready."
 
-# ── 3b. PowerDNS ─────────────────────────────────────────────────────────────
+# ── Step 3b. PowerDNS ─────────────────────────────────────────────────────────
 info "Installing PowerDNS with MySQL backend…"
-apt-get install -y -qq pdns-server pdns-backend-mysql
+# Prevent conflicts with systemd-resolved on port 53
+if ss -tlnp 2>/dev/null | grep -q ':53 '; then
+    if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+        sed -i '/^DNSStubListener/d' /etc/systemd/resolved.conf
+        echo "DNSStubListener=no" >> /etc/systemd/resolved.conf
+        systemctl restart systemd-resolved
+        ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        sleep 1
+    fi
+fi
 
-# Create PowerDNS database and user
-MYSQL_PWD="${DB_PASSWORD}" mysql -u root -h 127.0.0.1 -e "
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq pdns-server pdns-backend-mysql
+
+MYSQL_CMD -e "
     CREATE DATABASE IF NOT EXISTS pdns CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     CREATE USER IF NOT EXISTS 'pdns'@'localhost' IDENTIFIED BY '${PDNS_DB_PASSWORD}';
     GRANT ALL PRIVILEGES ON pdns.* TO 'pdns'@'localhost';
     FLUSH PRIVILEGES;
 "
 
-# Import PowerDNS MySQL schema
-SCHEMA_FILE=$(find /usr/share -name "schema.mysql.sql" 2>/dev/null | head -1)
+# Import PowerDNS schema
+SCHEMA_FILE=$(find /usr/share/doc -name "schema.mysql.sql" 2>/dev/null | head -1)
+[[ -z "$SCHEMA_FILE" ]] && SCHEMA_FILE=$(find /usr/share -name "schema.mysql.sql" 2>/dev/null | head -1)
 if [[ -n "$SCHEMA_FILE" ]]; then
-    MYSQL_PWD="${PDNS_DB_PASSWORD}" mysql -u pdns -h 127.0.0.1 pdns < "$SCHEMA_FILE" 2>/dev/null || true
+    mysql -u pdns -p"${PDNS_DB_PASSWORD}" -h 127.0.0.1 pdns < "$SCHEMA_FILE" 2>/dev/null || true
 else
-    warn "PowerDNS MySQL schema not found — import manually from pdns-backend-mysql docs."
+    warn "PowerDNS MySQL schema not found — import manually: pdns-backend-mysql docs"
 fi
 
-# Write PowerDNS configuration
 mkdir -p /etc/powerdns
 cat > /etc/powerdns/pdns.conf <<EOF
-# PowerDNS — Strata Panel managed
-local-address=0.0.0.0
+# PowerDNS — managed by Strata Panel
 local-port=53
 launch=gmysql
 gmysql-host=127.0.0.1
@@ -190,33 +272,24 @@ log-dns-queries=no
 loglevel=4
 EOF
 
-# Disable systemd-resolved stub on port 53 if needed
-if ss -tlnp | grep -q ':53 '; then
-    if systemctl is-active --quiet systemd-resolved; then
-        sed -i 's/#DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf
-        sed -i 's/DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf
-        systemctl restart systemd-resolved
-        ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
-    fi
-fi
-
 systemctl enable --now pdns
 success "PowerDNS ready (API on 127.0.0.1:8053)."
 
-# ── 3c. Pure-FTPd ─────────────────────────────────────────────────────────────
+# ── Step 3c. Pure-FTPd ────────────────────────────────────────────────────────
 info "Installing Pure-FTPd…"
-apt-get install -y -qq pure-ftpd pure-ftpd-common openssl
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq pure-ftpd pure-ftpd-common
 
 mkdir -p /etc/pureftpd
-touch /etc/pureftpd/passwd
 
-# Configure Pure-FTPd to use virtual users
+# Virtual users
 echo "yes" > /etc/pure-ftpd/conf/VirtualChroot
 echo "/etc/pureftpd/pureftpd.pdb" > /etc/pure-ftpd/conf/PureDB
 echo "yes" > /etc/pure-ftpd/conf/NoAnonymous
 echo "yes" > /etc/pure-ftpd/conf/ChrootEveryone
+echo "30000 50000" > /etc/pure-ftpd/conf/PassivePortRange
+echo "1" > /etc/pure-ftpd/conf/TLS
 
-# Generate TLS certificate for FTPS
+# FTPS certificate
 mkdir -p /etc/ssl/private
 openssl req -x509 -newkey rsa:2048 \
     -keyout /etc/ssl/private/pure-ftpd.pem \
@@ -224,22 +297,29 @@ openssl req -x509 -newkey rsa:2048 \
     -days   3650 -nodes \
     -subj   "/CN=${HOSTNAME_FQDN}" >/dev/null 2>&1
 chmod 600 /etc/ssl/private/pure-ftpd.pem
-echo "1" > /etc/pure-ftpd/conf/TLS
 
-# Build the DB (empty to start)
+touch /etc/pureftpd/passwd
 pure-pw mkdb /etc/pureftpd/pureftpd.pdb -f /etc/pureftpd/passwd 2>/dev/null || true
-
 systemctl enable --now pure-ftpd
-success "Pure-FTPd ready (virtual users, TLS enabled)."
+success "Pure-FTPd ready (virtual users, FTPS, passive 30000-50000)."
 
-# ── 4. Redis ──────────────────────────────────────────────────────────────────
+# ── Step 4. Redis ─────────────────────────────────────────────────────────────
 info "Installing Redis…"
-apt-get install -y -qq redis-server
-sed -i 's/^supervised no/supervised systemd/' /etc/redis/redis.conf
-systemctl enable --now redis-server
-success "Redis ready."
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq redis-server
 
-# ── 4b. Mail stack (Postfix + Dovecot + Rspamd + OpenDKIM) ───────────────────
+# Bind to localhost only and set password
+sed -i 's/^supervised no/supervised systemd/' /etc/redis/redis.conf
+sed -i 's/^# bind 127.0.0.1/bind 127.0.0.1/' /etc/redis/redis.conf
+sed -i 's/^bind .*/bind 127.0.0.1/' /etc/redis/redis.conf
+# Set requirepass
+grep -q '^requirepass' /etc/redis/redis.conf \
+    && sed -i "s/^requirepass.*/requirepass ${REDIS_PASSWORD}/" /etc/redis/redis.conf \
+    || echo "requirepass ${REDIS_PASSWORD}" >> /etc/redis/redis.conf
+
+systemctl enable --now redis-server
+success "Redis ready (localhost only, password set)."
+
+# ── Step 4b. Mail stack ───────────────────────────────────────────────────────
 info "Creating vmail system user…"
 groupadd -g 5000 vmail 2>/dev/null || true
 useradd -u 5000 -g 5000 -d /var/mail/vmail -s /usr/sbin/nologin vmail 2>/dev/null || true
@@ -258,9 +338,9 @@ curl -fsSL https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/ke
 echo "deb [signed-by=/usr/share/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ ${PHP_CODENAME} main" \
     > /etc/apt/sources.list.d/rspamd.list
 apt-get update -qq
-apt-get install -y -qq rspamd
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq rspamd
 
-# ── Postfix virtual mail configuration ───────────────────────────────────────
+# Postfix
 postconf -e "myhostname = ${HOSTNAME_FQDN}"
 postconf -e "myorigin = \$myhostname"
 postconf -e "inet_interfaces = all"
@@ -271,20 +351,14 @@ postconf -e "home_mailbox = Maildir/"
 postconf -e "smtpd_banner = \$myhostname ESMTP"
 postconf -e "biff = no"
 postconf -e "append_dot_mydomain = no"
-
-# Virtual transport via Dovecot LMTP
 postconf -e "virtual_transport = lmtp:unix:private/dovecot-lmtp"
 postconf -e "virtual_mailbox_base = /var/mail/vmail"
 postconf -e "virtual_minimum_uid = 5000"
 postconf -e "virtual_uid_maps = static:5000"
 postconf -e "virtual_gid_maps = static:5000"
-
-# MySQL maps
 postconf -e "virtual_mailbox_domains = proxy:mysql:/etc/postfix/mysql-virtual-mailbox-domains.cf"
 postconf -e "virtual_mailbox_maps = proxy:mysql:/etc/postfix/mysql-virtual-mailbox-maps.cf"
 postconf -e "virtual_alias_maps = proxy:mysql:/etc/postfix/mysql-virtual-alias-maps.cf"
-
-# SASL + TLS for submission
 postconf -e "smtpd_sasl_type = dovecot"
 postconf -e "smtpd_sasl_path = private/auth"
 postconf -e "smtpd_sasl_auth_enable = yes"
@@ -292,14 +366,11 @@ postconf -e "smtpd_tls_cert_file = /etc/strata-panel/tls/fullchain.pem"
 postconf -e "smtpd_tls_key_file = /etc/strata-panel/tls/privkey.pem"
 postconf -e "smtpd_tls_security_level = may"
 postconf -e "smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination"
-
-# OpenDKIM milter
 postconf -e "milter_default_action = accept"
 postconf -e "milter_protocol = 6"
 postconf -e "smtpd_milters = local:opendkim/opendkim.sock"
 postconf -e "non_smtpd_milters = local:opendkim/opendkim.sock"
 
-# MySQL virtual domain map
 cat > /etc/postfix/mysql-virtual-mailbox-domains.cf <<EOF
 user     = strata
 password = ${DB_PASSWORD}
@@ -308,7 +379,6 @@ dbname   = strata_panel
 query    = SELECT domain FROM domains WHERE domain='%s' LIMIT 1
 EOF
 
-# MySQL virtual mailbox map (account existence check)
 cat > /etc/postfix/mysql-virtual-mailbox-maps.cf <<EOF
 user     = strata
 password = ${DB_PASSWORD}
@@ -317,7 +387,6 @@ dbname   = strata_panel
 query    = SELECT 1 FROM email_accounts WHERE email='%s' LIMIT 1
 EOF
 
-# MySQL virtual alias map (forwarders)
 cat > /etc/postfix/mysql-virtual-alias-maps.cf <<EOF
 user     = strata
 password = ${DB_PASSWORD}
@@ -329,26 +398,20 @@ EOF
 chmod 640 /etc/postfix/mysql-virtual-*.cf
 chown root:postfix /etc/postfix/mysql-virtual-*.cf
 
-# Enable submission port
 postconf -M "submission/inet=submission inet n - y - - smtpd
   -o syslog_name=postfix/submission
   -o smtpd_tls_security_level=encrypt
   -o smtpd_sasl_auth_enable=yes
   -o smtpd_relay_restrictions=permit_sasl_authenticated,reject" 2>/dev/null || true
 
-# ── Dovecot configuration ─────────────────────────────────────────────────────
-
-# Disable system auth, enable SQL
+# Dovecot
 sed -i 's/^!include auth-system.conf.ext/#!include auth-system.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
 sed -i 's/#!include auth-sql.conf.ext/!include auth-sql.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
 sed -i 's/^auth_mechanisms =.*/auth_mechanisms = plain login/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
-
-# Maildir location
 sed -i 's|^mail_location =.*|mail_location = maildir:/var/mail/vmail/%d/%n|' /etc/dovecot/conf.d/10-mail.conf 2>/dev/null || true
-echo "mail_uid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
-echo "mail_gid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
+grep -q '^mail_uid' /etc/dovecot/conf.d/10-mail.conf || echo "mail_uid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
+grep -q '^mail_gid' /etc/dovecot/conf.d/10-mail.conf || echo "mail_gid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
 
-# SQL connection config
 cat > /etc/dovecot/dovecot-sql.conf.ext <<EOF
 driver   = mysql
 connect  = host=127.0.0.1 dbname=strata_panel user=strata password=${DB_PASSWORD}
@@ -360,7 +423,6 @@ EOF
 chmod 640 /etc/dovecot/dovecot-sql.conf.ext
 chown root:dovecot /etc/dovecot/dovecot-sql.conf.ext
 
-# LMTP socket (for Postfix delivery) + SASL socket (for Postfix auth)
 cat > /etc/dovecot/conf.d/10-master.conf <<'DOVEOF'
 service imap-login {
   inet_listener imap { port = 0 }
@@ -389,7 +451,6 @@ service auth {
 service auth-worker { user = vmail }
 DOVEOF
 
-# SSL config
 cat > /etc/dovecot/conf.d/10-ssl.conf <<EOF
 ssl = yes
 ssl_cert = </etc/strata-panel/tls/fullchain.pem
@@ -400,7 +461,7 @@ EOF
 systemctl enable --now postfix dovecot rspamd
 success "Mail stack ready (Postfix + Dovecot + Rspamd)."
 
-# ── OpenDKIM configuration ────────────────────────────────────────────────────
+# OpenDKIM
 info "Configuring OpenDKIM…"
 mkdir -p /etc/opendkim/keys
 
@@ -409,13 +470,11 @@ cat > /etc/opendkim.conf <<EOF
 Syslog          yes
 UMask           002
 Mode            sv
-PidFile         /run/opendkim/opendkim.pid
 SignatureAlgorithm rsa-sha256
 UserID          opendkim:opendkim
 Socket          local:/var/spool/postfix/opendkim/opendkim.sock
 PidFile         /var/run/opendkim/opendkim.pid
 TrustAnchorFile /usr/share/dns/root.key
-
 OversignHeaders From
 InternalHosts   /etc/opendkim/trusted.hosts
 ExternalIgnoreList /etc/opendkim/trusted.hosts
@@ -423,54 +482,48 @@ KeyTable        /etc/opendkim/key.table
 SigningTable    refile:/etc/opendkim/signing.table
 EOF
 
-# Trusted hosts (will sign mail from these)
 cat > /etc/opendkim/trusted.hosts <<EOF
 127.0.0.1
 localhost
 ${HOSTNAME_FQDN}
 EOF
 
-# Empty tables to start (agent manages per-domain keys)
 touch /etc/opendkim/key.table
 touch /etc/opendkim/signing.table
 
-# Socket directory shared with Postfix
 mkdir -p /var/spool/postfix/opendkim
 chown opendkim:postfix /var/spool/postfix/opendkim
-
-# Add postfix to opendkim group
 usermod -aG opendkim postfix 2>/dev/null || true
 
 systemctl enable --now opendkim
 success "OpenDKIM ready."
 
-# ── 5. Web server ─────────────────────────────────────────────────────────────
+# ── Step 5. Web server ────────────────────────────────────────────────────────
 if [[ "$WEB_SERVER" == "apache" ]]; then
     info "Installing Apache2…"
-    apt-get install -y -qq apache2
-    # Enable modules needed for PHP-FPM proxying, SSL, and .htaccess
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apache2
     a2enmod proxy_fcgi setenvif headers rewrite ssl >/dev/null 2>&1
     systemctl enable apache2
-    success "Apache2 installed (modules: proxy_fcgi setenvif headers rewrite ssl)."
+    success "Apache2 installed."
 else
     info "Installing Nginx…"
-    apt-get install -y -qq nginx
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nginx
     systemctl enable nginx
     success "Nginx installed."
 fi
 
-# ── 6. Node.js 20 ─────────────────────────────────────────────────────────────
+# ── Step 6. Node.js 20 ────────────────────────────────────────────────────────
 info "Installing Node.js 20…"
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
-apt-get install -y -qq nodejs
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nodejs
 success "Node.js $(node -v) installed."
 
-# ── 7. Composer ───────────────────────────────────────────────────────────────
+# ── Step 7. Composer ──────────────────────────────────────────────────────────
 info "Installing Composer…"
 curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer >/dev/null 2>&1
-success "Composer $(composer --version --no-ansi 2>&1 | head -1) installed."
+success "Composer installed."
 
-# ── 8. Go (for agent build) ───────────────────────────────────────────────────
+# ── Step 8. Go ────────────────────────────────────────────────────────────────
 info "Installing Go 1.23…"
 GO_VERSION="1.23.8"
 wget -q "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/go.tar.gz
@@ -478,21 +531,21 @@ rm -rf /usr/local/go
 tar -C /usr/local -xzf /tmp/go.tar.gz
 rm /tmp/go.tar.gz
 export PATH="/usr/local/go/bin:$PATH"
-echo 'export PATH="/usr/local/go/bin:$PATH"' >> /etc/profile.d/go.sh
+echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh
 success "Go $(go version) installed."
 
-# ── 9. acme.sh (SSL) ──────────────────────────────────────────────────────────
+# ── Step 9. acme.sh ───────────────────────────────────────────────────────────
 info "Installing acme.sh…"
-curl -fsSL https://get.acme.sh | sh -s email="$ADMIN_EMAIL" >/dev/null 2>&1 || warn "acme.sh install failed — install manually later"
+curl -fsSL https://get.acme.sh | sh -s email="$ADMIN_EMAIL" >/dev/null 2>&1 || warn "acme.sh install failed — install manually later."
 /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt 2>/dev/null || true
 success "acme.sh ready."
 
-# ── 10. System user ───────────────────────────────────────────────────────────
+# ── Step 10. System user ──────────────────────────────────────────────────────
 info "Creating system user '${PANEL_USER}'…"
 id "$PANEL_USER" &>/dev/null || useradd -r -m -d "$INSTALL_DIR" -s /bin/bash "$PANEL_USER"
 success "User '${PANEL_USER}' ready."
 
-# ── 11. Clone panel ───────────────────────────────────────────────────────────
+# ── Step 11. Clone panel ──────────────────────────────────────────────────────
 info "Cloning Strata Panel…"
 if [[ -d "$INSTALL_DIR/panel" ]]; then
     warn "Panel directory exists — pulling latest…"
@@ -506,7 +559,7 @@ else
 fi
 success "Panel source ready at $INSTALL_DIR/panel"
 
-# ── 12. Panel .env ────────────────────────────────────────────────────────────
+# ── Step 12. Panel .env ───────────────────────────────────────────────────────
 info "Writing .env…"
 cat > "$INSTALL_DIR/panel/.env" <<EOF
 APP_NAME="Strata Panel"
@@ -533,17 +586,17 @@ SESSION_DRIVER=redis
 SESSION_LIFETIME=120
 
 REDIS_HOST=127.0.0.1
-REDIS_PASSWORD=null
+REDIS_PASSWORD=${REDIS_PASSWORD}
 REDIS_PORT=6379
 
 STRATA_AGENT_LOCAL_SECRET=${AGENT_HMAC_SECRET}
 STRATA_AGENT_LOCAL_NODE_ID=${AGENT_NODE_ID}
 
+STRATA_PDNS_URL=http://127.0.0.1:8053
 STRATA_PDNS_API_KEY=${PDNS_API_KEY}
 STRATA_DB_ROOT_PASSWORD=${DB_PASSWORD}
 
-# License server — set STRATA_LICENSE_SERVER_URL to enable feature gating.
-# Leave blank for Community edition (all free features, no remote checks).
+# License server — leave blank for Community edition.
 STRATA_INSTALL_TOKEN=${INSTALL_TOKEN}
 STRATA_INSTALL_SECRET=${INSTALL_SECRET}
 STRATA_LICENSE_SERVER_URL=
@@ -555,16 +608,16 @@ STRATA_WEBMAIL_URL=/webmail/
 EOF
 chmod 600 "$INSTALL_DIR/panel/.env"
 
-# ── 13. Composer install + migrations ────────────────────────────────────────
+# ── Step 13. Composer install + migrate ───────────────────────────────────────
 info "Installing PHP dependencies…"
 cd "$INSTALL_DIR/panel"
 composer install --no-dev --optimize-autoloader --no-interaction -q
 
-info "Running database migrations…"
+info "Running database migrations and seeding…"
 php artisan migrate --force --seed
 
 info "Initial license sync…"
-php artisan strata:license-sync || warn "License sync skipped (no server configured — OK for Community edition)."
+php artisan strata:license-sync 2>/dev/null || warn "License sync skipped (Community edition — OK)."
 
 info "Building frontend assets…"
 npm ci --silent
@@ -575,24 +628,23 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-# Fix permissions
 chown -R "$PANEL_USER":www-data "$INSTALL_DIR/panel"
 find "$INSTALL_DIR/panel" -type f -exec chmod 644 {} \;
 find "$INSTALL_DIR/panel" -type d -exec chmod 755 {} \;
 chmod -R 775 "$INSTALL_DIR/panel/storage" "$INSTALL_DIR/panel/bootstrap/cache"
 success "Panel configured."
 
-# ── 14. Build agent ───────────────────────────────────────────────────────────
+# ── Step 14. Build agent ──────────────────────────────────────────────────────
 info "Building strata-agent…"
 cd "$INSTALL_DIR/agent-src"
 GOOS=linux GOARCH=amd64 go build \
-    -ldflags "-X github.com/jonathjan0397/strata-panel/agent/internal/api.Version=$(git -C "$INSTALL_DIR" describe --tags --always 2>/dev/null || echo dev)" \
+    -ldflags "-X github.com/jonathjan0397/strata-panel/agent/internal/api.Version=$(git -C "$INSTALL_DIR" describe --tags --always 2>/dev/null || echo 'v1.0-beta')" \
     -o /usr/sbin/strata-agent \
-    ./main.go
+    .
 chmod 755 /usr/sbin/strata-agent
 success "strata-agent built."
 
-# ── 15. Agent TLS cert (self-signed for localhost) ───────────────────────────
+# ── Step 15. Agent TLS cert ───────────────────────────────────────────────────
 info "Generating agent TLS certificate…"
 mkdir -p /etc/strata-agent/tls
 openssl req -x509 -newkey rsa:4096 -keyout /etc/strata-agent/tls/key.pem \
@@ -602,7 +654,7 @@ openssl req -x509 -newkey rsa:4096 -keyout /etc/strata-agent/tls/key.pem \
 chmod 600 /etc/strata-agent/tls/key.pem
 success "Agent TLS certificate ready."
 
-# ── 16. Agent systemd service ─────────────────────────────────────────────────
+# ── Step 16. Agent systemd service ───────────────────────────────────────────
 info "Installing strata-agent systemd service…"
 cat > /etc/systemd/system/strata-agent.service <<EOF
 [Unit]
@@ -634,7 +686,6 @@ systemctl daemon-reload
 systemctl enable --now strata-agent
 success "strata-agent running."
 
-# MySQL credentials file for agent (used by backup restore)
 cat > /etc/strata-agent/mysql.cnf <<EOF
 [client]
 user     = root
@@ -643,7 +694,7 @@ host     = 127.0.0.1
 EOF
 chmod 600 /etc/strata-agent/mysql.cnf
 
-# ── 17. Panel queue worker (systemd) ─────────────────────────────────────────
+# ── Step 17. Queue worker ─────────────────────────────────────────────────────
 info "Installing queue worker service…"
 cat > /etc/systemd/system/strata-queue.service <<EOF
 [Unit]
@@ -666,12 +717,12 @@ systemctl daemon-reload
 systemctl enable --now strata-queue
 success "Queue worker running."
 
-# ── 17b. Laravel scheduler cron ──────────────────────────────────────────────
 info "Adding Laravel scheduler cron job…"
-(crontab -l -u "$PANEL_USER" 2>/dev/null; echo "* * * * * cd ${INSTALL_DIR}/panel && /usr/bin/php artisan schedule:run >> /dev/null 2>&1") | crontab -u "$PANEL_USER" -
+(crontab -l -u "$PANEL_USER" 2>/dev/null; echo "* * * * * cd ${INSTALL_DIR}/panel && /usr/bin/php artisan schedule:run >> /dev/null 2>&1") \
+    | crontab -u "$PANEL_USER" -
 success "Scheduler cron added."
 
-# ── 18. Web server vhost for panel ───────────────────────────────────────────
+# ── Step 18. Nginx/Apache vhost for panel ─────────────────────────────────────
 mkdir -p /etc/strata-panel/tls
 
 if [[ "$WEB_SERVER" == "apache" ]]; then
@@ -705,26 +756,23 @@ if [[ "$WEB_SERVER" == "apache" ]]; then
         Require all granted
     </Directory>
 
-    <FilesMatch \.php$>
+    <FilesMatch \.php\$>
         SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
     </FilesMatch>
 
-    <FilesMatch "\.(env|git|log|sql)$">
+    <FilesMatch "\.(env|git|log|sql)\$">
         Require all denied
     </FilesMatch>
 
     LimitRequestBody 67108864
 
-    # ── Webmail (SnappyMail) ──────────────────────────────────────────────────
     Alias /webmail /var/www/webmail
-
     <Directory /var/www/webmail>
         Options -Indexes +FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>
-
-    <FilesMatch "^/var/www/webmail/.+\.php$">
+    <FilesMatch "^/var/www/webmail/.+\.php\$">
         SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
     </FilesMatch>
 </VirtualHost>
@@ -733,10 +781,7 @@ EOF
     a2ensite strata-panel.conf >/dev/null 2>&1
     a2dissite 000-default.conf >/dev/null 2>&1 || true
 
-    # ── 19. SSL for panel domain (Apache) ─────────────────────────────────────
-    info "Issuing SSL certificate for $PANEL_DOMAIN via Let's Encrypt…"
-
-    # Start Apache on port 80 for ACME challenge (self-signed placeholder first)
+    info "Issuing SSL certificate for $PANEL_DOMAIN…"
     openssl req -x509 -newkey rsa:4096 \
         -keyout /etc/strata-panel/tls/privkey.pem \
         -out    /etc/strata-panel/tls/fullchain.pem \
@@ -748,10 +793,10 @@ EOF
             --key-file       /etc/strata-panel/tls/privkey.pem \
             --fullchain-file /etc/strata-panel/tls/fullchain.pem \
             --reloadcmd      "systemctl reload apache2"
-        success "SSL certificate issued for $PANEL_DOMAIN."
+        success "SSL certificate issued."
     else
-        warn "Let's Encrypt failed (DNS may not be pointing here yet). Using self-signed cert."
-        warn "Re-run: /root/.acme.sh/acme.sh --issue --apache -d ${PANEL_DOMAIN} once DNS is ready."
+        warn "Let's Encrypt failed — using self-signed cert. Re-run once DNS is ready:"
+        warn "  /root/.acme.sh/acme.sh --issue --apache -d ${PANEL_DOMAIN}"
     fi
 
     apache2ctl configtest && systemctl restart apache2
@@ -775,19 +820,22 @@ server {
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
     ssl_prefer_server_ciphers off;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
 
     root ${INSTALL_DIR}/panel/public;
     index index.php;
 
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
-    add_header Referrer-Policy "strict-origin-when-cross-origin";
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
-    location ~ \.php$ {
+    location ~ \.php\$ {
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
@@ -795,24 +843,23 @@ server {
     }
 
     location ~ /\.ht { deny all; }
-    location ~* \.(env|git|log|sql)$ { deny all; }
+    location ~* \.(env|git|log|sql)\$ { deny all; }
 
     client_max_body_size 64M;
 
-    # ── Webmail (SnappyMail) ──────────────────────────────────────────────────
     location /webmail {
         root /var/www;
         index index.php;
         try_files \$uri \$uri/ /webmail/index.php?\$query_string;
 
-        location ~ ^/webmail/.+\.php$ {
+        location ~ ^/webmail/.+\.php\$ {
             root /var/www;
             fastcgi_pass unix:/run/php/php8.3-fpm.sock;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
             include fastcgi_params;
         }
 
-        location ~* ^/webmail/.+\.(js|css|png|jpg|gif|ico|svg|woff|woff2|ttf)$ {
+        location ~* ^/webmail/.+\.(js|css|png|jpg|gif|ico|svg|woff|woff2|ttf)\$ {
             root /var/www;
             expires 30d;
             add_header Cache-Control "public, immutable";
@@ -824,10 +871,7 @@ EOF
     ln -sf /etc/nginx/sites-available/strata-panel /etc/nginx/sites-enabled/strata-panel
     rm -f /etc/nginx/sites-enabled/default
 
-    # ── 19. SSL for panel domain (Nginx) ──────────────────────────────────────
-    info "Issuing SSL certificate for $PANEL_DOMAIN via Let's Encrypt…"
-
-    # Temporary self-signed so Nginx starts cleanly before the real cert is issued
+    info "Issuing SSL certificate for $PANEL_DOMAIN…"
     openssl req -x509 -newkey rsa:4096 \
         -keyout /etc/strata-panel/tls/privkey.pem \
         -out    /etc/strata-panel/tls/fullchain.pem \
@@ -839,37 +883,70 @@ EOF
             --key-file       /etc/strata-panel/tls/privkey.pem \
             --fullchain-file /etc/strata-panel/tls/fullchain.pem \
             --reloadcmd      "systemctl reload nginx"
-        success "SSL certificate issued for $PANEL_DOMAIN."
+        success "SSL certificate issued."
     else
-        warn "Let's Encrypt failed (DNS may not be pointing here yet). Using self-signed cert."
-        warn "Re-run: /root/.acme.sh/acme.sh --issue --nginx -d ${PANEL_DOMAIN} once DNS is ready."
+        warn "Let's Encrypt failed — using self-signed cert. Re-run once DNS is ready:"
+        warn "  /root/.acme.sh/acme.sh --issue --nginx -d ${PANEL_DOMAIN}"
     fi
 
     nginx -t && systemctl reload nginx
     success "Nginx configured."
 fi
 
-# ── 20. Firewall ──────────────────────────────────────────────────────────────
+# ── Step 19. Firewall (UFW) ───────────────────────────────────────────────────
 info "Configuring UFW firewall…"
 ufw --force reset >/dev/null
 ufw default deny incoming >/dev/null
 ufw default allow outgoing >/dev/null
-ufw allow ssh >/dev/null
-ufw allow 80/tcp >/dev/null
-ufw allow 443/tcp >/dev/null
-ufw allow 53/tcp >/dev/null     # DNS (TCP for zone transfers)
-ufw allow 53/udp >/dev/null     # DNS (UDP for queries)
-ufw allow 21/tcp >/dev/null     # FTP control
-ufw allow 30000:50000/tcp >/dev/null  # FTP passive range
-ufw allow 25/tcp >/dev/null     # SMTP
-ufw allow 587/tcp >/dev/null    # SMTP submission
-ufw allow 993/tcp >/dev/null    # IMAPS
-ufw allow 995/tcp >/dev/null    # POP3S
-# Agent port is NOT opened externally — panel talks to it on localhost only
+ufw allow ssh comment "SSH"                     >/dev/null
+ufw allow 80/tcp comment "HTTP"                 >/dev/null
+ufw allow 443/tcp comment "HTTPS"               >/dev/null
+ufw allow 53/tcp comment "DNS TCP"              >/dev/null
+ufw allow 53/udp comment "DNS UDP"              >/dev/null
+ufw allow 21/tcp comment "FTP control"          >/dev/null
+ufw allow 30000:50000/tcp comment "FTP passive" >/dev/null
+ufw allow 25/tcp comment "SMTP"                 >/dev/null
+ufw allow 587/tcp comment "SMTP submission"     >/dev/null
+ufw allow 993/tcp comment "IMAPS"               >/dev/null
+ufw allow 995/tcp comment "POP3S"               >/dev/null
+# Agent port (8743) intentionally NOT opened — panel talks to it on localhost only
 ufw --force enable >/dev/null
-success "Firewall enabled (SSH, HTTP, HTTPS, DNS, FTP, Mail open)."
+success "Firewall enabled."
 
-# ── 21. Register primary node in panel DB ─────────────────────────────────────
+# ── Step 20. fail2ban jails ───────────────────────────────────────────────────
+info "Configuring fail2ban…"
+cat > /etc/fail2ban/jail.local <<EOF
+[DEFAULT]
+bantime  = 3600
+findtime = 600
+maxretry = 5
+backend  = systemd
+
+[sshd]
+enabled  = true
+port     = ssh
+logpath  = %(sshd_log)s
+
+[postfix]
+enabled  = true
+port     = smtp,submission
+logpath  = %(postfix_log)s
+
+[dovecot]
+enabled  = true
+port     = imap3,imaps,pop3,pop3s
+logpath  = %(dovecot_log)s
+
+[nginx-http-auth]
+enabled  = true
+port     = http,https
+logpath  = %(nginx_error_log)s
+EOF
+
+systemctl enable --now fail2ban
+success "fail2ban configured (SSH, Postfix, Dovecot, Nginx jails active)."
+
+# ── Step 21. Register primary node ───────────────────────────────────────────
 info "Registering primary node in panel database…"
 cd "$INSTALL_DIR/panel"
 php artisan tinker --no-interaction <<TINKER 2>/dev/null
@@ -891,127 +968,166 @@ Node::updateOrCreate(
 TINKER
 success "Primary node registered."
 
-# ── 22. SnappyMail webmail ────────────────────────────────────────────────────
+# ── Step 22. SnappyMail webmail ───────────────────────────────────────────────
 info "Installing SnappyMail v${SNAPPYMAIL_VERSION}…"
 mkdir -p "$WEBMAIL_DIR" "$WEBMAIL_DATA"
 
 SNAPPY_ZIP="/tmp/snappymail-${SNAPPYMAIL_VERSION}.zip"
 wget -q "https://github.com/the-djmaze/snappymail/releases/download/v${SNAPPYMAIL_VERSION}/snappymail-${SNAPPYMAIL_VERSION}.zip" \
-    -O "$SNAPPY_ZIP" || die "Failed to download SnappyMail."
+    -O "$SNAPPY_ZIP" || warn "SnappyMail download failed — install manually."
 
-unzip -q "$SNAPPY_ZIP" -d "$WEBMAIL_DIR"
-rm "$SNAPPY_ZIP"
+if [[ -f "$SNAPPY_ZIP" ]]; then
+    unzip -q "$SNAPPY_ZIP" -d "$WEBMAIL_DIR"
+    rm "$SNAPPY_ZIP"
 
-# Move data directory out of webroot for security
-if [[ -d "$WEBMAIL_DIR/data" ]]; then
-    mv "$WEBMAIL_DIR/data" "$WEBMAIL_DATA" 2>/dev/null || true
-fi
-mkdir -p "$WEBMAIL_DATA/_data_/_default_/configs"
-mkdir -p "$WEBMAIL_DATA/_data_/_default_/themes"
+    if [[ -d "$WEBMAIL_DIR/data" ]]; then
+        mv "$WEBMAIL_DIR/data" "$WEBMAIL_DATA" 2>/dev/null || true
+    fi
+    mkdir -p "$WEBMAIL_DATA/_data_/_default_/configs"
+    mkdir -p "$WEBMAIL_DATA/_data_/_default_/themes"
 
-# Point SnappyMail at the external data path
-if [[ -f "$WEBMAIL_DIR/index.php" ]]; then
-    sed -i "s|define('APP_DATA_FOLDER_PATH'.*|define('APP_DATA_FOLDER_PATH', '${WEBMAIL_DATA}/');|" \
-        "$WEBMAIL_DIR/index.php" 2>/dev/null || true
-fi
+    if [[ -f "$WEBMAIL_DIR/index.php" ]]; then
+        sed -i "s|define('APP_DATA_FOLDER_PATH'.*|define('APP_DATA_FOLDER_PATH', '${WEBMAIL_DATA}/');|" \
+            "$WEBMAIL_DIR/index.php" 2>/dev/null || true
+    fi
 
-# Write application config from template
-SNAPPY_SRC="$INSTALL_DIR/agent-src"
-if [[ -f "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" ]]; then
-    cp "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" \
-       "$WEBMAIL_DATA/_data_/_default_/configs/application.ini"
-fi
+    SNAPPY_SRC="$INSTALL_DIR/agent-src"
+    if [[ -f "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" ]]; then
+        cp "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" \
+           "$WEBMAIL_DATA/_data_/_default_/configs/application.ini"
+    fi
+    if [[ -d "${SNAPPY_SRC}/../webmail-skin/themes/strata-dark" ]]; then
+        cp -r "${SNAPPY_SRC}/../webmail-skin/themes/strata-dark" \
+            "$WEBMAIL_DATA/_data_/_default_/themes/Strata Dark"
+    fi
+    if [[ -f "${SNAPPY_SRC}/../webmail-skin/sso.php" ]]; then
+        cp "${SNAPPY_SRC}/../webmail-skin/sso.php" "$WEBMAIL_DIR/sso.php"
+    fi
 
-# Deploy Strata Dark theme
-if [[ -d "${SNAPPY_SRC}/../webmail-skin/themes/strata-dark" ]]; then
-    cp -r "${SNAPPY_SRC}/../webmail-skin/themes/strata-dark" \
-        "$WEBMAIL_DATA/_data_/_default_/themes/Strata Dark"
-fi
-
-# Deploy SSO bridge
-if [[ -f "${SNAPPY_SRC}/../webmail-skin/sso.php" ]]; then
-    cp "${SNAPPY_SRC}/../webmail-skin/sso.php" "$WEBMAIL_DIR/sso.php"
-fi
-
-# Write SSO config (from template with substituted values)
-mkdir -p /etc/strata-panel
-cat > /etc/strata-panel/webmail-sso.php <<EOF
-<?php
-return [
-    'hmac_secret'  => '${WEBMAIL_SSO_SECRET}',
-    'redis_host'   => '127.0.0.1',
-    'redis_port'   => 6379,
-    'redis_password' => null,
-    'redis_db'     => 0,
-    'webmail_root' => '${WEBMAIL_DIR}',
-    'data_path'    => '${WEBMAIL_DATA}/',
-    'token_ttl'    => 60,
-];
-EOF
-chmod 600 /etc/strata-panel/webmail-sso.php
-
-# Set SnappyMail admin password via CLI (if supported in this version)
-if command -v php >/dev/null 2>&1; then
+    # Set SnappyMail admin password
     php -r "
         if (file_exists('${WEBMAIL_DIR}/snappymail/v/0.0.0/app/include.php')) {
             define('APP_DATA_FOLDER_PATH', '${WEBMAIL_DATA}/');
             require_once '${WEBMAIL_DIR}/snappymail/v/0.0.0/app/include.php';
             if (class_exists('RainLoop\\\\Api')) {
-                \\\$admin = \\\\RainLoop\\\\Api::Actions();
-                if (method_exists(\\\$admin, 'GetAdminDomain')) {
-                    \\\$cfg = \\\\RainLoop\\\\Api::Config();
-                    \\\$cfg->Set('security', 'admin_password', hash('sha256', '${SNAPPYMAIL_ADMIN_PASS}'));
-                    \\\$cfg->Save();
-                }
+                \\\$cfg = \\\\RainLoop\\\\Api::Config();
+                \\\$cfg->Set('security', 'admin_password', hash('sha256', '${SNAPPYMAIL_ADMIN_PASS}'));
+                \\\$cfg->Save();
             }
         }
     " 2>/dev/null || true
+
+    chown -R www-data:www-data "$WEBMAIL_DIR" "$WEBMAIL_DATA"
+    find "$WEBMAIL_DIR" -type f -exec chmod 644 {} \;
+    find "$WEBMAIL_DIR" -type d -exec chmod 755 {} \;
+    find "$WEBMAIL_DATA" -type f -exec chmod 600 {} \;
+    find "$WEBMAIL_DATA" -type d -exec chmod 700 {} \;
+    success "SnappyMail installed."
 fi
 
-# Permissions
-chown -R www-data:www-data "$WEBMAIL_DIR" "$WEBMAIL_DATA"
-find "$WEBMAIL_DIR" -type f -exec chmod 644 {} \;
-find "$WEBMAIL_DIR" -type d -exec chmod 755 {} \;
-chmod 755 "$WEBMAIL_DIR/sso.php" 2>/dev/null || true
-find "$WEBMAIL_DATA" -type f -exec chmod 600 {} \;
-find "$WEBMAIL_DATA" -type d -exec chmod 700 {} \;
+mkdir -p /etc/strata-panel
+cat > /etc/strata-panel/webmail-sso.php <<EOF
+<?php
+return [
+    'hmac_secret'    => '${WEBMAIL_SSO_SECRET}',
+    'redis_host'     => '127.0.0.1',
+    'redis_port'     => 6379,
+    'redis_password' => '${REDIS_PASSWORD}',
+    'redis_db'       => 0,
+    'webmail_root'   => '${WEBMAIL_DIR}',
+    'data_path'      => '${WEBMAIL_DATA}/',
+    'token_ttl'      => 60,
+];
+EOF
+chmod 600 /etc/strata-panel/webmail-sso.php
 
-success "SnappyMail installed at https://${PANEL_DOMAIN}/webmail/"
-
-# ── 23. Update admin password ─────────────────────────────────────────────────
-info "Updating admin account password…"
+# ── Step 23. Set admin account ────────────────────────────────────────────────
+info "Setting up admin account…"
 cd "$INSTALL_DIR/panel"
 php artisan tinker --no-interaction <<TINKER 2>/dev/null
 use App\Models\User;
-\$u = User::where('email', 'admin@localhost')->first();
+\$u = User::where('email', 'admin@localhost')->orWhere('email', '${ADMIN_EMAIL}')->first();
 if (\$u) {
-    \$u->update(['email' => '${ADMIN_EMAIL}', 'password' => bcrypt('${ADMIN_PASSWORD}')]);
+    \$u->update([
+        'name'     => '${ADMIN_NAME}',
+        'email'    => '${ADMIN_EMAIL}',
+        'password' => bcrypt('${ADMIN_PASSWORD}'),
+    ]);
 }
 TINKER
-success "Admin account updated: ${ADMIN_EMAIL}"
+success "Admin account configured: ${ADMIN_EMAIL}"
+
+# ── Step 24. Save credentials ─────────────────────────────────────────────────
+CREDS_FILE="/root/strata-credentials.txt"
+cat > "$CREDS_FILE" <<EOF
+# ============================================================
+#  Strata Panel — Installation Credentials
+#  Generated: $(date)
+#  KEEP THIS FILE SECURE. chmod 600 is set automatically.
+# ============================================================
+
+Panel URL:          https://${PANEL_DOMAIN}
+Webmail URL:        https://${PANEL_DOMAIN}/webmail/
+
+Admin email:        ${ADMIN_EMAIL}
+Admin name:         ${ADMIN_NAME}
+Admin password:     (as entered during install — not stored here)
+
+MariaDB root pass:  ${DB_PASSWORD}
+MariaDB strata user: strata / ${DB_PASSWORD}  (db: strata_panel)
+PowerDNS DB pass:   ${PDNS_DB_PASSWORD}        (user: pdns, db: pdns)
+Redis password:     ${REDIS_PASSWORD}
+SnappyMail admin:   https://${PANEL_DOMAIN}/webmail/?admin
+  Webmail admin pw: ${SNAPPYMAIL_ADMIN_PASS}
+
+Agent HMAC secret:  ${AGENT_HMAC_SECRET}
+Agent node ID:      ${AGENT_NODE_ID}
+PowerDNS API key:   ${PDNS_API_KEY}
+Install token:      ${INSTALL_TOKEN}
+
+Files:
+  Panel .env:       ${INSTALL_DIR}/panel/.env
+  MariaDB client:   /root/.my.cnf
+  Agent config:     /etc/strata-agent/
+  fail2ban jails:   /etc/fail2ban/jail.local
+
+Logs:
+  Panel:            ${INSTALL_DIR}/panel/storage/logs/laravel.log
+  Agent:            journalctl -u strata-agent -f
+  Queue:            journalctl -u strata-queue -f
+  Nginx/Apache:     /var/log/nginx/ or /var/log/apache2/
+  Mail:             /var/log/mail.log
+EOF
+chmod 600 "$CREDS_FILE"
+success "Credentials saved to ${CREDS_FILE}"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}${GREEN}║   Strata Panel installation complete!               ║${NC}"
+echo -e "${BOLD}${GREEN}║      Strata Panel installation complete!             ║${NC}"
 echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  ${BOLD}Panel URL:${NC}       https://${PANEL_DOMAIN}"
-echo -e "  ${BOLD}Webmail URL:${NC}     https://${PANEL_DOMAIN}/webmail/"
-echo -e "  ${BOLD}Admin login:${NC}     ${ADMIN_EMAIL}"
-echo -e "  ${BOLD}Admin password:${NC}  (as entered)"
-echo -e "  ${BOLD}Web server:${NC}      ${WEB_SERVER}"
-echo -e "  ${BOLD}Webmail admin:${NC}   https://${PANEL_DOMAIN}/webmail/?admin  (pass: ${SNAPPYMAIL_ADMIN_PASS})"
+echo -e "  ${BOLD}Panel URL:${NC}        https://${PANEL_DOMAIN}"
+echo -e "  ${BOLD}Webmail:${NC}          https://${PANEL_DOMAIN}/webmail/"
+echo -e "  ${BOLD}Admin login:${NC}      ${ADMIN_EMAIL}"
+echo -e "  ${BOLD}Admin password:${NC}   (as entered)"
+echo -e "  ${BOLD}Web server:${NC}       ${WEB_SERVER}"
 echo ""
-echo -e "  ${BOLD}MariaDB root:${NC}    /root/.my.cnf"
-echo -e "  ${BOLD}Panel .env:${NC}      ${INSTALL_DIR}/panel/.env"
-echo -e "  ${BOLD}Agent log:${NC}       journalctl -u strata-agent -f"
-echo -e "  ${BOLD}Queue log:${NC}       journalctl -u strata-queue -f"
-echo -e "  ${BOLD}PowerDNS API:${NC}    127.0.0.1:8053 (key in .env)"
-echo -e "  ${BOLD}FTP:${NC}             port 21, virtual users via Pure-FTPd"
-echo -e "  ${BOLD}Install token:${NC}   ${INSTALL_TOKEN}"
-echo -e "  ${YELLOW}To enable premium features, set STRATA_LICENSE_SERVER_URL in .env${NC}"
+echo -e "  ${BOLD}Webmail admin:${NC}    https://${PANEL_DOMAIN}/webmail/?admin"
+echo -e "  ${BOLD}Webmail admin pw:${NC} ${SNAPPYMAIL_ADMIN_PASS}"
 echo ""
-echo -e "  ${YELLOW}If using a self-signed cert, add DNS A record for ${PANEL_DOMAIN}"
-echo -e "  then run: /root/.acme.sh/acme.sh --issue --${WEB_SERVER} -d ${PANEL_DOMAIN}${NC}"
+echo -e "  ${YELLOW}All service credentials saved to: ${BOLD}/root/strata-credentials.txt${NC}"
+echo ""
+if [[ -f /etc/strata-panel/tls/fullchain.pem ]] && \
+   openssl x509 -in /etc/strata-panel/tls/fullchain.pem -noout -issuer 2>/dev/null | grep -qi 'let.s encrypt'; then
+    echo -e "  ${GREEN}SSL: Let's Encrypt certificate installed.${NC}"
+else
+    echo -e "  ${YELLOW}SSL: Self-signed certificate in use.${NC}"
+    echo -e "  ${YELLOW}      Point DNS A record for ${PANEL_DOMAIN} to ${SERVER_IP} then run:${NC}"
+    echo -e "  ${YELLOW}      /root/.acme.sh/acme.sh --issue --${WEB_SERVER} -d ${PANEL_DOMAIN}${NC}"
+fi
+echo ""
+echo -e "  ${BOLD}To add a child node:${NC}"
+echo -e "    STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash agent.sh"
+echo -e "    (generate secrets in Admin → Nodes → Add Node)"
 echo ""
