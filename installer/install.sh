@@ -221,6 +221,39 @@ WEBMAIL_DATA="/var/lib/snappymail"
 INSTALL_DIR="/opt/strata-panel"
 PANEL_USER="strata"
 
+# ── Pre-flight: repair broken package manager state ───────────────────────────
+# Must run before the confirm prompt so failures exit cleanly (no rollback trap yet).
+echo ""
+info "Checking package manager state…"
+# Detect packages with Reinst-required error flag (3rd char of dpkg -l status = R or X)
+_pf_broken=$(dpkg -l 2>/dev/null \
+    | awk 'NR>5 && length($1)==3 && substr($1,3,1)~/[RX]/ {pkg=$2; sub(/:.*$/,"",pkg); print pkg}' \
+    | sort -u | tr '\n' ' ')
+if [[ -n "${_pf_broken// }" ]]; then
+    warn "Packages needing reinstall detected: ${_pf_broken}"
+    warn "Attempting automatic repair…"
+    # shellcheck disable=SC2086
+    DEBIAN_FRONTEND=noninteractive dpkg --purge --force-remove-reinstreq --force-depends \
+        $_pf_broken 2>&1 || true
+    dpkg --configure -a 2>/dev/null || true
+    DEBIAN_FRONTEND=noninteractive apt-get install -f -y 2>/dev/null || true
+    # Final check
+    if ! apt-get check 2>/dev/null; then
+        echo ""
+        echo -e "${RED}[!] Package manager could not be repaired automatically.${NC}"
+        echo -e "${YELLOW}    The server has leftover broken packages from a previous install attempt.${NC}"
+        echo -e "${YELLOW}    Run the reset script to wipe the server to stock, then re-run the installer:${NC}"
+        echo ""
+        echo "      bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/reset.sh)"
+        echo ""
+        exit 1
+    fi
+    success "Package manager repaired."
+else
+    dpkg --configure -a 2>/dev/null || true
+    success "Package manager OK."
+fi
+
 # ── Confirm before proceeding ─────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}── Summary ──────────────────────────────────────────────${NC}"
@@ -244,18 +277,7 @@ info "Starting installation…"
 echo ""
 
 # ── Step 1. System update ─────────────────────────────────────────────────────
-info "Repairing package manager state…"
-# dpkg -l status column is 3 chars: [desired][status][error]
-# error='R' means reinstreq (needs reinstall); 'X' means hold+reinstreq
-# Packages in this state block ALL apt operations until removed.
-_broken=$(dpkg -l 2>/dev/null | awk 'NR>5 && length($1)==3 && substr($1,3,1)~/[RX]/ {print $2}' | tr '\n' ' ')
-if [[ -n "${_broken// }" ]]; then
-    warn "Removing packages stuck in reinstreq state: ${_broken}"
-    # shellcheck disable=SC2086
-    DEBIAN_FRONTEND=noninteractive dpkg --purge --force-remove-reinstreq --force-depends $_broken 2>/dev/null || true
-fi
 dpkg --configure -a 2>/dev/null || true
-DEBIAN_FRONTEND=noninteractive apt-get install -f -y 2>/dev/null || true
 
 info "Updating package lists…"
 apt-get update || die "apt-get update failed — check your sources.list and network connectivity."
