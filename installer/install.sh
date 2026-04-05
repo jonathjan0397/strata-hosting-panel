@@ -317,22 +317,27 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y mariadb-server mariadb-client
 systemctl enable --now mariadb
 
 info "Securing MariaDB and creating databases…"
-# Set root password
-mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';" 2>/dev/null || \
-    mysql -e "UPDATE mysql.user SET Password=PASSWORD('${DB_PASSWORD}') WHERE User='root'; FLUSH PRIVILEGES;" 2>/dev/null || true
+# Fresh MariaDB on Debian uses unix_socket auth for root — no password needed when
+# running as the OS root user. Do all setup via socket, switching root to password
+# auth in the same statement. Falls back to TCP+password for re-runs.
+_mariadb_run() {
+    mysql "${@}" -e "
+        ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${DB_PASSWORD}');
+        DELETE FROM mysql.user WHERE User='';
+        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost','127.0.0.1','::1');
+        DROP DATABASE IF EXISTS test;
+        DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%';
+        CREATE DATABASE IF NOT EXISTS strata_panel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        CREATE USER IF NOT EXISTS 'strata'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+        GRANT ALL PRIVILEGES ON strata_panel.* TO 'strata'@'localhost';
+        FLUSH PRIVILEGES;
+    " 2>/dev/null
+}
+_mariadb_run \
+    || _mariadb_run -u root -p"${DB_PASSWORD}" -h 127.0.0.1 \
+    || die "Failed to secure MariaDB — check: systemctl status mariadb"
 
 MYSQL_CMD() { mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
-
-MYSQL_CMD -e "
-    DELETE FROM mysql.user WHERE User='';
-    DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
-    DROP DATABASE IF EXISTS test;
-    DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%';
-    CREATE DATABASE IF NOT EXISTS strata_panel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    CREATE USER IF NOT EXISTS 'strata'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
-    GRANT ALL PRIVILEGES ON strata_panel.* TO 'strata'@'localhost';
-    FLUSH PRIVILEGES;
-"
 
 cat > /root/.my.cnf <<EOF
 [client]
