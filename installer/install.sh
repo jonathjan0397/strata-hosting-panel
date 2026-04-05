@@ -2,7 +2,7 @@
 # =============================================================================
 #  Strata Panel — Installer
 #  Supported: Debian 11 (Bullseye) · Debian 12 (Bookworm) · Debian 13 (Trixie)
-#  Run as root on a fresh server.
+#  Run as root or any sudo-capable user on a fresh server.
 #
 #  Usage:
 #    bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/install.sh)
@@ -24,8 +24,15 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 die()     { echo -e "${RED}[fail]${NC} $*" >&2; exit 1; }
 prompt()  { echo -e "${CYAN}$*${NC}"; }
 
-# ── Root check ────────────────────────────────────────────────────────────────
-[[ $EUID -eq 0 ]] || die "Must be run as root."
+# ── Privilege escalation ──────────────────────────────────────────────────────
+# Re-exec under sudo if not already root so the installer can be run as any
+# user with sudo access (e.g. bash install.sh  or  bash <(curl -fsSL ...)).
+if [[ $EUID -ne 0 ]]; then
+    if command -v sudo &>/dev/null; then
+        exec sudo --preserve-env=HOME,USER,LOGNAME bash "$BASH_SOURCE" "$@"
+    fi
+    die "Must be run as root (sudo not found)."
+fi
 
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
 [[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" || "$DEBIAN_VERSION" == "13" ]] \

@@ -2,7 +2,7 @@
 # =============================================================================
 #  Strata Agent — Child Node Installer
 #  Installs only strata-agent on a Debian 11/12 server.
-#  Run on the child node AFTER adding it in the panel.
+#  Run as root or any sudo-capable user on the child node AFTER adding it in the panel.
 #
 #  Usage:
 #    STRATA_HMAC_SECRET=xxx STRATA_NODE_ID=yyy bash agent.sh
@@ -21,7 +21,12 @@ info()    { echo -e "${CYAN}[info]${NC} $*"; }
 success() { echo -e "${GREEN}[ok]${NC}   $*"; }
 die()     { echo -e "${RED}[fail]${NC} $*" >&2; exit 1; }
 
-[[ $EUID -eq 0 ]] || die "Must be run as root."
+if [[ $EUID -ne 0 ]]; then
+    if command -v sudo &>/dev/null; then
+        exec sudo --preserve-env=HOME,USER,LOGNAME,STRATA_HMAC_SECRET,STRATA_NODE_ID,STRATA_PORT bash "$BASH_SOURCE" "$@"
+    fi
+    die "Must be run as root (sudo not found)."
+fi
 
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
 [[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" ]] \
