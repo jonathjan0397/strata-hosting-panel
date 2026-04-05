@@ -818,8 +818,10 @@ info "Initial license sync…"
 php artisan strata:license-sync 2>/dev/null || warn "License sync skipped (Community edition — OK)."
 
 info "Building frontend assets…"
-npm ci --silent
-npm run build
+# Increase Node.js heap for Vite build on low-memory VPS
+export NODE_OPTIONS="--max-old-space-size=512"
+npm ci 2>&1 || die "npm ci failed — check Node.js version and package-lock.json"
+npm run build 2>&1 || die "npm run build failed — see output above"
 
 info "Caching config…"
 php artisan config:cache
