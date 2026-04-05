@@ -173,12 +173,11 @@ echo ""
 
 # ── Step 1. System update ─────────────────────────────────────────────────────
 info "Updating package lists…"
-apt-get update -qq
+apt-get update || die "apt-get update failed — check your sources.list and network connectivity."
 
 info "Installing base packages…"
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
     curl wget gnupg2 ca-certificates lsb-release \
-    software-properties-common apt-transport-https \
     git unzip zip openssl ufw fail2ban \
     acl sudo cron
 
@@ -193,7 +192,7 @@ case "$DEBIAN_VERSION" in
 esac
 echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ ${PHP_CODENAME} main" \
     > /etc/apt/sources.list.d/php.list
-apt-get update -qq
+apt-get update
 
 PHP_VERSIONS=(8.1 8.2 8.3)
 PHP_EXTENSIONS="fpm cli common curl mbstring xml zip bcmath intl gd mysql redis"
@@ -361,7 +360,7 @@ info "Adding Rspamd repository…"
 curl -fsSL https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/keyrings/rspamd.gpg 2>/dev/null
 echo "deb [signed-by=/usr/share/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ ${PHP_CODENAME} main" \
     > /etc/apt/sources.list.d/rspamd.list
-apt-get update -qq
+apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq rspamd
 
 # Postfix
