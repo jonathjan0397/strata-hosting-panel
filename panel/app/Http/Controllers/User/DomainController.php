@@ -106,6 +106,23 @@ class DomainController extends Controller
             : back()->with('error', "SSL issuance failed: {$error}");
     }
 
+    public function uploadCert(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $data = $request->validate([
+            'cert_pem' => ['required', 'string'],
+            'key_pem'  => ['required', 'string'],
+        ]);
+
+        [$success, $error] = app(DomainProvisioner::class)->storeCustomSSL($domain, $data['cert_pem'], $data['key_pem']);
+
+        return $success
+            ? back()->with('success', "Custom SSL certificate installed for {$domain->domain}.")
+            : back()->with('error', "Certificate upload failed: {$error}");
+    }
+
     public function changePhp(Request $request, Domain $domain): RedirectResponse
     {
         $account = $this->account();
@@ -124,5 +141,67 @@ class DomainController extends Controller
         $domain->update(['php_version' => $data['php_version']]);
 
         return back()->with('success', "PHP version set to {$data['php_version']}.");
+    }
+
+    public function updateDirectives(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $data = $request->validate([
+            'custom_directives' => ['nullable', 'string', 'max:4096'],
+        ]);
+
+        $domain->update(['custom_directives' => $data['custom_directives'] ?? null]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        return $success
+            ? back()->with('success', 'Custom directives saved and vhost updated.')
+            : back()->with('error', "Directives saved but vhost update failed: {$error}");
+    }
+
+    public function storeRedirect(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $data = $request->validate([
+            'source'      => ['required', 'string', 'regex:/^\//', 'max:255'],
+            'destination' => ['required', 'url', 'max:2048'],
+            'type'        => ['required', 'in:301,302'],
+        ]);
+
+        $redirects   = $domain->redirects ?? [];
+        $redirects[] = [
+            'source'      => $data['source'],
+            'destination' => $data['destination'],
+            'type'        => (int) $data['type'],
+        ];
+
+        $domain->update(['redirects' => $redirects]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        return $success
+            ? back()->with('success', 'Redirect added.')
+            : back()->with('error', "Redirect saved but vhost update failed: {$error}");
+    }
+
+    public function destroyRedirect(Request $request, Domain $domain, int $index): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $redirects = $domain->redirects ?? [];
+        array_splice($redirects, $index, 1);
+
+        $domain->update(['redirects' => $redirects ?: null]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        return $success
+            ? back()->with('success', 'Redirect removed.')
+            : back()->with('error', "Redirect removed but vhost update failed: {$error}");
     }
 }

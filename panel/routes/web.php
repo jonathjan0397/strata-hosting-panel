@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\NodeStatusController;
 use App\Http\Controllers\Admin\ResellerController;
 use App\Http\Controllers\Admin\ApiTokenController;
 use App\Http\Controllers\Admin\SecurityController;
+use App\Http\Controllers\Admin\UpdateController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
@@ -56,7 +57,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('domains', [User\DomainController::class, 'store'])->name('domains.store');
         Route::get('domains/{domain}', [User\DomainController::class, 'show'])->name('domains.show');
         Route::post('domains/{domain}/ssl', [User\DomainController::class, 'issueSSL'])->name('domains.ssl');
+        Route::post('domains/{domain}/ssl/custom', [User\DomainController::class, 'uploadCert'])->name('domains.ssl.custom');
         Route::put('domains/{domain}/php', [User\DomainController::class, 'changePhp'])->name('domains.php');
+        Route::put('domains/{domain}/directives', [User\DomainController::class, 'updateDirectives'])->name('domains.directives');
+        Route::post('domains/{domain}/redirects', [User\DomainController::class, 'storeRedirect'])->name('domains.redirects.store');
+        Route::delete('domains/{domain}/redirects/{index}', [User\DomainController::class, 'destroyRedirect'])->name('domains.redirects.destroy');
 
         // Email (per-domain)
         Route::get('domains/{domain}/email', [User\EmailController::class, 'index'])->name('email.domain');
@@ -81,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
         // DNS
         Route::get('dns', [User\DnsController::class, 'index'])->name('dns.index');
         Route::get('domains/{domain}/dns', [User\DnsController::class, 'show'])->name('dns.show');
+        Route::get('domains/{domain}/dns/export', [User\DnsController::class, 'exportZone'])->name('dns.export');
         Route::post('dns/zones/{zone}/records', [User\DnsController::class, 'storeRecord'])->name('dns.records.store');
         Route::delete('dns/records/{record}', [User\DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
 
@@ -150,6 +156,7 @@ Route::middleware(['auth'])->group(function () {
         // DNS
         Route::get('dns', [DnsController::class, 'index'])->name('dns.index');
         Route::get('domains/{domain}/dns', [DnsController::class, 'show'])->name('dns.show');
+        Route::get('domains/{domain}/dns/export', [DnsController::class, 'export'])->name('dns.export');
         Route::post('domains/{domain}/dns/provision', [DnsController::class, 'provision'])->name('dns.provision');
         Route::post('dns/zones/{zone}/records', [DnsController::class, 'storeRecord'])->name('dns.records.store');
         Route::delete('dns/records/{record}', [DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
@@ -179,10 +186,19 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
         Route::post('backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
 
-        // Security (fail2ban)
+        // Security (fail2ban + firewall)
         Route::get('security', [SecurityController::class, 'index'])->name('security.index');
         Route::get('security/fail2ban', [SecurityController::class, 'fail2banStatus'])->name('security.fail2ban');
         Route::post('security/unban', [SecurityController::class, 'unban'])->name('security.unban');
+        Route::get('security/firewall', [SecurityController::class, 'firewallIndex'])->name('security.firewall');
+        Route::get('security/firewall/rules', [SecurityController::class, 'firewallRules'])->name('security.firewall.rules');
+        Route::post('security/firewall/rules', [SecurityController::class, 'firewallAdd'])->name('security.firewall.add');
+        Route::delete('security/firewall/rules', [SecurityController::class, 'firewallDelete'])->name('security.firewall.delete');
+
+        // OS updates
+        Route::get('updates', [UpdateController::class, 'index'])->name('updates.index');
+        Route::get('updates/available', [UpdateController::class, 'available'])->name('updates.available');
+        Route::post('updates/apply', [UpdateController::class, 'apply'])->name('updates.apply');
 
         // API tokens (billing integration)
         Route::get('api-tokens', [ApiTokenController::class, 'index'])->name('api-tokens.index');

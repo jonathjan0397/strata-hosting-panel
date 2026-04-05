@@ -11,6 +11,7 @@ use App\Services\AgentClient;
 use App\Services\DnsProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -72,6 +73,43 @@ class DnsController extends Controller
             ? redirect()->route('admin.dns.show', $domain)
                 ->with('success', "DNS zone created for {$domain->domain}.")
             : back()->with('error', "DNS provisioning failed: {$error}");
+    }
+
+    /**
+     * Export DNS zone as a BIND-compatible zone file download.
+     */
+    public function export(Domain $domain): HttpResponse
+    {
+        $zone    = DnsZone::with('records')->where('domain_id', $domain->id)->firstOrFail();
+        $records = $zone->records()->orderByRaw("FIELD(type,'SOA','NS','A','AAAA','MX','CNAME','TXT','SRV','CAA')")->get();
+
+        $serial = date('Ymd') . '01';
+        $fqdn   = rtrim($domain->domain, '.') . '.';
+
+        $lines   = [];
+        $lines[] = "; Zone file for {$domain->domain}";
+        $lines[] = "; Exported " . now()->toDateTimeString();
+        $lines[] = '';
+        $lines[] = "\$ORIGIN {$fqdn}";
+        $lines[] = "\$TTL 3600";
+        $lines[] = '';
+
+        foreach ($records as $r) {
+            $name  = $r->name === $domain->domain ? '@' : rtrim(str_replace('.' . $domain->domain, '', $r->name), '.');
+            $value = $r->value;
+            if ($r->type === 'MX' && $r->priority !== null) {
+                $value = "{$r->priority} {$value}";
+            }
+            $lines[] = "{$name}\t{$r->ttl}\tIN\t{$r->type}\t{$value}";
+        }
+
+        $content  = implode("\n", $lines) . "\n";
+        $filename = $domain->domain . '.zone';
+
+        return response($content, 200, [
+            'Content-Type'        => 'text/plain',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 
     /**

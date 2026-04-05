@@ -10,6 +10,7 @@ use App\Services\AgentClient;
 use App\Services\DnsProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,6 +47,38 @@ class DnsController extends Controller
             'domain'  => $domain,
             'zone'    => $zone,
             'records' => $records,
+        ]);
+    }
+
+    public function exportZone(Domain $domain): HttpResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $zone    = DnsZone::with('records')->where('domain_id', $domain->id)->firstOrFail();
+        $records = $zone->records()->orderByRaw("FIELD(type,'SOA','NS','A','AAAA','MX','CNAME','TXT','SRV','CAA')")->get();
+
+        $fqdn  = rtrim($domain->domain, '.') . '.';
+        $lines = [
+            "; Zone file for {$domain->domain}",
+            "; Exported " . now()->toDateTimeString(),
+            '',
+            "\$ORIGIN {$fqdn}",
+            "\$TTL 3600",
+            '',
+        ];
+
+        foreach ($records as $r) {
+            $name  = $r->name === $domain->domain ? '@' : rtrim(str_replace('.' . $domain->domain, '', $r->name), '.');
+            $value = $r->type === 'MX' && $r->priority !== null ? "{$r->priority} {$r->value}" : $r->value;
+            $lines[] = "{$name}\t{$r->ttl}\tIN\t{$r->type}\t{$value}";
+        }
+
+        $filename = $domain->domain . '.zone';
+
+        return response(implode("\n", $lines) . "\n", 200, [
+            'Content-Type'        => 'text/plain',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
     }
 

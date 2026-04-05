@@ -239,6 +239,211 @@ sed -i 's/^supervised no/supervised systemd/' /etc/redis/redis.conf
 systemctl enable --now redis-server
 success "Redis ready."
 
+# ── 4b. Mail stack (Postfix + Dovecot + Rspamd + OpenDKIM) ───────────────────
+info "Creating vmail system user…"
+groupadd -g 5000 vmail 2>/dev/null || true
+useradd -u 5000 -g 5000 -d /var/mail/vmail -s /usr/sbin/nologin vmail 2>/dev/null || true
+mkdir -p /var/mail/vmail
+chown -R vmail:vmail /var/mail/vmail
+
+info "Installing Postfix + Dovecot + OpenDKIM…"
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    postfix postfix-mysql \
+    dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-mysql \
+    opendkim opendkim-tools \
+    libsasl2-modules
+
+info "Adding Rspamd repository…"
+curl -fsSL https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/keyrings/rspamd.gpg 2>/dev/null
+echo "deb [signed-by=/usr/share/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ ${PHP_CODENAME} main" \
+    > /etc/apt/sources.list.d/rspamd.list
+apt-get update -qq
+apt-get install -y -qq rspamd
+
+# ── Postfix virtual mail configuration ───────────────────────────────────────
+postconf -e "myhostname = ${HOSTNAME_FQDN}"
+postconf -e "myorigin = \$myhostname"
+postconf -e "inet_interfaces = all"
+postconf -e "inet_protocols = ipv4"
+postconf -e "mydestination = localhost"
+postconf -e "mynetworks = 127.0.0.0/8"
+postconf -e "home_mailbox = Maildir/"
+postconf -e "smtpd_banner = \$myhostname ESMTP"
+postconf -e "biff = no"
+postconf -e "append_dot_mydomain = no"
+
+# Virtual transport via Dovecot LMTP
+postconf -e "virtual_transport = lmtp:unix:private/dovecot-lmtp"
+postconf -e "virtual_mailbox_base = /var/mail/vmail"
+postconf -e "virtual_minimum_uid = 5000"
+postconf -e "virtual_uid_maps = static:5000"
+postconf -e "virtual_gid_maps = static:5000"
+
+# MySQL maps
+postconf -e "virtual_mailbox_domains = proxy:mysql:/etc/postfix/mysql-virtual-mailbox-domains.cf"
+postconf -e "virtual_mailbox_maps = proxy:mysql:/etc/postfix/mysql-virtual-mailbox-maps.cf"
+postconf -e "virtual_alias_maps = proxy:mysql:/etc/postfix/mysql-virtual-alias-maps.cf"
+
+# SASL + TLS for submission
+postconf -e "smtpd_sasl_type = dovecot"
+postconf -e "smtpd_sasl_path = private/auth"
+postconf -e "smtpd_sasl_auth_enable = yes"
+postconf -e "smtpd_tls_cert_file = /etc/strata-panel/tls/fullchain.pem"
+postconf -e "smtpd_tls_key_file = /etc/strata-panel/tls/privkey.pem"
+postconf -e "smtpd_tls_security_level = may"
+postconf -e "smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination"
+
+# OpenDKIM milter
+postconf -e "milter_default_action = accept"
+postconf -e "milter_protocol = 6"
+postconf -e "smtpd_milters = local:opendkim/opendkim.sock"
+postconf -e "non_smtpd_milters = local:opendkim/opendkim.sock"
+
+# MySQL virtual domain map
+cat > /etc/postfix/mysql-virtual-mailbox-domains.cf <<EOF
+user     = strata
+password = ${DB_PASSWORD}
+hosts    = 127.0.0.1
+dbname   = strata_panel
+query    = SELECT domain FROM domains WHERE domain='%s' LIMIT 1
+EOF
+
+# MySQL virtual mailbox map (account existence check)
+cat > /etc/postfix/mysql-virtual-mailbox-maps.cf <<EOF
+user     = strata
+password = ${DB_PASSWORD}
+hosts    = 127.0.0.1
+dbname   = strata_panel
+query    = SELECT 1 FROM email_accounts WHERE email='%s' LIMIT 1
+EOF
+
+# MySQL virtual alias map (forwarders)
+cat > /etc/postfix/mysql-virtual-alias-maps.cf <<EOF
+user     = strata
+password = ${DB_PASSWORD}
+hosts    = 127.0.0.1
+dbname   = strata_panel
+query    = SELECT destination FROM email_forwarders WHERE source='%s' LIMIT 1
+EOF
+
+chmod 640 /etc/postfix/mysql-virtual-*.cf
+chown root:postfix /etc/postfix/mysql-virtual-*.cf
+
+# Enable submission port
+postconf -M "submission/inet=submission inet n - y - - smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject" 2>/dev/null || true
+
+# ── Dovecot configuration ─────────────────────────────────────────────────────
+
+# Disable system auth, enable SQL
+sed -i 's/^!include auth-system.conf.ext/#!include auth-system.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
+sed -i 's/#!include auth-sql.conf.ext/!include auth-sql.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
+sed -i 's/^auth_mechanisms =.*/auth_mechanisms = plain login/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
+
+# Maildir location
+sed -i 's|^mail_location =.*|mail_location = maildir:/var/mail/vmail/%d/%n|' /etc/dovecot/conf.d/10-mail.conf 2>/dev/null || true
+echo "mail_uid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
+echo "mail_gid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
+
+# SQL connection config
+cat > /etc/dovecot/dovecot-sql.conf.ext <<EOF
+driver   = mysql
+connect  = host=127.0.0.1 dbname=strata_panel user=strata password=${DB_PASSWORD}
+default_pass_scheme = BLF-CRYPT
+
+password_query = SELECT password FROM email_accounts WHERE email = '%u'
+user_query     = SELECT 5000 AS uid, 5000 AS gid, '/var/mail/vmail/%d/%n' AS home FROM email_accounts WHERE email = '%u'
+EOF
+chmod 640 /etc/dovecot/dovecot-sql.conf.ext
+chown root:dovecot /etc/dovecot/dovecot-sql.conf.ext
+
+# LMTP socket (for Postfix delivery) + SASL socket (for Postfix auth)
+cat > /etc/dovecot/conf.d/10-master.conf <<'DOVEOF'
+service imap-login {
+  inet_listener imap { port = 0 }
+  inet_listener imaps { port = 993 ssl = yes }
+}
+service pop3-login {
+  inet_listener pop3 { port = 0 }
+  inet_listener pop3s { port = 995 ssl = yes }
+}
+service lmtp {
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    mode  = 0600
+    user  = postfix
+    group = postfix
+  }
+}
+service auth {
+  unix_listener /var/spool/postfix/private/auth {
+    mode  = 0660
+    user  = postfix
+    group = postfix
+  }
+  unix_listener auth-userdb { mode = 0600 user = vmail }
+  user = dovecot
+}
+service auth-worker { user = vmail }
+DOVEOF
+
+# SSL config
+cat > /etc/dovecot/conf.d/10-ssl.conf <<EOF
+ssl = yes
+ssl_cert = </etc/strata-panel/tls/fullchain.pem
+ssl_key  = </etc/strata-panel/tls/privkey.pem
+ssl_min_protocol = TLSv1.2
+EOF
+
+systemctl enable --now postfix dovecot rspamd
+success "Mail stack ready (Postfix + Dovecot + Rspamd)."
+
+# ── OpenDKIM configuration ────────────────────────────────────────────────────
+info "Configuring OpenDKIM…"
+mkdir -p /etc/opendkim/keys
+
+cat > /etc/opendkim.conf <<EOF
+# OpenDKIM — managed by Strata Panel
+Syslog          yes
+UMask           002
+Mode            sv
+PidFile         /run/opendkim/opendkim.pid
+SignatureAlgorithm rsa-sha256
+UserID          opendkim:opendkim
+Socket          local:/var/spool/postfix/opendkim/opendkim.sock
+PidFile         /var/run/opendkim/opendkim.pid
+TrustAnchorFile /usr/share/dns/root.key
+
+OversignHeaders From
+InternalHosts   /etc/opendkim/trusted.hosts
+ExternalIgnoreList /etc/opendkim/trusted.hosts
+KeyTable        /etc/opendkim/key.table
+SigningTable    refile:/etc/opendkim/signing.table
+EOF
+
+# Trusted hosts (will sign mail from these)
+cat > /etc/opendkim/trusted.hosts <<EOF
+127.0.0.1
+localhost
+${HOSTNAME_FQDN}
+EOF
+
+# Empty tables to start (agent manages per-domain keys)
+touch /etc/opendkim/key.table
+touch /etc/opendkim/signing.table
+
+# Socket directory shared with Postfix
+mkdir -p /var/spool/postfix/opendkim
+chown opendkim:postfix /var/spool/postfix/opendkim
+
+# Add postfix to opendkim group
+usermod -aG opendkim postfix 2>/dev/null || true
+
+systemctl enable --now opendkim
+success "OpenDKIM ready."
+
 # ── 5. Web server ─────────────────────────────────────────────────────────────
 if [[ "$WEB_SERVER" == "apache" ]]; then
     info "Installing Apache2…"
@@ -429,6 +634,15 @@ systemctl daemon-reload
 systemctl enable --now strata-agent
 success "strata-agent running."
 
+# MySQL credentials file for agent (used by backup restore)
+cat > /etc/strata-agent/mysql.cnf <<EOF
+[client]
+user     = root
+password = ${DB_PASSWORD}
+host     = 127.0.0.1
+EOF
+chmod 600 /etc/strata-agent/mysql.cnf
+
 # ── 17. Panel queue worker (systemd) ─────────────────────────────────────────
 info "Installing queue worker service…"
 cat > /etc/systemd/system/strata-queue.service <<EOF
@@ -451,6 +665,11 @@ EOF
 systemctl daemon-reload
 systemctl enable --now strata-queue
 success "Queue worker running."
+
+# ── 17b. Laravel scheduler cron ──────────────────────────────────────────────
+info "Adding Laravel scheduler cron job…"
+(crontab -l -u "$PANEL_USER" 2>/dev/null; echo "* * * * * cd ${INSTALL_DIR}/panel && /usr/bin/php artisan schedule:run >> /dev/null 2>&1") | crontab -u "$PANEL_USER" -
+success "Scheduler cron added."
 
 # ── 18. Web server vhost for panel ───────────────────────────────────────────
 mkdir -p /etc/strata-panel/tls

@@ -85,6 +85,18 @@ func Routes() chi.Router {
 	r.Get("/fail2ban/status", handleFail2BanStatus)
 	r.Post("/fail2ban/unban", handleFail2BanUnban)
 
+	// Firewall (UFW)
+	r.Get("/firewall/rules", handleFirewallRules)
+	r.Post("/firewall/rules", handleFirewallAddRule)
+	r.Delete("/firewall/rules/{number}", handleFirewallDeleteRule)
+
+	// OS updates
+	r.Get("/system/updates", handleUpdatesList)
+	r.Post("/system/updates", handleUpdatesApply)
+
+	// Custom SSL cert storage
+	r.Post("/ssl/store/{domain}", handleSSLStore)
+
 	// Self-upgrade
 	r.Post("/agent/upgrade", handleAgentUpgrade)
 

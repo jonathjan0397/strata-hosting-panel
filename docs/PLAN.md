@@ -1,7 +1,7 @@
 # Strata Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
-Created: 2026-03-31 | Last Updated: 2026-04-04 | Phase 7 In Progress
+Created: 2026-03-31 | Last Updated: 2026-04-05 | MVP Gaps In Progress
 
 ## Overview
 Strata Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
@@ -151,10 +151,10 @@ Admin
 - [x] Service status (Nginx, PHP-FPM, Postfix, MySQL)
 - [x] Restart/reload services
 - [x] Log viewer per node (real-time, multi-service)
-- [ ] Install strata-agent via one-line command
-- [ ] OS update management (safe updates, exclude critical packages)
-- [ ] Firewall management (UFW rules)
-- [ ] Browser-based SSH terminal (admin only, per-node, xterm.js + WebSocket)
+- [x] Install strata-agent via one-line command
+- [x] OS update management (safe updates, exclude critical packages)
+- [x] Firewall management (UFW rules)
+- [x] Browser-based SSH terminal (admin only, per-node, xterm.js + WebSocket)
 
 ### Account Management
 - [x] Create/suspend/terminate accounts
@@ -170,8 +170,8 @@ Admin
 - [x] Apache vhost generation
 - [x] SSL via acme.sh (auto-renew)
 - [x] PHP version per domain
-- [ ] Redirect management (301/302)
-- [ ] Custom Nginx/Apache directives (UI)
+- [x] Redirect management (301/302)
+- [x] Custom Nginx/Apache directives (UI)
 
 ### Email
 - [x] Create/delete/edit mailboxes
@@ -187,7 +187,8 @@ Admin
 - [x] PowerDNS zone management
 - [x] Full record type support (A, AAAA, CNAME, MX, TXT, SRV, CAA)
 - [x] Auto-populate standard records on domain add
-- [ ] Import/export zone files
+- [ ] Import zone files
+- [x] Export zone files (BIND format download)
 
 ### Databases
 - [x] Create/delete MariaDB databases
@@ -224,7 +225,7 @@ Admin
 - [x] Let's Encrypt via acme.sh
 - [x] Auto-renew
 - [ ] Wildcard cert support
-- [ ] Custom cert upload
+- [x] Custom cert upload
 
 ### Backups
 - [x] Per-account backup (files + databases)

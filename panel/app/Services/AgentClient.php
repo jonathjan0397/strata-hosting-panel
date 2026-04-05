@@ -355,6 +355,50 @@ class AgentClient
         return $this->post('/fail2ban/unban', ['jail' => $jail, 'ip' => $ip]);
     }
 
+    // ── Firewall (UFW) ────────────────────────────────────────────────────────
+
+    public function firewallRules(): Response
+    {
+        return $this->get('/firewall/rules');
+    }
+
+    public function firewallAddRule(string $type, string $port, string $proto = '', string $from = ''): Response
+    {
+        return $this->post('/firewall/rules', [
+            'type'  => $type,
+            'port'  => $port,
+            'proto' => $proto,
+            'from'  => $from,
+        ]);
+    }
+
+    public function firewallDeleteRule(int $number): Response
+    {
+        return $this->delete("/firewall/rules/{$number}");
+    }
+
+    // ── OS updates ────────────────────────────────────────────────────────────
+
+    public function updatesAvailable(): Response
+    {
+        return $this->get('/system/updates');
+    }
+
+    public function updatesApply(): Response
+    {
+        return $this->post('/system/updates');
+    }
+
+    // ── Custom SSL cert ───────────────────────────────────────────────────────
+
+    public function sslStore(string $domain, string $certPem, string $keyPem): Response
+    {
+        return $this->post("/ssl/store/{$domain}", [
+            'cert_pem' => $certPem,
+            'key_pem'  => $keyPem,
+        ]);
+    }
+
     // ── Agent upgrade ─────────────────────────────────────────────────────────
 
     public function upgradeAgent(string $version, string $downloadUrl): Response
