@@ -245,7 +245,15 @@ echo ""
 
 # ── Step 1. System update ─────────────────────────────────────────────────────
 info "Checking for interrupted dpkg operations…"
+# Force-remove any packages stuck in 'needs reinstall' state (iF flag in dpkg -l)
+_broken=$(dpkg -l 2>/dev/null | awk '/^iF/{print $2}')
+if [[ -n "$_broken" ]]; then
+    warn "Removing broken packages: ${_broken}"
+    # shellcheck disable=SC2086
+    dpkg --remove --force-remove-reinstreq $_broken 2>/dev/null || true
+fi
 dpkg --configure -a 2>/dev/null || true
+DEBIAN_FRONTEND=noninteractive apt-get install -f -y 2>/dev/null || true
 
 info "Updating package lists…"
 apt-get update || die "apt-get update failed — check your sources.list and network connectivity."
