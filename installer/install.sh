@@ -344,8 +344,14 @@ success "Redis ready (localhost only, password set)."
 
 # ── Step 4b. Mail stack ───────────────────────────────────────────────────────
 info "Creating vmail system user…"
-groupadd -g 5000 vmail 2>/dev/null || true
-useradd -u 5000 -g 5000 -d /var/mail/vmail -s /usr/sbin/nologin vmail 2>/dev/null || true
+if ! getent group vmail > /dev/null 2>&1; then
+    groupadd -g 5000 vmail 2>/dev/null || groupadd vmail || die "Failed to create vmail group"
+fi
+if ! getent passwd vmail > /dev/null 2>&1; then
+    useradd -u 5000 -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail 2>/dev/null \
+        || useradd -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail \
+        || die "Failed to create vmail user"
+fi
 mkdir -p /var/mail/vmail
 chown -R vmail:vmail /var/mail/vmail
 
