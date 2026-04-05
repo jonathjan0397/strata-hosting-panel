@@ -342,18 +342,25 @@ _MARIADB_SQL="
     GRANT ALL PRIVILEGES ON strata_panel.* TO 'strata'@'localhost';
     FLUSH PRIVILEGES;
 "
-# Three attempts to handle different MariaDB defaults across Debian versions:
-#   1. Socket, no auth args   — Debian 11/12, unix_socket plugin
-#   2. Root + empty password  — Debian 13 / MariaDB 11.x default
-#   3. Root + our password    — re-run where root password already set
-_mariadb_rc1=0; _mariadb_err1=$(mysql                                    -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc1=$?
-_mariadb_rc2=0; _mariadb_err2=$(mysql -u root --password=''              -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc2=$?
-_mariadb_rc3=0; _mariadb_err3=$(mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc3=$?
-if [[ $_mariadb_rc1 -ne 0 && $_mariadb_rc2 -ne 0 && $_mariadb_rc3 -ne 0 ]]; then
+# Four attempts to handle different MariaDB defaults across Debian versions:
+#   1. Socket, no auth args          — Debian 11/12, unix_socket plugin
+#   2. debian.cnf maintenance creds  — Debian 13 / MariaDB 11.x (always present)
+#   3. Root + empty password         — some minimal configs
+#   4. Root + our password           — re-run where root password already set
+_mariadb_rc1=0; _mariadb_err1=$(mysql -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc1=$?
+_mariadb_rc2=1; _mariadb_err2="(skipped — /etc/mysql/debian.cnf not found)"
+if [[ -f /etc/mysql/debian.cnf ]]; then
+    _mariadb_rc2=0
+    _mariadb_err2=$(mysql --defaults-file=/etc/mysql/debian.cnf -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc2=$?
+fi
+_mariadb_rc3=0; _mariadb_err3=$(mysql -u root --password='' -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc3=$?
+_mariadb_rc4=0; _mariadb_err4=$(mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc4=$?
+if [[ $_mariadb_rc1 -ne 0 && $_mariadb_rc2 -ne 0 && $_mariadb_rc3 -ne 0 && $_mariadb_rc4 -ne 0 ]]; then
     die "Failed to secure MariaDB.
-  attempt 1 (socket):          ${_mariadb_err1}
-  attempt 2 (empty password):  ${_mariadb_err2}
-  attempt 3 (set password):    ${_mariadb_err3}"
+  attempt 1 (socket):         ${_mariadb_err1}
+  attempt 2 (debian.cnf):     ${_mariadb_err2}
+  attempt 3 (empty password): ${_mariadb_err3}
+  attempt 4 (set password):   ${_mariadb_err4}"
 fi
 
 MYSQL_CMD() { mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
