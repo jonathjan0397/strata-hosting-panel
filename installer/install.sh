@@ -355,11 +355,32 @@ _mariadb_rc2=0; _mariadb_err2=$("$_MC" --protocol=socket -u root -e "$_MARIADB_S
 _mariadb_rc3=0; _mariadb_err3=$("$_MC" -u root --password=''     -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc3=$?
 _mariadb_rc4=0; _mariadb_err4=$("$_MC" -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc4=$?
 if [[ $_mariadb_rc1 -ne 0 && $_mariadb_rc2 -ne 0 && $_mariadb_rc3 -ne 0 && $_mariadb_rc4 -ne 0 ]]; then
-    die "Failed to secure MariaDB (client: ${_MC}).
-  attempt 1 (no args):              ${_mariadb_err1}
-  attempt 2 (--protocol=socket):    ${_mariadb_err2}
-  attempt 3 (empty password):       ${_mariadb_err3}
-  attempt 4 (tcp + set password):   ${_mariadb_err4}"
+    # All attempts failed — likely a previous failed install left an unknown root password.
+    # Reset via skip-grant-tables: temporarily disable auth, set our password, restart.
+    warn "All connection attempts failed — resetting MariaDB root password…"
+    cat > /etc/mysql/conf.d/strata-reset.cnf <<'EOF'
+[mariadb]
+skip-grant-tables
+skip-networking
+EOF
+    systemctl restart mariadb
+    sleep 3
+    "$_MC" -u root -e "FLUSH PRIVILEGES; ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';" 2>/dev/null \
+        || "$_MC" -u root -e "FLUSH PRIVILEGES; SET PASSWORD FOR 'root'@'localhost' = PASSWORD('${DB_PASSWORD}');" 2>/dev/null \
+        || true
+    rm -f /etc/mysql/conf.d/strata-reset.cnf
+    systemctl restart mariadb
+    sleep 3
+    # Retry with our now-set password
+    _mariadb_rc5=0
+    _mariadb_err5=$("$_MC" -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc5=$?
+    [[ $_mariadb_rc5 -eq 0 ]] || die "Failed to secure MariaDB even after password reset.
+  reset attempt: ${_mariadb_err5}
+  earlier errors:
+    attempt 1 (no args):           ${_mariadb_err1}
+    attempt 2 (--protocol=socket): ${_mariadb_err2}
+    attempt 3 (empty password):    ${_mariadb_err3}
+    attempt 4 (tcp + password):    ${_mariadb_err4}"
 fi
 
 MYSQL_CMD() { "$_MC" -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
