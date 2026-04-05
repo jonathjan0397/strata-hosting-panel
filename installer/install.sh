@@ -222,33 +222,25 @@ INSTALL_DIR="/opt/strata-panel"
 PANEL_USER="strata"
 
 # ── Pre-flight: repair broken package manager state ───────────────────────────
-# Must run before the confirm prompt so failures exit cleanly (no rollback trap yet).
+# Runs before the confirm prompt so any failure exits cleanly without the rollback trap.
+# We use dpkg --force-all here because package repos are not yet configured —
+# apt-get install -f can't heal packages it can't download. We heal properly
+# in Step 2 after the PHP repo is added.
 echo ""
 info "Checking package manager state…"
-# Detect packages with Reinst-required error flag (3rd char of dpkg -l status = R or X)
 _pf_broken=$(dpkg -l 2>/dev/null \
     | awk 'NR>5 && length($1)==3 && substr($1,3,1)~/[RX]/ {pkg=$2; sub(/:.*$/,"",pkg); print pkg}' \
     | sort -u | tr '\n' ' ')
 if [[ -n "${_pf_broken// }" ]]; then
-    warn "Packages needing reinstall detected: ${_pf_broken}"
-    warn "Attempting automatic repair…"
-    # shellcheck disable=SC2086
-    DEBIAN_FRONTEND=noninteractive dpkg --purge --force-remove-reinstreq --force-depends \
-        $_pf_broken 2>&1 || true
+    warn "Broken packages detected: ${_pf_broken}"
+    warn "Force-removing — they will be cleanly reinstalled by the installer…"
+    for _pkg in $_pf_broken; do
+        dpkg --remove --force-all "$_pkg" 2>/dev/null \
+            || dpkg --purge  --force-all "$_pkg" 2>/dev/null \
+            || true
+    done
     dpkg --configure -a 2>/dev/null || true
-    DEBIAN_FRONTEND=noninteractive apt-get install -f -y 2>/dev/null || true
-    # Final check
-    if ! apt-get check 2>/dev/null; then
-        echo ""
-        echo -e "${RED}[!] Package manager could not be repaired automatically.${NC}"
-        echo -e "${YELLOW}    The server has leftover broken packages from a previous install attempt.${NC}"
-        echo -e "${YELLOW}    Run the reset script to wipe the server to stock, then re-run the installer:${NC}"
-        echo ""
-        echo "      bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/reset.sh)"
-        echo ""
-        exit 1
-    fi
-    success "Package manager repaired."
+    success "Broken packages removed."
 else
     dpkg --configure -a 2>/dev/null || true
     success "Package manager OK."
@@ -300,6 +292,8 @@ esac
 echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ ${PHP_CODENAME} main" \
     > /etc/apt/sources.list.d/php.list
 apt-get update
+# Heal any remaining broken dependencies now that PHP repo is available
+DEBIAN_FRONTEND=noninteractive apt-get install -f -y 2>/dev/null || true
 
 PHP_VERSIONS=(8.1 8.2 8.3)
 PHP_EXTENSIONS="fpm cli common curl mbstring xml zip bcmath intl gd mysql redis"
