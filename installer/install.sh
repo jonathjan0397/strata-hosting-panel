@@ -316,26 +316,36 @@ info "Installing MariaDB…"
 DEBIAN_FRONTEND=noninteractive apt-get install -y mariadb-server mariadb-client
 systemctl enable --now mariadb
 
+info "Waiting for MariaDB to be ready…"
+_db_ready=0
+for _i in $(seq 1 30); do
+    if mysqladmin ping --silent 2>/dev/null; then
+        _db_ready=1; break
+    fi
+    sleep 1
+done
+[[ $_db_ready -eq 1 ]] || die "MariaDB did not start within 30 seconds — check: systemctl status mariadb"
+success "MariaDB is up."
+
 info "Securing MariaDB and creating databases…"
 # Fresh MariaDB on Debian uses unix_socket auth for root — no password needed when
 # running as the OS root user. Do all setup via socket, switching root to password
 # auth in the same statement. Falls back to TCP+password for re-runs.
-_mariadb_run() {
-    mysql "${@}" -e "
-        ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${DB_PASSWORD}');
-        DELETE FROM mysql.user WHERE User='';
-        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost','127.0.0.1','::1');
-        DROP DATABASE IF EXISTS test;
-        DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%';
-        CREATE DATABASE IF NOT EXISTS strata_panel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-        CREATE USER IF NOT EXISTS 'strata'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
-        GRANT ALL PRIVILEGES ON strata_panel.* TO 'strata'@'localhost';
-        FLUSH PRIVILEGES;
-    " 2>/dev/null
-}
-_mariadb_run \
-    || _mariadb_run -u root -p"${DB_PASSWORD}" -h 127.0.0.1 \
-    || die "Failed to secure MariaDB — check: systemctl status mariadb"
+_MARIADB_SQL="
+    ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${DB_PASSWORD}');
+    DELETE FROM mysql.user WHERE User='';
+    DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost','127.0.0.1','::1');
+    DROP DATABASE IF EXISTS test;
+    DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+    CREATE DATABASE IF NOT EXISTS strata_panel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER IF NOT EXISTS 'strata'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+    GRANT ALL PRIVILEGES ON strata_panel.* TO 'strata'@'localhost';
+    FLUSH PRIVILEGES;
+"
+# Try socket (fresh install), then password over TCP (re-run)
+_mariadb_err=$(mysql -e "$_MARIADB_SQL" 2>&1) \
+    || _mariadb_err=$(mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) \
+    || die "Failed to secure MariaDB: ${_mariadb_err}"
 
 MYSQL_CMD() { mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
 
