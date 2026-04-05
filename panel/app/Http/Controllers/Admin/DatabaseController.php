@@ -108,4 +108,48 @@ class DatabaseController extends Controller
             ? back()->with('success', "Password updated for {$database->db_user}.")
             : back()->with('error', "Password change failed: {$error}");
     }
+
+    public function grantUser(Request $request, Account $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'db_name'  => ['required', 'string'],
+            'db_user'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,15}$/'],
+            'password' => ['required', 'string', 'min:8'],
+        ]);
+
+        $client   = AgentClient::for($account->node);
+        $response = $client->databaseGrant($data['db_name'], $data['db_user'], $data['password']);
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Grant failed: ' . $response->body());
+        }
+
+        \App\Models\DatabaseGrant::updateOrCreate(
+            ['db_name' => $data['db_name'], 'db_user' => $data['db_user']],
+            ['account_id' => $account->id, 'node_id' => $account->node_id, 'password_hint' => substr($data['password'], 0, 3) . '***'],
+        );
+
+        AuditLog::record('database.grant', $account, ['db_name' => $data['db_name'], 'db_user' => $data['db_user']]);
+
+        return back()->with('success', "User {$data['db_user']} granted to {$data['db_name']}.");
+    }
+
+    public function revokeUser(Request $request, Account $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'db_name' => ['required', 'string'],
+            'db_user' => ['required', 'string'],
+        ]);
+
+        $client   = AgentClient::for($account->node);
+        $client->databaseRevoke($data['db_name'], $data['db_user'], true);
+
+        \App\Models\DatabaseGrant::where('db_name', $data['db_name'])
+            ->where('db_user', $data['db_user'])
+            ->delete();
+
+        AuditLog::record('database.revoke', $account, ['db_name' => $data['db_name'], 'db_user' => $data['db_user']]);
+
+        return back()->with('success', "Access revoked for {$data['db_user']}.");
+    }
 }

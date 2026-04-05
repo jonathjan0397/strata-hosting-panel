@@ -29,6 +29,11 @@ func Routes() chi.Router {
 	r.Post("/accounts", handleAccountProvision)
 	r.Delete("/accounts/{username}", handleAccountDeprovision)
 
+	// SSH Keys
+	r.Get("/accounts/{username}/ssh-keys", handleSshKeyList)
+	r.Post("/accounts/{username}/ssh-keys", handleSshKeyAdd)
+	r.Delete("/accounts/{username}/ssh-keys/{fingerprint}", handleSshKeyDelete)
+
 	// Nginx vhost management
 	r.Post("/nginx/vhost", handleNginxVhostCreate)
 	r.Delete("/nginx/vhost/{domain}", handleNginxVhostDelete)
@@ -57,6 +62,13 @@ func Routes() chi.Router {
 	r.Post("/mail/forwarder", handleForwarderCreate)
 	r.Delete("/mail/forwarder/{source}", handleForwarderDelete)
 
+	// Autoresponders
+	r.Post("/mail/autoresponder", handleAutoresponderSet)
+	r.Delete("/mail/autoresponder/{email}", handleAutoresponderDelete)
+
+	// Rspamd
+	r.Get("/mail/rspamd/stats", handleRspamdStats)
+
 	// DNS zone + record management (PowerDNS)
 	r.Post("/dns/zone", handleDNSCreateZone)
 	r.Delete("/dns/zone/{domain}", handleDNSDeleteZone)
@@ -69,6 +81,10 @@ func Routes() chi.Router {
 	r.Delete("/databases/{name}", handleDatabaseDelete)
 	r.Put("/databases/users/{username}/password", handleDatabasePasswordChange)
 
+	// Database grants
+	r.Post("/databases/grant", handleDatabaseGrant)
+	r.Delete("/databases/grant", handleDatabaseRevoke)
+
 	// FTP account management (Pure-FTPd)
 	r.Post("/ftp/accounts", handleFTPCreate)
 	r.Delete("/ftp/accounts/{username}", handleFTPDelete)
@@ -80,6 +96,7 @@ func Routes() chi.Router {
 	r.Delete("/backups/{username}/{filename}", handleBackupDelete)
 	r.Get("/backups/{username}/download/{filename}", handleBackupDownload)
 	r.Post("/backups/{username}/restore/{filename}", handleBackupRestore)
+	r.Post("/backups/{username}/push", handleBackupPush)
 
 	// fail2ban
 	r.Get("/fail2ban/status", handleFail2BanStatus)

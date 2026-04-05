@@ -18,9 +18,13 @@ use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
 use App\Http\Controllers\Admin\ResellerController;
 use App\Http\Controllers\Admin\ApiTokenController;
+use App\Http\Controllers\Admin\RemoteBackupDestinationController;
 use App\Http\Controllers\Admin\SecurityController;
+use App\Http\Controllers\Admin\SpamController;
 use App\Http\Controllers\Admin\UpdateController;
 use App\Http\Controllers\Admin\ShellController;
+use App\Http\Controllers\User\AutoresponderController;
+use App\Http\Controllers\User\SshKeyController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
 use App\Http\Controllers\WebmailController;
@@ -71,11 +75,18 @@ Route::middleware(['auth'])->group(function () {
         Route::post('domains/{domain}/email/forwarders', [User\EmailController::class, 'createForwarder'])->name('email.forwarder.store');
         Route::delete('email/forwarders/{forwarder}', [User\EmailController::class, 'deleteForwarder'])->name('email.forwarder.destroy');
 
+        // Autoresponders
+        Route::get('domains/{domain}/email/autoresponders', [AutoresponderController::class, 'index'])->name('email.autoresponders');
+        Route::post('email/mailboxes/{emailAccount}/autoresponder', [AutoresponderController::class, 'store'])->name('email.autoresponder.store');
+        Route::delete('email/mailboxes/{emailAccount}/autoresponder', [AutoresponderController::class, 'destroy'])->name('email.autoresponder.destroy');
+
         // Databases
         Route::get('databases', [User\DatabaseController::class, 'index'])->name('databases.index');
         Route::post('databases', [User\DatabaseController::class, 'store'])->name('databases.store');
         Route::delete('databases/{database}', [User\DatabaseController::class, 'destroy'])->name('databases.destroy');
         Route::put('databases/{database}/password', [User\DatabaseController::class, 'changePassword'])->name('databases.password');
+        Route::post('databases/{database}/grant', [User\DatabaseController::class, 'grantUser'])->name('databases.grant');
+        Route::delete('databases/{database}/revoke', [User\DatabaseController::class, 'revokeUser'])->name('databases.revoke');
 
         // FTP
         Route::get('ftp', [User\FtpController::class, 'index'])->name('ftp.index');
@@ -87,6 +98,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('dns', [User\DnsController::class, 'index'])->name('dns.index');
         Route::get('domains/{domain}/dns', [User\DnsController::class, 'show'])->name('dns.show');
         Route::get('domains/{domain}/dns/export', [User\DnsController::class, 'exportZone'])->name('dns.export');
+        Route::post('domains/{domain}/dns/import', [User\DnsController::class, 'importZone'])->name('dns.import');
         Route::post('dns/zones/{zone}/records', [User\DnsController::class, 'storeRecord'])->name('dns.records.store');
         Route::delete('dns/records/{record}', [User\DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
 
@@ -118,6 +130,11 @@ Route::middleware(['auth'])->group(function () {
         // PHP settings
         Route::get('php', [User\PhpController::class, 'index'])->name('php.index');
         Route::put('php', [User\PhpController::class, 'update'])->name('php.update');
+
+        // SSH Keys
+        Route::get('security/ssh-keys', [SshKeyController::class, 'index'])->name('ssh-keys.index');
+        Route::post('security/ssh-keys', [SshKeyController::class, 'store'])->name('ssh-keys.store');
+        Route::delete('security/ssh-keys/{sshKey}', [SshKeyController::class, 'destroy'])->name('ssh-keys.destroy');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
@@ -142,6 +159,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('accounts/{account}/databases', [DatabaseController::class, 'store'])->name('accounts.databases.store');
         Route::delete('databases/{database}', [DatabaseController::class, 'destroy'])->name('databases.destroy');
         Route::put('databases/{database}/password', [DatabaseController::class, 'changePassword'])->name('databases.password');
+        Route::post('accounts/{account}/databases/grant', [DatabaseController::class, 'grantUser'])->name('databases.grant');
+        Route::delete('accounts/{account}/databases/revoke', [DatabaseController::class, 'revokeUser'])->name('databases.revoke');
 
         // FTP (per account)
         Route::get('accounts/{account}/ftp', [FtpController::class, 'index'])->name('accounts.ftp');
@@ -157,6 +176,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('dns', [DnsController::class, 'index'])->name('dns.index');
         Route::get('domains/{domain}/dns', [DnsController::class, 'show'])->name('dns.show');
         Route::get('domains/{domain}/dns/export', [DnsController::class, 'export'])->name('dns.export');
+        Route::post('domains/{domain}/dns/import', [DnsController::class, 'import'])->name('dns.import');
         Route::post('domains/{domain}/dns/provision', [DnsController::class, 'provision'])->name('dns.provision');
         Route::post('dns/zones/{zone}/records', [DnsController::class, 'storeRecord'])->name('dns.records.store');
         Route::delete('dns/records/{record}', [DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
@@ -204,6 +224,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('api-tokens', [ApiTokenController::class, 'index'])->name('api-tokens.index');
         Route::post('api-tokens', [ApiTokenController::class, 'store'])->name('api-tokens.store');
         Route::delete('api-tokens/{id}', [ApiTokenController::class, 'destroy'])->name('api-tokens.destroy');
+
+        // Remote backup destinations
+        Route::get('backups/destinations', [RemoteBackupDestinationController::class, 'index'])->name('backups.destinations');
+        Route::post('backups/destinations', [RemoteBackupDestinationController::class, 'store'])->name('backups.destinations.store');
+        Route::delete('backups/destinations/{destination}', [RemoteBackupDestinationController::class, 'destroy'])->name('backups.destinations.destroy');
+        Route::post('backups/destinations/{destination}/toggle', [RemoteBackupDestinationController::class, 'toggle'])->name('backups.destinations.toggle');
+
+        // Spam filter (Rspamd)
+        Route::get('security/spam', [SpamController::class, 'index'])->name('security.spam');
+        Route::get('security/spam/stats', [SpamController::class, 'stats'])->name('security.spam.stats');
     });
 
     // Profile / Security

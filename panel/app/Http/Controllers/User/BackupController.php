@@ -70,6 +70,19 @@ class BackupController extends Controller
                     'filename'   => $result['filename'] ?? null,
                     'size_bytes' => $result['size_bytes'] ?? null,
                 ]);
+
+                // Push to remote destinations
+                if ($job->status === 'complete' && $job->filename) {
+                    $destinations = \App\Models\RemoteBackupDestination::where('active', true)->get();
+                    foreach ($destinations as $dest) {
+                        try {
+                            $config = array_merge(['destination_type' => $dest->type], $dest->config);
+                            $client->backupPush($account->username, $job->filename, $config);
+                        } catch (\Throwable) {
+                            // Best-effort
+                        }
+                    }
+                }
             } else {
                 $job->update(['status' => 'failed', 'error' => $response->body()]);
             }

@@ -1,7 +1,7 @@
 # Strata Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
-Created: 2026-03-31 | Last Updated: 2026-04-05 | MVP Gaps In Progress
+Created: 2026-03-31 | Last Updated: 2026-04-05 | MVP Complete — Phase 8 Pending
 
 ## Overview
 Strata Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
@@ -161,7 +161,7 @@ Admin
 - [x] Resource limits (disk, bandwidth, email accounts, databases, subdomains)
 - [x] Assign accounts to nodes
 - [x] System user + PHP-FPM pool provisioning on agent
-- [ ] Reseller management with quota allocation
+- [x] Reseller management with quota allocation
 
 ### Domain Management
 - [x] Add/remove domains and subdomains
@@ -179,27 +179,27 @@ Admin
 - [x] DKIM (2048-bit, auto-generated on domain add)
 - [x] SPF auto-generated on domain add
 - [x] DMARC auto-generated on domain add
-- [ ] Autoresponders
-- [ ] Spam filter settings (Rspamd)
-- [ ] Roundcube webmail SSO
+- [x] Autoresponders (Dovecot Sieve vacation scripts)
+- [x] Spam filter stats (Rspamd stats UI, per-node)
+- [x] Webmail SSO (alternative to Roundcube — see webmail-skin)
 
 ### DNS
 - [x] PowerDNS zone management
 - [x] Full record type support (A, AAAA, CNAME, MX, TXT, SRV, CAA)
 - [x] Auto-populate standard records on domain add
-- [ ] Import zone files
+- [x] Import zone files (BIND format paste/upload)
 - [x] Export zone files (BIND format download)
 
 ### Databases
 - [x] Create/delete MariaDB databases
 - [x] Create/delete database users
-- [ ] Assign user permissions
-- [ ] phpMyAdmin SSO
+- [x] Assign user permissions (grant additional users to databases)
+- [ ] phpMyAdmin SSO (deferred — post v1.0)
 
 ### FTP
 - [x] Create/delete FTP accounts
 - [x] Jailed to account directory
-- [ ] FTPS (TLS) enforced
+- [x] FTPS (TLS) enforced (Pure-FTPd TLS configured in installer)
 
 ### PHP
 - [x] Per-account PHP version selection (8.1 / 8.2 / 8.3)
@@ -224,21 +224,21 @@ Admin
 ### SSL
 - [x] Let's Encrypt via acme.sh
 - [x] Auto-renew
-- [ ] Wildcard cert support
+- [ ] Wildcard cert support (requires DNS challenge — post v1.0)
 - [x] Custom cert upload
 
 ### Backups
 - [x] Per-account backup (files + databases)
 - [x] Scheduled automated backups (nightly at 02:00)
-- [ ] Remote backup destination (S3, FTP, SFTP)
+- [x] Remote backup destination (SFTP + S3, admin-configurable, auto-push after backup)
 - [x] One-click restore
 
 ### Security
 - [x] 2FA (TOTP) for all user levels
 - [x] Audit log (every action logged with user + timestamp)
 - [x] fail2ban integration (admin UI — view jails, banned IPs, one-click unban)
-- [ ] SSH key management
-- [ ] ModSecurity (optional WAF)
+- [x] SSH key management (add/remove authorized_keys per account)
+- [ ] ModSecurity (optional WAF — post v1.0)
 
 ### Admin Tools
 - [x] Browser-based SSH terminal (per-node, xterm.js)
@@ -255,13 +255,6 @@ Admin
 - [ ] Create/manage end user accounts
 - [ ] Resource quota management
 - [ ] White-label support
-
-### Security
-- [ ] fail2ban integration
-- [ ] SSH key management
-- [ ] 2FA (TOTP) for all user levels
-- [ ] Audit log (every action logged with user + timestamp)
-- [ ] ModSecurity (optional WAF)
 
 ---
 
@@ -320,10 +313,10 @@ Admin
 - [ ] WHMCS module
 
 ### Phase 8 — Hardening + Release
-- Security audit
-- Installer (one-line bash)
-- Documentation
-- v1.0-Beta release
+- [ ] Security audit
+- [x] Installer (one-line bash — `installer/install.sh`)
+- [ ] Documentation (README, user guide)
+- [ ] v1.0-Beta release tag
 
 ---
 

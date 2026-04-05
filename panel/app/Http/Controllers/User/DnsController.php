@@ -124,4 +124,77 @@ class DnsController extends Controller
             ? back()->with('success', 'Record deleted.')
             : back()->with('error', "Failed to delete record: {$error}");
     }
+
+    public function importZone(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $data = $request->validate([
+            'zone_text' => ['required', 'string', 'max:65536'],
+        ]);
+
+        $zone = DnsZone::where('domain_id', $domain->id)->firstOrFail();
+        $domain->load('node');
+        $records = $this->parseZoneText($data['zone_text'], $domain->domain);
+
+        if (empty($records)) {
+            return back()->with('error', 'No importable records found in zone file.');
+        }
+
+        $provisioner = new DnsProvisioner(AgentClient::for($zone->node));
+        $imported = 0;
+        foreach ($records as $rec) {
+            [$ok] = $provisioner->addRecord($zone, $rec['name'], $rec['type'], $rec['ttl'], [$rec['value']]);
+            if ($ok) $imported++;
+        }
+
+        return back()->with('success', "{$imported} DNS record(s) imported.");
+    }
+
+    private function parseZoneText(string $text, string $zoneName): array
+    {
+        $records    = [];
+        $defaultTtl = 3600;
+        $skipTypes  = ['SOA', 'NS'];
+        $allowTypes = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV', 'CAA'];
+
+        foreach (explode("\n", $text) as $line) {
+            $line = trim(preg_replace('/;.*$/', '', $line));
+            if ($line === '') continue;
+
+            if (preg_match('/^\$TTL\s+(\d+)/i', $line, $m)) {
+                $defaultTtl = (int) $m[1];
+                continue;
+            }
+            if (preg_match('/^\$ORIGIN/i', $line)) continue;
+
+            if (! preg_match('/^(\S+)\s+(?:(\d+)\s+)?(?:IN\s+)?(\S+)\s+(.+)$/i', $line, $m)) {
+                continue;
+            }
+            [, $rawName, $ttl, $type, $value] = $m;
+            $type = strtoupper($type);
+
+            if (in_array($type, $skipTypes) || ! in_array($type, $allowTypes)) continue;
+
+            $name = $rawName === '@' ? rtrim($zoneName, '.') : rtrim(str_replace('@', $zoneName, $rawName), '.');
+            if (! str_contains($name, '.')) {
+                $name = $name . '.' . rtrim($zoneName, '.');
+            }
+
+            $value = trim($value, '"');
+            if ($type === 'MX' && preg_match('/^(\d+)\s+(.+)$/', $value, $mx)) {
+                $value = $mx[1] . ' ' . rtrim($mx[2], '.');
+            }
+
+            $records[] = [
+                'name'  => $name,
+                'type'  => $type,
+                'ttl'   => $ttl ? (int) $ttl : $defaultTtl,
+                'value' => $value,
+            ];
+        }
+
+        return $records;
+    }
 }

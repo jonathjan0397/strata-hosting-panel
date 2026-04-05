@@ -115,6 +115,22 @@
                     <span class="font-mono text-gray-300">{{ domain.node?.hostname }}</span>
                 </p>
             </div>
+
+            <!-- DNS Import -->
+            <div class="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden mt-4">
+                <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-200">Import Zone File</h3>
+                    <button @click="showImport = !showImport" class="text-xs text-gray-400 hover:text-gray-300 transition-colors">{{ showImport ? 'Cancel' : 'Import BIND zone' }}</button>
+                </div>
+                <div v-if="showImport" class="px-5 py-4">
+                    <p class="text-xs text-gray-500 mb-3">Paste a BIND-format zone file. SOA and NS records are skipped.</p>
+                    <form @submit.prevent="submitImport" class="space-y-3">
+                        <textarea v-model="importText" rows="10" placeholder="; Paste BIND zone file..." class="field font-mono text-xs" required></textarea>
+                        <div v-if="$page.props.flash?.success" class="rounded-lg bg-emerald-900/30 border border-emerald-800 px-3 py-2 text-xs text-emerald-400">{{ $page.props.flash.success }}</div>
+                        <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 transition-colors">Import Records</button>
+                    </form>
+                </div>
+            </div>
         </template>
     </AppLayout>
 </template>
@@ -133,6 +149,14 @@ const props = defineProps({
 
 const showAddRecord = ref(false);
 const recForm = ref({ name: '', type: 'A', ttl: 300, value: '' });
+const showImport = ref(false);
+const importText = ref('');
+
+function submitImport() {
+    router.post(route('admin.dns.import', props.domain.id), { zone_text: importText.value }, {
+        onSuccess: () => { importText.value = ''; showImport.value = false; },
+    });
+}
 
 const recordTypes = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV', 'CAA', 'NS'];
 

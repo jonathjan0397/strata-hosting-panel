@@ -409,6 +409,61 @@ class AgentClient
         ]);
     }
 
+    // ── Autoresponders ────────────────────────────────────────────────────────
+
+    public function autoresponderSet(string $email, string $subject, string $body, bool $active): Response
+    {
+        return $this->post('/mail/autoresponder', compact('email', 'subject', 'body', 'active'));
+    }
+
+    public function autoresponderDelete(string $email): Response
+    {
+        return $this->delete("/mail/autoresponder/{$email}");
+    }
+
+    // ── SSH Keys ──────────────────────────────────────────────────────────────
+
+    public function sshKeyList(string $username): Response
+    {
+        return $this->get("/accounts/{$username}/ssh-keys");
+    }
+
+    public function sshKeyAdd(string $username, string $name, string $publicKey): Response
+    {
+        return $this->post("/accounts/{$username}/ssh-keys", ['name' => $name, 'public_key' => $publicKey]);
+    }
+
+    public function sshKeyDelete(string $username, string $fingerprint): Response
+    {
+        return $this->delete("/accounts/{$username}/ssh-keys/{$fingerprint}");
+    }
+
+    // ── Rspamd ────────────────────────────────────────────────────────────────
+
+    public function rspamdStats(): Response
+    {
+        return $this->get('/mail/rspamd/stats');
+    }
+
+    // ── Database Grants ───────────────────────────────────────────────────────
+
+    public function databaseGrant(string $dbName, string $dbUser, string $password): Response
+    {
+        return $this->post('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'password' => $password]);
+    }
+
+    public function databaseRevoke(string $dbName, string $dbUser, bool $deleteUser = false): Response
+    {
+        return $this->delete_with_body('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'delete_user' => $deleteUser]);
+    }
+
+    // ── Remote Backup Push ────────────────────────────────────────────────────
+
+    public function backupPush(string $username, string $filename, array $destination): Response
+    {
+        return $this->post("/backups/{$username}/push", array_merge(['filename' => $filename], $destination));
+    }
+
     // ── HTTP helpers ──────────────────────────────────────────────────────────
 
     public function get(string $path): Response
