@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\StandaloneDnsController;
 use App\Http\Controllers\Admin\UpdateController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\User\AutoresponderController;
+use App\Http\Controllers\User\AppInstallerController;
 use App\Http\Controllers\User\SshKeyController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
@@ -137,6 +138,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('security/ssh-keys', [SshKeyController::class, 'index'])->name('ssh-keys.index');
         Route::post('security/ssh-keys', [SshKeyController::class, 'store'])->name('ssh-keys.store');
         Route::delete('security/ssh-keys/{sshKey}', [SshKeyController::class, 'destroy'])->name('ssh-keys.destroy');
+
+        // App Installer
+        Route::prefix('apps')->name('apps.')->group(function () {
+            Route::get('/', [AppInstallerController::class, 'catalog'])->name('catalog');
+            Route::get('/installed', [AppInstallerController::class, 'myApps'])->name('installed');
+            Route::post('/install', [AppInstallerController::class, 'install'])->name('install');
+            Route::post('/{installation}/update', [AppInstallerController::class, 'update'])->name('update');
+            Route::patch('/{installation}/auto-update', [AppInstallerController::class, 'toggleAutoUpdate'])->name('auto-update');
+            Route::delete('/{installation}', [AppInstallerController::class, 'destroy'])->name('destroy');
+        });
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {

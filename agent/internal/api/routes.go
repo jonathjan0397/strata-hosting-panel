@@ -11,6 +11,11 @@ func Routes() chi.Router {
 	r.Get("/health", handleHealth)
 	r.Get("/version", handleVersion)
 
+	// App installer
+	r.Post("/apps/install", handleAppInstall)
+	r.Post("/apps/update", handleAppUpdate)
+	r.Delete("/apps/uninstall", handleAppUninstall)
+
 	// System info
 	r.Get("/system/info", handleSystemInfo)
 

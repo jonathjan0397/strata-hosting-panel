@@ -457,6 +457,23 @@ class AgentClient
         return $this->delete_with_body('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'delete_user' => $deleteUser]);
     }
 
+    // ── App Installer ─────────────────────────────────────────────────────────
+
+    public function appInstall(array $params): Response
+    {
+        return $this->postLong('/apps/install', $params);
+    }
+
+    public function appUpdate(array $params): Response
+    {
+        return $this->postLong('/apps/update', $params);
+    }
+
+    public function appUninstall(array $params): Response
+    {
+        return $this->delete_with_body('/apps/uninstall', $params);
+    }
+
     // ── Remote Backup Push ────────────────────────────────────────────────────
 
     public function backupPush(string $username, string $filename, array $destination): Response
@@ -497,7 +514,13 @@ class AgentClient
         return $this->request('DELETE', $path, $body);
     }
 
-    private function request(string $method, string $path, array $body = []): Response
+    /** Long-timeout POST for operations that can take minutes (app installs, updates). */
+    public function postLong(string $path, array $body = []): Response
+    {
+        return $this->request('POST', $path, $body, timeout: 600);
+    }
+
+    private function request(string $method, string $path, array $body = [], int $timeout = 30): Response
     {
         $timestamp = (string) time();
         $bodyJson  = $body ? json_encode($body) : '';
@@ -509,7 +532,7 @@ class AgentClient
             'Content-Type'       => 'application/json',
             'Accept'             => 'application/json',
         ])
-            ->timeout(30)
+            ->timeout($timeout)
             ->withoutVerifying(); // TODO: verify against stored TLS fingerprint
 
         $url = $this->node->apiUrl($path);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\AppsCheckUpdates;
 use App\Console\Commands\BackupRun;
 use App\Console\Commands\LicenseSync;
 use App\Console\Commands\NodeHealthCheck;
@@ -29,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Run scheduled backups every hour — BackupRun filters by each account's configured time.
         $schedule->command(BackupRun::class, ['--type' => 'full', '--scheduled' => true])->hourly();
+
+        // Check all app installations for available updates daily at 01:00; auto-apply where enabled.
+        $schedule->command(AppsCheckUpdates::class, ['--apply' => true])->dailyAt('01:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
