@@ -244,13 +244,15 @@ info "Starting installation…"
 echo ""
 
 # ── Step 1. System update ─────────────────────────────────────────────────────
-info "Checking for interrupted dpkg operations…"
-# Force-remove any packages stuck in 'needs reinstall' state (iF flag in dpkg -l)
-_broken=$(dpkg -l 2>/dev/null | awk '/^iF/{print $2}')
-if [[ -n "$_broken" ]]; then
-    warn "Removing broken packages: ${_broken}"
+info "Repairing package manager state…"
+# dpkg -l status column is 3 chars: [desired][status][error]
+# error='R' means reinstreq (needs reinstall); 'X' means hold+reinstreq
+# Packages in this state block ALL apt operations until removed.
+_broken=$(dpkg -l 2>/dev/null | awk 'NR>5 && length($1)==3 && substr($1,3,1)~/[RX]/ {print $2}' | tr '\n' ' ')
+if [[ -n "${_broken// }" ]]; then
+    warn "Removing packages stuck in reinstreq state: ${_broken}"
     # shellcheck disable=SC2086
-    dpkg --remove --force-remove-reinstreq $_broken 2>/dev/null || true
+    DEBIAN_FRONTEND=noninteractive dpkg --purge --force-remove-reinstreq --force-depends $_broken 2>/dev/null || true
 fi
 dpkg --configure -a 2>/dev/null || true
 DEBIAN_FRONTEND=noninteractive apt-get install -f -y 2>/dev/null || true
