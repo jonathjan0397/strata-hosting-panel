@@ -28,13 +28,13 @@ DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
 [[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" || "$DEBIAN_VERSION" == "13" ]] \
     || die "Unsupported OS. Debian 11, 12, or 13 required (detected: $DEBIAN_VERSION)."
 
-HOSTNAME_FQDN=$(hostname -f 2>/dev/null || hostname)
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
+DETECTED_HOSTNAME=$(hostname -f 2>/dev/null || hostname)
 
 echo -e "\n${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
 echo -e "${BOLD}║           Strata Panel Installer  v1.0-Beta          ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${NC}\n"
-info "Debian $DEBIAN_VERSION · $HOSTNAME_FQDN · $SERVER_IP"
+info "Debian $DEBIAN_VERSION · IP: $SERVER_IP"
 echo ""
 
 # ── Helper: generate a random password ───────────────────────────────────────
@@ -42,13 +42,36 @@ gen_pass()  { openssl rand -base64 40 | tr -dc 'a-zA-Z0-9' | head -c "${1:-32}";
 gen_hex()   { openssl rand -hex "${1:-32}"; }
 gen_uuid()  { cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen; }
 
-# ── 1. Panel domain & web server ──────────────────────────────────────────────
+# ── 1. Server hostname ────────────────────────────────────────────────────────
 echo -e "${BOLD}── Server configuration ─────────────────────────────────${NC}"
 echo ""
+echo -e "  The server hostname is used by Postfix (mail), OpenDKIM, and the agent."
+echo -e "  It should be a valid FQDN (e.g. ${BOLD}server1.example.com${NC})."
+echo -e "  Detected hostname: ${YELLOW}${DETECTED_HOSTNAME}${NC}"
+echo ""
+read -rp "$(prompt "Server hostname [${DETECTED_HOSTNAME}]: ")" HOSTNAME_INPUT
+HOSTNAME_FQDN="${HOSTNAME_INPUT:-$DETECTED_HOSTNAME}"
+[[ "$HOSTNAME_FQDN" =~ \. ]] || warn "Hostname '${HOSTNAME_FQDN}' has no dot — a bare hostname may cause mail delivery issues."
 
+# Apply hostname to the system
+if [[ "$HOSTNAME_FQDN" != "$DETECTED_HOSTNAME" ]]; then
+    info "Setting system hostname to ${HOSTNAME_FQDN}…"
+    hostnamectl set-hostname "$HOSTNAME_FQDN"
+    SHORT="${HOSTNAME_FQDN%%.*}"
+    # Update /etc/hosts — replace any existing 127.0.1.1 line
+    sed -i "/^127\.0\.1\.1/d" /etc/hosts
+    echo "127.0.1.1  ${HOSTNAME_FQDN} ${SHORT}" >> /etc/hosts
+    success "Hostname set to ${HOSTNAME_FQDN}."
+else
+    info "Keeping existing hostname: ${HOSTNAME_FQDN}"
+fi
+
+# ── 2. Panel domain & web server ──────────────────────────────────────────────
+echo ""
 read -rp "$(prompt 'Panel domain (e.g. panel.example.com): ')" PANEL_DOMAIN
 [[ -n "$PANEL_DOMAIN" ]] || die "Panel domain is required."
 
+echo ""
 echo ""
 echo -e "  ${BOLD}Web server for hosted accounts${NC}"
 echo -e "    ${CYAN}1)${NC} nginx   — Nginx handles all vhosts (recommended)"
@@ -134,6 +157,7 @@ PANEL_USER="strata"
 echo ""
 echo -e "${BOLD}── Summary ──────────────────────────────────────────────${NC}"
 echo ""
+echo -e "  Server hostname:${BOLD}${HOSTNAME_FQDN}${NC}"
 echo -e "  Panel domain:   ${BOLD}${PANEL_DOMAIN}${NC}"
 echo -e "  Web server:     ${BOLD}${WEB_SERVER}${NC}"
 echo -e "  Admin email:    ${BOLD}${ADMIN_EMAIL}${NC}"
@@ -1066,6 +1090,8 @@ cat > "$CREDS_FILE" <<EOF
 #  KEEP THIS FILE SECURE. chmod 600 is set automatically.
 # ============================================================
 
+Server hostname:    ${HOSTNAME_FQDN}
+Server IP:          ${SERVER_IP}
 Panel URL:          https://${PANEL_DOMAIN}
 Webmail URL:        https://${PANEL_DOMAIN}/webmail/
 
@@ -1107,6 +1133,7 @@ echo -e "${BOLD}${GREEN}╔═════════════════�
 echo -e "${BOLD}${GREEN}║      Strata Panel installation complete!             ║${NC}"
 echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
+echo -e "  ${BOLD}Hostname:${NC}         ${HOSTNAME_FQDN}"
 echo -e "  ${BOLD}Panel URL:${NC}        https://${PANEL_DOMAIN}"
 echo -e "  ${BOLD}Webmail:${NC}          https://${PANEL_DOMAIN}/webmail/"
 echo -e "  ${BOLD}Admin login:${NC}      ${ADMIN_EMAIL}"
