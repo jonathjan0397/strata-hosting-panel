@@ -17,6 +17,8 @@ use App\Http\Controllers\Admin\LicenseSyncController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
 use App\Http\Controllers\Admin\ResellerController;
+use App\Http\Controllers\Admin\ApiTokenController;
+use App\Http\Controllers\Admin\SecurityController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
@@ -105,6 +107,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('backups', [User\BackupController::class, 'store'])->name('backups.store');
         Route::delete('backups/{backup}', [User\BackupController::class, 'destroy'])->name('backups.destroy');
         Route::get('backups/{backup}/download', [User\BackupController::class, 'download'])->name('backups.download');
+        Route::post('backups/{backup}/restore', [User\BackupController::class, 'restore'])->name('backups.restore');
+
+        // PHP settings
+        Route::get('php', [User\PhpController::class, 'index'])->name('php.index');
+        Route::put('php', [User\PhpController::class, 'update'])->name('php.update');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
@@ -170,6 +177,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('backups', [AdminBackupController::class, 'index'])->name('backups.index');
         Route::post('backups', [AdminBackupController::class, 'store'])->name('backups.store');
         Route::delete('backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
+        Route::post('backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
+
+        // Security (fail2ban)
+        Route::get('security', [SecurityController::class, 'index'])->name('security.index');
+        Route::get('security/fail2ban', [SecurityController::class, 'fail2banStatus'])->name('security.fail2ban');
+        Route::post('security/unban', [SecurityController::class, 'unban'])->name('security.unban');
+
+        // API tokens (billing integration)
+        Route::get('api-tokens', [ApiTokenController::class, 'index'])->name('api-tokens.index');
+        Route::post('api-tokens', [ApiTokenController::class, 'store'])->name('api-tokens.store');
+        Route::delete('api-tokens/{id}', [ApiTokenController::class, 'destroy'])->name('api-tokens.destroy');
     });
 
     // Profile / Security

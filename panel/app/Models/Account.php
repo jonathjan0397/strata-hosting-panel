@@ -17,6 +17,7 @@ class Account extends Model
         'disk_limit_mb', 'bandwidth_limit_mb', 'max_domains',
         'max_subdomains', 'max_email_accounts', 'max_databases', 'max_ftp_accounts',
         'disk_used_mb', 'bandwidth_used_mb', 'suspended_at',
+        'php_upload_max', 'php_post_max', 'php_memory_limit', 'php_max_exec_time',
     ];
 
     protected $casts = [

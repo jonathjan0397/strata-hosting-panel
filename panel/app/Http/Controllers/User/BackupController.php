@@ -101,6 +101,28 @@ class BackupController extends Controller
         return back();
     }
 
+    public function restore(BackupJob $backup): RedirectResponse
+    {
+        $account = Auth::user()->account;
+
+        if (! $account || $backup->account_id !== $account->id) {
+            abort(403);
+        }
+
+        if (! $backup->filename || $backup->status !== 'complete') {
+            return back()->with('error', 'Backup file not available for restore.');
+        }
+
+        $client   = AgentClient::for($backup->node);
+        $response = $client->backupRestore($account->username, $backup->filename);
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Restore failed: ' . $response->body());
+        }
+
+        return back()->with('success', "Backup {$backup->filename} restored successfully.");
+    }
+
     public function download(BackupJob $backup): Response|RedirectResponse
     {
         $account = Auth::user()->account;

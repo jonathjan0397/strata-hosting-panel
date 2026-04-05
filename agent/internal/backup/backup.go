@@ -158,6 +158,68 @@ func Path(username, filename string) (string, error) {
 	return path, nil
 }
 
+// Restore restores a backup archive to the account's directories.
+// backupType must be "files", "databases", or "full".
+func Restore(username, backupPath, backupType string) error {
+	switch backupType {
+	case "files":
+		return restoreFiles(backupPath)
+	case "databases":
+		return restoreDatabases(backupPath)
+	case "full":
+		// Full archive contains files.tar.gz and databases.sql.gz inside an outer tar.
+		tmp, err := os.MkdirTemp("", "strata-restore-*")
+		if err != nil {
+			return fmt.Errorf("tempdir: %w", err)
+		}
+		defer os.RemoveAll(tmp)
+
+		if out, err := exec.Command("tar", "-xzf", backupPath, "-C", tmp).CombinedOutput(); err != nil {
+			return fmt.Errorf("extract outer tar: %w — %s", err, string(out))
+		}
+
+		if err := restoreFiles(filepath.Join(tmp, "files.tar.gz")); err != nil {
+			return fmt.Errorf("restore files: %w", err)
+		}
+		dbDump := filepath.Join(tmp, "databases.sql.gz")
+		if _, statErr := os.Stat(dbDump); statErr == nil {
+			_ = restoreDatabases(dbDump) // non-fatal
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown backup type: %s", backupType)
+	}
+}
+
+// restoreFiles extracts a files.tar.gz back to /var/www (preserving the
+// top-level username directory that was packed into the archive).
+func restoreFiles(archivePath string) error {
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		return fmt.Errorf("archive not found: %s", archivePath)
+	}
+	cmd := exec.Command("tar", "-xzf", archivePath, "-C", webRoot)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("tar extract: %w — %s", err, string(out))
+	}
+	return nil
+}
+
+// restoreDatabases imports a gzip-compressed SQL dump via mysql.
+func restoreDatabases(archivePath string) error {
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		return fmt.Errorf("dump not found: %s", archivePath)
+	}
+	cmd := exec.Command("bash", "-c",
+		fmt.Sprintf("zcat %s | mysql --defaults-file=/etc/strata-agent/mysql.cnf 2>/dev/null",
+			archivePath))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("mysql restore: %w — %s", err, string(out))
+	}
+	return nil
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 func archiveFiles(username, dest string) error {

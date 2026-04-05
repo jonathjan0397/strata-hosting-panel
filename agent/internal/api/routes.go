@@ -38,6 +38,7 @@ func Routes() chi.Router {
 	r.Post("/php/pool", handlePHPPoolCreate)
 	r.Delete("/php/pool/{user}", handlePHPPoolDelete)
 	r.Put("/php/pool/{user}/version", handlePHPPoolVersionSet)
+	r.Put("/php/pool/{user}/settings", handlePHPPoolSettings)
 
 	// SSL
 	r.Post("/ssl/issue", handleSSLIssue)
@@ -78,6 +79,11 @@ func Routes() chi.Router {
 	r.Get("/backups/{username}", handleBackupList)
 	r.Delete("/backups/{username}/{filename}", handleBackupDelete)
 	r.Get("/backups/{username}/download/{filename}", handleBackupDownload)
+	r.Post("/backups/{username}/restore/{filename}", handleBackupRestore)
+
+	// fail2ban
+	r.Get("/fail2ban/status", handleFail2BanStatus)
+	r.Post("/fail2ban/unban", handleFail2BanUnban)
 
 	// Self-upgrade
 	r.Post("/agent/upgrade", handleAgentUpgrade)

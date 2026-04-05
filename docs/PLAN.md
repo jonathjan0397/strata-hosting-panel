@@ -1,7 +1,7 @@
 # Strata Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
-Created: 2026-03-31 | Last Updated: 2026-04-04 | Phase 6 Complete
+Created: 2026-03-31 | Last Updated: 2026-04-04 | Phase 7 In Progress
 
 ## Overview
 Strata Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
@@ -203,7 +203,7 @@ Admin
 ### PHP
 - [x] Per-account PHP version selection (8.1 / 8.2 / 8.3)
 - [x] PHP-FPM per account (process isolation)
-- [ ] php.ini overrides per account (upload_max, memory_limit, etc.)
+- [x] php.ini overrides per account (upload_max, memory_limit, max_exec_time)
 
 ### End User Portal
 - [x] User dashboard with resource summary
@@ -230,12 +230,12 @@ Admin
 - [x] Per-account backup (files + databases)
 - [x] Scheduled automated backups (nightly at 02:00)
 - [ ] Remote backup destination (S3, FTP, SFTP)
-- [ ] One-click restore
+- [x] One-click restore
 
 ### Security
 - [x] 2FA (TOTP) for all user levels
 - [x] Audit log (every action logged with user + timestamp)
-- [ ] fail2ban integration
+- [x] fail2ban integration (admin UI — view jails, banned IPs, one-click unban)
 - [ ] SSH key management
 - [ ] ModSecurity (optional WAF)
 
@@ -244,11 +244,10 @@ Admin
 - [x] Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, PTR, blacklists)
 
 ### Billing Integration (API)
-- [ ] REST webhook endpoints for account provisioning
+- [x] REST provisioning API (create/suspend/unsuspend/terminate/usage)
+- [x] Bearer token auth (Sanctum), admin token management UI
 - [ ] Strata Billing plugin (first-party)
 - [ ] WHMCS module
-- [ ] Suspend/unsuspend via API
-- [ ] Usage reporting via API (disk, bandwidth)
 
 ### Reseller Portal
 - [ ] Reseller dashboard
@@ -313,10 +312,11 @@ Admin
 - [x] Admin: create/view/update reseller quotas, delete resellers
 - [x] White-label branding (panel name + accent colour per reseller, shown to clients)
 
-### Phase 7 — Billing API + Integrations
-- REST provisioning API
-- Strata Billing plugin
-- WHMCS module
+### Phase 7 — Billing API + Integrations ✅ (partial)
+- [x] REST provisioning API (create, suspend, unsuspend, terminate, usage)
+- [x] Bearer token auth + admin token management UI
+- [ ] Strata Billing plugin
+- [ ] WHMCS module
 
 ### Phase 8 — Hardening + Release
 - Security audit

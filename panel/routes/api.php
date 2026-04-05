@@ -1,0 +1,37 @@
+<?php
+
+use App\Http\Controllers\Api\V1\AccountController;
+use Illuminate\Support\Facades\Route;
+
+/*
+ * Strata Panel — Billing / Provisioning REST API  (v1)
+ *
+ * Authentication: Bearer token (Laravel Sanctum personal access token)
+ * created by an admin via Admin → API Tokens.
+ *
+ * All responses are JSON.
+ */
+
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+
+    // ── Accounts ──────────────────────────────────────────────────────────────
+    Route::post('accounts', [AccountController::class, 'store'])
+        ->middleware('ability:accounts:create')
+        ->name('api.v1.accounts.store');
+
+    Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])
+        ->middleware('ability:accounts:suspend')
+        ->name('api.v1.accounts.suspend');
+
+    Route::post('accounts/{account}/unsuspend', [AccountController::class, 'unsuspend'])
+        ->middleware('ability:accounts:unsuspend')
+        ->name('api.v1.accounts.unsuspend');
+
+    Route::delete('accounts/{account}', [AccountController::class, 'destroy'])
+        ->middleware('ability:accounts:terminate')
+        ->name('api.v1.accounts.destroy');
+
+    Route::get('accounts/{account}/usage', [AccountController::class, 'usage'])
+        ->middleware('ability:accounts:usage')
+        ->name('api.v1.accounts.usage');
+});

@@ -69,15 +69,16 @@
                                     v-if="job.status === 'complete'"
                                     :href="route('my.backups.download', job.id)"
                                     class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                                >
-                                    Download
-                                </a>
+                                >Download</a>
+                                <button
+                                    v-if="job.status === 'complete'"
+                                    @click="restore(job.id)"
+                                    class="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                                >Restore</button>
                                 <button
                                     @click="remove(job.id)"
                                     class="text-xs text-red-500 hover:text-red-400 transition-colors"
-                                >
-                                    Delete
-                                </button>
+                                >Delete</button>
                             </td>
                         </tr>
                         <tr v-if="jobs.length === 0">
@@ -107,6 +108,11 @@ function create() {
     router.post(route('my.backups.store'), { type: backupType.value }, {
         onFinish: () => { creating.value = false; },
     });
+}
+
+function restore(id) {
+    if (!confirm('Restore this backup? This will overwrite your current files.')) return;
+    router.post(route('my.backups.restore', id));
 }
 
 function remove(id) {

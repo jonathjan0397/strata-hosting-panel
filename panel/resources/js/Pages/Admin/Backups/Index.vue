@@ -58,11 +58,14 @@
                             </td>
                             <td class="px-5 py-3.5 text-right">
                                 <button
+                                    v-if="job.status === 'complete'"
+                                    @click="restore(job.id)"
+                                    class="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                                >Restore</button>
+                                <button
                                     @click="remove(job.id)"
                                     class="text-xs text-red-500 hover:text-red-400 transition-colors"
-                                >
-                                    Delete
-                                </button>
+                                >Delete</button>
                             </td>
                         </tr>
                         <tr v-if="!jobs.data.length">
@@ -103,6 +106,11 @@ function filter() {
     debounce = setTimeout(() => {
         router.get(route('admin.backups.index'), { search: search.value, status: status.value }, { preserveState: true });
     }, 300);
+}
+
+function restore(id) {
+    if (!confirm('Restore this backup? This will overwrite the account\'s current files.')) return;
+    router.post(route('admin.backups.restore', id));
 }
 
 function remove(id) {

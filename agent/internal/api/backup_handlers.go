@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -56,6 +57,33 @@ func handleBackupDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// POST /backups/{username}/restore/{filename}
+func handleBackupRestore(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	filename := chi.URLParam(r, "filename")
+
+	backupPath, err := backup.Path(username, filename)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	backupType := "full"
+	if strings.Contains(filename, "_files_") {
+		backupType = "files"
+	} else if strings.Contains(filename, "_databases_") {
+		backupType = "databases"
+	}
+
+	if err := backup.Restore(username, backupPath, backupType); err != nil {
+		http.Error(w, "restore failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "restored", "type": backupType})
 }
 
 // GET /backups/{username}/download/{filename}

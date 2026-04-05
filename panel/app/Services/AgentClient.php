@@ -326,6 +326,35 @@ class AgentClient
         return $this->node->url("/backups/{$username}/download/" . urlencode($filename));
     }
 
+    // ── PHP settings ──────────────────────────────────────────────────────────
+
+    public function updatePhpSettings(string $username, string $phpVersion, array $settings): Response
+    {
+        return $this->put("/php/pool/{$username}/settings", array_merge(
+            ['php_version' => $phpVersion],
+            $settings,
+        ));
+    }
+
+    // ── Backup restore ────────────────────────────────────────────────────────
+
+    public function backupRestore(string $username, string $filename): Response
+    {
+        return $this->post("/backups/{$username}/restore/" . urlencode($filename));
+    }
+
+    // ── fail2ban ──────────────────────────────────────────────────────────────
+
+    public function fail2banStatus(): Response
+    {
+        return $this->get('/fail2ban/status');
+    }
+
+    public function fail2banUnban(string $jail, string $ip): Response
+    {
+        return $this->post('/fail2ban/unban', ['jail' => $jail, 'ip' => $ip]);
+    }
+
     // ── Agent upgrade ─────────────────────────────────────────────────────────
 
     public function upgradeAgent(string $version, string $downloadUrl): Response
