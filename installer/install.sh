@@ -343,9 +343,15 @@ _MARIADB_SQL="
     FLUSH PRIVILEGES;
 "
 # Try socket (fresh install), then password over TCP (re-run)
-_mariadb_err=$(mysql -e "$_MARIADB_SQL" 2>&1) \
-    || _mariadb_err=$(mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) \
-    || die "Failed to secure MariaDB: ${_mariadb_err}"
+_mariadb_err1=$(mysql -e "$_MARIADB_SQL" 2>&1); _mariadb_rc1=$?
+if [[ $_mariadb_rc1 -ne 0 ]]; then
+    _mariadb_err2=$(mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1); _mariadb_rc2=$?
+    if [[ $_mariadb_rc2 -ne 0 ]]; then
+        die "Failed to secure MariaDB.
+  socket attempt: ${_mariadb_err1}
+  tcp attempt:    ${_mariadb_err2}"
+    fi
+fi
 
 MYSQL_CMD() { mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
 
