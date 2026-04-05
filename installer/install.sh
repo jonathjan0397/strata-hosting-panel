@@ -332,7 +332,7 @@ info "Securing MariaDB and creating databases…"
 # running as the OS root user. Do all setup via socket, switching root to password
 # auth in the same statement. Falls back to TCP+password for re-runs.
 _MARIADB_SQL="
-    ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${DB_PASSWORD}');
+    ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
     DELETE FROM mysql.user WHERE User='';
     DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost','127.0.0.1','::1');
     DROP DATABASE IF EXISTS test;
@@ -342,18 +342,18 @@ _MARIADB_SQL="
     GRANT ALL PRIVILEGES ON strata_panel.* TO 'strata'@'localhost';
     FLUSH PRIVILEGES;
 "
-# Try socket (fresh install), then password over TCP (re-run).
-# Use `|| rc=$?` pattern so set -e doesn't fire on a failed command substitution.
-_mariadb_rc1=0
-_mariadb_err1=$(mysql -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc1=$?
-if [[ $_mariadb_rc1 -ne 0 ]]; then
-    _mariadb_rc2=0
-    _mariadb_err2=$(mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc2=$?
-    if [[ $_mariadb_rc2 -ne 0 ]]; then
-        die "Failed to secure MariaDB.
-  socket attempt: ${_mariadb_err1}
-  tcp attempt:    ${_mariadb_err2}"
-    fi
+# Three attempts to handle different MariaDB defaults across Debian versions:
+#   1. Socket, no auth args   — Debian 11/12, unix_socket plugin
+#   2. Root + empty password  — Debian 13 / MariaDB 11.x default
+#   3. Root + our password    — re-run where root password already set
+_mariadb_rc1=0; _mariadb_err1=$(mysql                                    -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc1=$?
+_mariadb_rc2=0; _mariadb_err2=$(mysql -u root --password=''              -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc2=$?
+_mariadb_rc3=0; _mariadb_err3=$(mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc3=$?
+if [[ $_mariadb_rc1 -ne 0 && $_mariadb_rc2 -ne 0 && $_mariadb_rc3 -ne 0 ]]; then
+    die "Failed to secure MariaDB.
+  attempt 1 (socket):          ${_mariadb_err1}
+  attempt 2 (empty password):  ${_mariadb_err2}
+  attempt 3 (set password):    ${_mariadb_err3}"
 fi
 
 MYSQL_CMD() { mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
