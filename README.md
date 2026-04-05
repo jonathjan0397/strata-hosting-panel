@@ -1,11 +1,12 @@
 # Strata Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-v1.0--Beta-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-panel/releases)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel — Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT &nbsp;·&nbsp; **Target OS:** Debian 11 / 12 / 13 &nbsp;·&nbsp; **Status:** Phase 6 complete — active development
+**License:** MIT &nbsp;·&nbsp; **Target OS:** Debian 11 / 12 / 13 &nbsp;·&nbsp; **Status:** v1.0-Beta — MVP complete
 
 ---
 
@@ -37,29 +38,39 @@ Click any account card on the login page to autofill credentials, or use them di
 | SSL | acme.sh (Let's Encrypt / ZeroSSL) |
 | FTP | Pure-FTPd |
 | Database | MariaDB |
+| Firewall | UFW + fail2ban |
 
-## Features (v0.1 — Phase 5 complete)
+## Features (v1.0-Beta)
 
 | Category | Features |
 |---|---|
 | **Accounts** | Create/suspend/terminate, resource limits, system user provisioning |
 | **Reseller Portal** | Dashboard with quota meters, create/manage client accounts, white-label branding |
-| **Domains** | Nginx/Apache vhosts, SSL (Let's Encrypt auto-renew), PHP version per domain |
-| **Email** | Postfix/Dovecot mailboxes, forwarders, DKIM/SPF/DMARC auto-setup |
-| **DNS** | PowerDNS zone management, full record type support |
-| **Databases** | MariaDB create/delete/password |
-| **FTP** | Pure-FTPd jailed accounts |
+| **Domains** | Nginx/Apache vhosts, SSL (Let's Encrypt + custom cert, auto-renew), PHP version per domain, redirects, custom directives |
+| **Email** | Mailboxes, forwarders, autoresponders, DKIM/SPF/DMARC auto-setup, spam filter stats |
+| **DNS** | PowerDNS zone management, full record type support, BIND import/export, server DNS zones |
+| **Databases** | MariaDB create/delete/password, user grants |
+| **FTP** | Pure-FTPd jailed accounts (FTPS enforced) |
 | **File Manager** | Browser-based, upload/download/edit/chmod/compress/extract |
-| **Backups** | Files + databases, nightly scheduled, manual trigger, download |
-| **Security** | 2FA (TOTP), audit log, fail2ban (planned) |
-| **Admin Tools** | Browser SSH terminal, email deliverability troubleshooter |
-| **Multi-node** | Remote nodes via Go agent (HMAC auth), health monitoring |
+| **Backups** | Files + databases, per-account schedules, manual trigger, download, remote SFTP/S3 destinations |
+| **Security** | 2FA (TOTP), audit log, fail2ban UI (view jails, unban IPs), SSH key management, UFW firewall rules |
+| **Admin Tools** | Browser SSH terminal, email deliverability troubleshooter, OS update management, backup schedules |
+| **Multi-node** | Remote nodes via Go agent (HMAC auth), health monitoring, per-node service management |
+| **Billing API** | REST provisioning API (create/suspend/terminate/usage), Bearer token auth |
 
 ## Architecture
 
 A single install gives you a fully functional hosting server. Remote nodes can be added at any time to scale horizontally. See [docs/PLAN.md](docs/PLAN.md) for the full project plan, feature list, and development phases.
 
-## Quick Start
+## Installation
+
+One-line installer (Debian 11/12/13):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/install.sh)
+```
+
+### Manual setup (dev)
 
 ```bash
 cd panel

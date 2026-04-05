@@ -53,6 +53,17 @@ func handleUpdatesList(w http.ResponseWriter, r *http.Request) {
 
 // POST /v1/system/updates — apply available updates (safe upgrade, no dist-upgrade)
 func handleUpdatesApply(w http.ResponseWriter, r *http.Request) {
+	// Refresh package index first so upgrade doesn't fail with stale metadata
+	updateCmd := exec.Command("apt-get", "update", "-q")
+	updateCmd.Env = append(updateCmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
+	if out, err := updateCmd.CombinedOutput(); err != nil {
+		respond(w, http.StatusUnprocessableEntity, map[string]string{
+			"status": "error",
+			"output": "apt-get update failed: " + string(out),
+		})
+		return
+	}
+
 	cmd := exec.Command("apt-get", "upgrade", "-y",
 		"-o", "Dpkg::Options::=--force-confold",
 		"-o", "Dpkg::Options::=--force-confdef",

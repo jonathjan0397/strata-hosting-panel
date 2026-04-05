@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"regexp"
@@ -14,8 +15,25 @@ type fail2banJail struct {
 	BannedIPs   []string `json:"banned_ips"`
 }
 
+func ensureFail2ban() error {
+	if _, err := exec.LookPath("fail2ban-client"); err == nil {
+		return nil
+	}
+	out, err := exec.Command("apt-get", "install", "-y", "fail2ban").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("fail2ban not installed and auto-install failed: %s", strings.TrimSpace(string(out)))
+	}
+	exec.Command("systemctl", "enable", "--now", "fail2ban").Run()
+	return nil
+}
+
 // GET /fail2ban/status — returns all jails and their banned IPs.
 func handleFail2BanStatus(w http.ResponseWriter, r *http.Request) {
+	if err := ensureFail2ban(); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+
 	out, err := exec.Command("fail2ban-client", "status").Output()
 	if err != nil {
 		http.Error(w, "fail2ban unavailable: "+err.Error(), http.StatusServiceUnavailable)
@@ -33,6 +51,11 @@ func handleFail2BanStatus(w http.ResponseWriter, r *http.Request) {
 
 // POST /fail2ban/unban — body: {"jail":"sshd","ip":"1.2.3.4"}
 func handleFail2BanUnban(w http.ResponseWriter, r *http.Request) {
+	if err := ensureFail2ban(); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+
 	var req struct {
 		Jail string `json:"jail"`
 		IP   string `json:"ip"`

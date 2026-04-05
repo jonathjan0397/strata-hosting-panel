@@ -1,7 +1,7 @@
 # Strata Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
-Created: 2026-03-31 | Last Updated: 2026-04-05 | MVP Complete — Phase 8 Pending
+Created: 2026-03-31 | Last Updated: 2026-04-05 | v1.0-Beta Released
 
 ## Overview
 Strata Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
@@ -189,6 +189,7 @@ Admin
 - [x] Auto-populate standard records on domain add
 - [x] Import zone files (BIND format paste/upload)
 - [x] Export zone files (BIND format download)
+- [x] Server DNS zones (standalone zones not tied to hosted accounts)
 
 ### Databases
 - [x] Create/delete MariaDB databases
@@ -229,7 +230,7 @@ Admin
 
 ### Backups
 - [x] Per-account backup (files + databases)
-- [x] Scheduled automated backups (nightly at 02:00)
+- [x] Per-account backup schedules (frequency, time, day — admin-configurable)
 - [x] Remote backup destination (SFTP + S3, admin-configurable, auto-push after backup)
 - [x] One-click restore
 
@@ -251,10 +252,10 @@ Admin
 - [ ] WHMCS module
 
 ### Reseller Portal
-- [ ] Reseller dashboard
-- [ ] Create/manage end user accounts
-- [ ] Resource quota management
-- [ ] White-label support
+- [x] Reseller dashboard with quota meters
+- [x] Create/manage end user accounts
+- [x] Resource quota management
+- [x] White-label support (panel name + accent colour per reseller)
 
 ---
 
@@ -312,11 +313,11 @@ Admin
 - [ ] Strata Billing plugin
 - [ ] WHMCS module
 
-### Phase 8 — Hardening + Release
-- [ ] Security audit
+### Phase 8 — Hardening + Release ✅
+- [ ] Security audit (post-beta)
 - [x] Installer (one-line bash — `installer/install.sh`)
-- [ ] Documentation (README, user guide)
-- [ ] v1.0-Beta release tag
+- [x] Documentation (README, CHANGELOG, PLAN updated for v1.0-Beta)
+- [x] v1.0-Beta release tag
 
 ---
 

@@ -1,8 +1,33 @@
 # Changelog
 
-## [Unreleased] — MVP Complete
+## [v1.0-Beta] — 2026-04-05
 
-### Added — 2026-04-05 (MVP Gap Pass 2)
+### Added — Agent hardening
+
+**Agent**
+- Auto-install UFW if not present: `ensureUFW()` runs `apt-get install -y ufw`, applies safe default rules (deny incoming, allow 22/80/443/8743), and enables on first firewall API call
+- Auto-install fail2ban if not present: `ensureFail2ban()` runs `apt-get install -y fail2ban` and enables the service on first fail2ban API call
+- OS update handler now runs `apt-get update -q` before `apt-get upgrade` to refresh the package index and prevent stale-metadata failures
+
+### Added — Admin features
+
+**Backup Schedules**
+- Per-account backup schedule configuration: frequency (disabled / daily / weekly), time (HH:MM), day of week (weekly only)
+- New migration: `backup_schedule`, `backup_time`, `backup_day` columns on `accounts` table
+- `BackupRun` command updated with `--scheduled` flag: filters accounts whose schedule matches the current hour window; respects daily vs weekly
+- Scheduler changed from `->dailyAt('02:00')` to `->hourly()` with `--scheduled`; admin UI at Admin → Backup Schedules
+
+**Server DNS Zones**
+- Manage standalone DNS zones not tied to any hosted account (server hostname, custom delegations, etc.)
+- Full record CRUD (A, AAAA, CNAME, MX, TXT, SRV, CAA, NS) via same PowerDNS agent API
+- New migration: `domain_id` and `account_id` made nullable on `dns_zones`; `zone_name` unique index added
+- Admin UI at Admin → Server DNS; routes `admin.dns.server.*`
+
+---
+
+## [v0.9] — 2026-04-05
+
+### Added — MVP Gap Pass 2
 
 **Email**
 - Autoresponders: Dovecot Sieve vacation scripts, per-mailbox, subject + body + active toggle
@@ -18,8 +43,7 @@
 - SSH key management: add/remove SSH authorized keys per hosting account (user + admin)
 
 **Backups**
-- Remote backup destinations: SFTP (scp/SSH key) and S3-compatible; admin-configurable;
-  auto-push to all active destinations after each backup is created
+- Remote backup destinations: SFTP (scp/SSH key) and S3-compatible; admin-configurable; auto-push to all active destinations after each backup is created
 
 **Navigation**
 - Admin: Remote Backups, Spam Filter nav items added
@@ -27,7 +51,9 @@
 
 ---
 
-### Added — 2026-04-05 (MVP Gap Pass 1)
+## [v0.8] — 2026-04-05
+
+### Added — MVP Gap Pass 1
 
 **Agent**
 - Firewall management (UFW rules): list, add, delete rules
@@ -41,11 +67,12 @@
 - DNS zone export — BIND format download (user + admin)
 - Firewall management admin UI
 - OS update management admin UI
-- `redirects` column on domains table
 
 ---
 
-### Added — 2026-04-04 to 2026-04-05
+## [v0.7] — 2026-04-04 to 2026-04-05
+
+### Added — Phase 6 + Phase 7 partial
 
 **Phase 6 — Reseller Portal**
 - Reseller dashboard with quota meters
@@ -59,7 +86,13 @@
 - REST provisioning API: create, suspend, unsuspend, terminate, usage
 - Bearer token auth (Laravel Sanctum) + admin token management UI
 
-**Phase 5 — End User Portal + Agent**
+---
+
+## [v0.5] — 2026-04-03 to 2026-04-04
+
+### Added — Phase 5
+
+**End User Portal + Agent**
 - End user portal: domains, email, databases, FTP, DNS
 - File manager (Go agent + Vue UI)
 - Backup system (files + databases, nightly schedule, manual trigger, restore)
@@ -69,9 +102,36 @@
 - Browser-based SSH terminal (admin, per-node, xterm.js + PTY)
 - Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, PTR, blacklists)
 
-**Phase 3 + 4**
-- Mail stack: Postfix + Dovecot + Rspamd + OpenDKIM
+---
+
+## [v0.3] — 2026-04-01 to 2026-04-03
+
+### Added — Phase 3 + Phase 4
+
+**Mail Stack**
+- Postfix + Dovecot provisioning
 - DKIM/SPF/DMARC auto-setup on domain add
+- Rspamd integration
+
+**DNS + Databases + FTP**
 - PowerDNS zone management + full record type support
 - MariaDB per-user databases
 - Pure-FTPd jailed accounts
+
+---
+
+## [v0.1] — 2026-03-31 to 2026-04-01
+
+### Added — Phase 1 + Phase 2
+
+**Foundation**
+- Laravel scaffold, authentication (Admin/Reseller/User roles)
+- Node/agent system (Go binary, HMAC-SHA256, health reporting, systemd)
+- Basic UI shell (AppLayout, nav, dark theme)
+
+**Core Server Functions**
+- Account management + system user provisioning
+- Domain + vhost management (Nginx + Apache)
+- SSL via acme.sh (Let's Encrypt)
+- PHP-FPM multi-version (8.1 / 8.2 / 8.3)
+- One-line bash installer (`installer/install.sh`)
