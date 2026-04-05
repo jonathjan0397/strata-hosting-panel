@@ -42,6 +42,74 @@ gen_pass()  { openssl rand -base64 40 | tr -dc 'a-zA-Z0-9' | head -c "${1:-32}";
 gen_hex()   { openssl rand -hex "${1:-32}"; }
 gen_uuid()  { cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen; }
 
+# ── Rollback / cleanup ────────────────────────────────────────────────────────
+# Registered via `trap cleanup ERR` only AFTER the user confirms — so a pre-
+# confirm abort (Ctrl-C, bad OS check, etc.) does NOT trigger a rollback.
+INSTALL_STARTED=0
+
+cleanup() {
+    local rc=$?
+    [[ $INSTALL_STARTED -eq 0 ]] && return
+    echo ""
+    echo -e "${RED}[!] Installation failed (exit ${rc}) — rolling back changes…${NC}"
+    echo ""
+
+    # Stop and remove Strata services
+    for svc in strata-agent strata-queue; do
+        systemctl stop    "$svc" 2>/dev/null || true
+        systemctl disable "$svc" 2>/dev/null || true
+        rm -f "/etc/systemd/system/${svc}.service"
+    done
+    systemctl daemon-reload 2>/dev/null || true
+
+    # Drop Strata databases and users (best-effort — MariaDB may not be set up yet)
+    if command -v mysql &>/dev/null && [[ -n "${DB_PASSWORD:-}" ]]; then
+        mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 2>/dev/null <<SQLEOF || true
+DROP DATABASE IF EXISTS strata_panel;
+DROP USER IF EXISTS 'strata'@'localhost';
+DROP DATABASE IF EXISTS pdns;
+DROP USER IF EXISTS 'pdns'@'localhost';
+FLUSH PRIVILEGES;
+SQLEOF
+    fi
+
+    # Remove installed directories and binaries
+    rm -rf "${INSTALL_DIR:-/opt/strata-panel}"
+    rm -rf /etc/strata-agent
+    rm -rf /etc/strata-panel
+    rm -f  /usr/sbin/strata-agent
+    rm -f  /root/.my.cnf
+
+    # Remove the strata system user
+    userdel -r "${PANEL_USER:-strata}" 2>/dev/null || true
+
+    # Remove scheduler cron
+    crontab -r -u "${PANEL_USER:-strata}" 2>/dev/null || true
+
+    # Remove web vhost configs
+    rm -f /etc/nginx/sites-enabled/strata-panel
+    rm -f /etc/nginx/sites-available/strata-panel
+    rm -f /etc/apache2/sites-enabled/strata-panel.conf
+    rm -f /etc/apache2/sites-available/strata-panel.conf
+    systemctl reload nginx  2>/dev/null || true
+    systemctl reload apache2 2>/dev/null || true
+
+    # Remove apt source files added by this installer
+    rm -f /etc/apt/sources.list.d/php.list
+    rm -f /etc/apt/sources.list.d/rspamd.list
+    rm -f /usr/share/keyrings/deb.sury.org-php.gpg
+    rm -f /usr/share/keyrings/rspamd.gpg
+
+    echo ""
+    echo -e "${YELLOW}[warn] Rollback complete.${NC}"
+    echo -e "${YELLOW}       Packages installed by apt were NOT removed automatically.${NC}"
+    echo -e "${YELLOW}       To purge them manually:${NC}"
+    echo -e "${YELLOW}         apt-get purge mariadb-server pdns-server pdns-backend-mysql \\${NC}"
+    echo -e "${YELLOW}           redis-server pure-ftpd postfix dovecot-core rspamd fail2ban${NC}"
+    echo ""
+    exit "$rc"
+}
+
 # ── 1. Server hostname ────────────────────────────────────────────────────────
 echo -e "${BOLD}── Server configuration ─────────────────────────────────${NC}"
 echo ""
@@ -166,6 +234,10 @@ echo -e "  Service creds:  will be saved to ${BOLD}/root/strata-credentials.txt$
 echo ""
 read -rp "$(prompt 'Proceed with installation? [Y/n]: ')" CONFIRM
 [[ "${CONFIRM:-Y}" =~ ^(y|Y|yes|YES|)$ ]] || { echo "Aborted."; exit 0; }
+
+# Register rollback trap — fires on any non-zero exit from here on
+INSTALL_STARTED=1
+trap cleanup ERR
 
 echo ""
 info "Starting installation…"
@@ -1132,6 +1204,75 @@ EOF
 chmod 600 "$CREDS_FILE"
 success "Credentials saved to ${CREDS_FILE}"
 
+# Disarm the error trap now that everything succeeded
+trap - ERR
+
+# ── Step 25. Generate uninstall script ───────────────────────────────────────
+info "Generating uninstall script…"
+cat > /root/strata-uninstall.sh <<UNINSTEOF
+#!/usr/bin/env bash
+# =============================================================================
+#  Strata Panel — Uninstaller
+#  Generated: $(date)
+#  Run as root to fully remove Strata Panel from this server.
+# =============================================================================
+set -euo pipefail
+[[ \$EUID -eq 0 ]] || { echo "Must be run as root."; exit 1; }
+
+read -rp "This will PERMANENTLY remove Strata Panel and all its data. Type YES to confirm: " _CONFIRM
+[[ "\$_CONFIRM" == "YES" ]] || { echo "Aborted."; exit 0; }
+
+echo "[*] Stopping services…"
+for svc in strata-agent strata-queue; do
+    systemctl stop    "\$svc" 2>/dev/null || true
+    systemctl disable "\$svc" 2>/dev/null || true
+    rm -f "/etc/systemd/system/\${svc}.service"
+done
+systemctl daemon-reload
+
+echo "[*] Dropping databases…"
+mysql -u root -p'${DB_PASSWORD}' -h 127.0.0.1 2>/dev/null <<SQLEOF || true
+DROP DATABASE IF EXISTS strata_panel;
+DROP USER IF EXISTS 'strata'@'localhost';
+DROP DATABASE IF EXISTS pdns;
+DROP USER IF EXISTS 'pdns'@'localhost';
+FLUSH PRIVILEGES;
+SQLEOF
+
+echo "[*] Removing files and directories…"
+rm -rf '${INSTALL_DIR}'
+rm -rf /etc/strata-agent
+rm -rf /etc/strata-panel
+rm -f  /usr/sbin/strata-agent
+rm -f  /root/.my.cnf
+
+echo "[*] Removing system user '${PANEL_USER}'…"
+crontab -r -u '${PANEL_USER}' 2>/dev/null || true
+userdel -r '${PANEL_USER}' 2>/dev/null || true
+
+echo "[*] Removing web vhost configs…"
+rm -f /etc/nginx/sites-enabled/strata-panel
+rm -f /etc/nginx/sites-available/strata-panel
+rm -f /etc/apache2/sites-enabled/strata-panel.conf
+rm -f /etc/apache2/sites-available/strata-panel.conf
+systemctl reload nginx   2>/dev/null || true
+systemctl reload apache2 2>/dev/null || true
+
+echo "[*] Removing apt source files…"
+rm -f /etc/apt/sources.list.d/php.list
+rm -f /etc/apt/sources.list.d/rspamd.list
+rm -f /usr/share/keyrings/deb.sury.org-php.gpg
+rm -f /usr/share/keyrings/rspamd.gpg
+
+echo ""
+echo "[ok] Strata Panel removed."
+echo "     Packages (mariadb-server, pdns-server, redis-server, etc.) were NOT purged."
+echo "     To remove them: apt-get purge mariadb-server pdns-server pdns-backend-mysql \\"
+echo "       redis-server pure-ftpd postfix dovecot-core rspamd fail2ban"
+UNINSTEOF
+chmod 700 /root/strata-uninstall.sh
+success "Uninstall script saved to /root/strata-uninstall.sh"
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
@@ -1148,7 +1289,8 @@ echo ""
 echo -e "  ${BOLD}Webmail admin:${NC}    https://${PANEL_DOMAIN}/webmail/?admin"
 echo -e "  ${BOLD}Webmail admin pw:${NC} ${SNAPPYMAIL_ADMIN_PASS}"
 echo ""
-echo -e "  ${YELLOW}All service credentials saved to: ${BOLD}/root/strata-credentials.txt${NC}"
+echo -e "  ${YELLOW}All service credentials saved to: ${BOLD}/root/strata-credentials.txt${NC}
+  ${YELLOW}To uninstall:                     ${BOLD}bash /root/strata-uninstall.sh${NC}"
 echo ""
 if [[ -f /etc/strata-panel/tls/fullchain.pem ]] && \
    openssl x509 -in /etc/strata-panel/tls/fullchain.pem -noout -issuer 2>/dev/null | grep -qi 'let.s encrypt'; then
