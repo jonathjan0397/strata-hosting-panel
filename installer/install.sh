@@ -317,9 +317,10 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y mariadb-server mariadb-client
 systemctl enable --now mariadb
 
 info "Waiting for MariaDB to be ready…"
+_MYSQLADMIN=$(command -v mariadb-admin 2>/dev/null || command -v mysqladmin 2>/dev/null)
 _db_ready=0
 for _i in $(seq 1 30); do
-    if mysqladmin ping --silent 2>/dev/null; then
+    if "$_MYSQLADMIN" ping --silent 2>/dev/null; then
         _db_ready=1; break
     fi
     sleep 1
@@ -328,9 +329,11 @@ done
 success "MariaDB is up."
 
 info "Securing MariaDB and creating databases…"
-# Fresh MariaDB on Debian uses unix_socket auth for root — no password needed when
-# running as the OS root user. Do all setup via socket, switching root to password
-# auth in the same statement. Falls back to TCP+password for re-runs.
+# Use `mariadb` client if available (MariaDB 11.x / Debian 13 — preferred),
+# fall back to `mysql` for older installs.
+_MC=$(command -v mariadb 2>/dev/null || command -v mysql 2>/dev/null)
+[[ -n "$_MC" ]] || die "No MariaDB/MySQL client binary found."
+
 _MARIADB_SQL="
     ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
     DELETE FROM mysql.user WHERE User='';
@@ -342,28 +345,24 @@ _MARIADB_SQL="
     GRANT ALL PRIVILEGES ON strata_panel.* TO 'strata'@'localhost';
     FLUSH PRIVILEGES;
 "
-# Four attempts to handle different MariaDB defaults across Debian versions:
-#   1. Socket, no auth args          — Debian 11/12, unix_socket plugin
-#   2. debian.cnf maintenance creds  — Debian 13 / MariaDB 11.x (always present)
-#   3. Root + empty password         — some minimal configs
-#   4. Root + our password           — re-run where root password already set
-_mariadb_rc1=0; _mariadb_err1=$(mysql -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc1=$?
-_mariadb_rc2=1; _mariadb_err2="(skipped — /etc/mysql/debian.cnf not found)"
-if [[ -f /etc/mysql/debian.cnf ]]; then
-    _mariadb_rc2=0
-    _mariadb_err2=$(mysql --defaults-file=/etc/mysql/debian.cnf -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc2=$?
-fi
-_mariadb_rc3=0; _mariadb_err3=$(mysql -u root --password='' -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc3=$?
-_mariadb_rc4=0; _mariadb_err4=$(mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc4=$?
+# Attempts in order:
+#   1. mariadb/mysql, no args            — unix_socket auth (Debian 11/12)
+#   2. mariadb/mysql --protocol=socket   — force socket explicitly (Debian 13)
+#   3. empty password                    — some minimal configs
+#   4. our password over TCP             — re-run where password already set
+_mariadb_rc1=0; _mariadb_err1=$("$_MC"                           -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc1=$?
+_mariadb_rc2=0; _mariadb_err2=$("$_MC" --protocol=socket -u root -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc2=$?
+_mariadb_rc3=0; _mariadb_err3=$("$_MC" -u root --password=''     -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc3=$?
+_mariadb_rc4=0; _mariadb_err4=$("$_MC" -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$_MARIADB_SQL" 2>&1) || _mariadb_rc4=$?
 if [[ $_mariadb_rc1 -ne 0 && $_mariadb_rc2 -ne 0 && $_mariadb_rc3 -ne 0 && $_mariadb_rc4 -ne 0 ]]; then
-    die "Failed to secure MariaDB.
-  attempt 1 (socket):         ${_mariadb_err1}
-  attempt 2 (debian.cnf):     ${_mariadb_err2}
-  attempt 3 (empty password): ${_mariadb_err3}
-  attempt 4 (set password):   ${_mariadb_err4}"
+    die "Failed to secure MariaDB (client: ${_MC}).
+  attempt 1 (no args):              ${_mariadb_err1}
+  attempt 2 (--protocol=socket):    ${_mariadb_err2}
+  attempt 3 (empty password):       ${_mariadb_err3}
+  attempt 4 (tcp + set password):   ${_mariadb_err4}"
 fi
 
-MYSQL_CMD() { mysql -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
+MYSQL_CMD() { "$_MC" -u root -p"${DB_PASSWORD}" -h 127.0.0.1 "$@" 2>/dev/null; }
 
 cat > /root/.my.cnf <<EOF
 [client]
