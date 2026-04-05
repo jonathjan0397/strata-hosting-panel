@@ -837,6 +837,7 @@ success "Panel configured."
 # ── Step 14. Build agent ──────────────────────────────────────────────────────
 info "Building strata-agent…"
 cd "$INSTALL_DIR/agent-src"
+go mod tidy 2>&1 || die "go mod tidy failed — check network and Go installation"
 GOOS=linux GOARCH=amd64 go build \
     -ldflags "-X github.com/jonathjan0397/strata-panel/agent/internal/api.Version=$(git -C "$INSTALL_DIR" describe --tags --always 2>/dev/null || echo 'v1.0-beta')" \
     -o /usr/sbin/strata-agent \
