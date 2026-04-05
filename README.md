@@ -22,27 +22,85 @@ Open-source hosting control panel — Nginx/Apache, PHP multi-version, email, DN
 
 ## Installation
 
-**Requirements:** Fresh Debian 11, 12, or 13 server — run as root.
+### Before you begin
+
+- A fresh **Debian 11, 12, or 13** VPS or dedicated server (minimum 1 GB RAM, 20 GB disk)
+- **Root access** via SSH
+- A **domain name** you control, with the ability to add DNS A records (e.g. `panel.example.com`)
+- The domain's A record pointing at your server's IP address **before** running the installer speeds things up — Let's Encrypt needs it to issue a real SSL certificate. If DNS isn't ready yet that's fine too; the installer uses a self-signed cert and tells you the exact command to re-issue once DNS propagates.
+
+### Step 1 — Log in to your server as root
+
+Open a terminal (on Windows use [PuTTY](https://www.putty.org/) or Windows Terminal) and connect via SSH:
+
+```bash
+ssh root@YOUR_SERVER_IP
+```
+
+If your hosting provider gave you a non-root user with sudo, switch to root first:
+
+```bash
+sudo -i
+```
+
+### Step 2 — Run the installer
+
+Paste this single command and press Enter:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/install.sh)
 ```
 
-The installer will ask you for:
+This downloads and runs the installer in one step — no need to set permissions manually.
 
-- **Server hostname** (FQDN, e.g. `server1.example.com`) — sets `hostnamectl` and configures mail
-- **Panel domain** (e.g. `panel.example.com`) — the URL you'll access the panel on
-- **Web server** — Nginx (recommended) or Apache
-- **Admin name, email, and password** — your master admin account
-- **Service passwords** — auto-generate (recommended) or set your own for MariaDB, PowerDNS, Redis, and Webmail
+> **If you prefer to download the script first and inspect it before running:**
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/install.sh -o install.sh
+> # Open install.sh in a text editor to review it, then:
+> chmod +x install.sh
+> ./install.sh
+> ```
+> `chmod +x` makes the file executable. Without it the shell will refuse to run it.
 
-The installer sets everything up end-to-end: all services, SSL via Let's Encrypt, firewall rules, and your admin account. Credentials are saved to `/root/strata-credentials.txt` when done.
+### Step 3 — Answer the prompts
 
-**DNS:** Point an A record for your panel domain at the server IP before running the installer if you want Let's Encrypt SSL issued automatically. If DNS isn't ready yet, a self-signed cert is used and the installer tells you the exact command to re-issue once DNS propagates.
+The installer will ask you a series of questions. You can press **Enter** to accept the suggested default shown in `[brackets]`:
+
+| Prompt | What to enter |
+|--------|---------------|
+| Server hostname | The FQDN for this server, e.g. `server1.example.com` |
+| Panel domain | The domain for the control panel, e.g. `panel.example.com` |
+| Web server | `1` for Nginx (recommended) or `2` for Apache |
+| Admin name | Your full name or a display name |
+| Admin email | The email you'll log in with |
+| Admin password | Min. 12 characters — you'll type it twice |
+| Auto-generate service passwords? | Press **Enter** (or `Y`) to let the installer generate secure random passwords for MariaDB, Redis, etc. Type `n` to set your own. |
+
+The whole process takes about 5–10 minutes depending on server speed and network.
+
+### Step 4 — Save your credentials
+
+When the installer finishes it prints a summary and saves all generated passwords to:
+
+```
+/root/strata-credentials.txt
+```
+
+**Read this file and store the passwords somewhere safe** (a password manager is ideal) before closing your SSH session:
+
+```bash
+cat /root/strata-credentials.txt
+```
+
+### Step 5 — Open the panel
+
+Navigate to `https://panel.example.com` (your panel domain) in a browser and log in with the admin email and password you set during installation.
+
+---
 
 ### Adding a child node
 
-After the panel is running, go to **Admin → Nodes → Add Node** to get the HMAC secret and Node ID, then on the child server:
+After the panel is running, go to **Admin → Nodes → Add Node** to get the HMAC secret and Node ID, then on the child server run:
 
 ```bash
 STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/agent.sh)
