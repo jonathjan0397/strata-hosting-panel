@@ -12,6 +12,9 @@
 # =============================================================================
 set -uo pipefail
 
+# Ensure /usr/sbin and /sbin are in PATH — not guaranteed on minimal Debian installs
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
@@ -163,9 +166,9 @@ ok "Go / Composer / acme.sh removed."
 # ── 10. Remove system users ───────────────────────────────────────────────────
 step "Removing system users…"
 crontab -r -u strata 2>/dev/null || true
-userdel -r strata  2>/dev/null || true
-userdel -r vmail   2>/dev/null || true
-groupdel  vmail    2>/dev/null || true
+/usr/sbin/userdel -r strata  2>/dev/null || true
+/usr/sbin/userdel -r vmail   2>/dev/null || true
+/usr/sbin/groupdel  vmail    2>/dev/null || true
 ok "System users removed."
 
 # ── 11. Revert /etc/hosts entry added by installer ───────────────────────────

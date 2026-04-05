@@ -11,6 +11,9 @@
 # =============================================================================
 set -euo pipefail
 
+# Ensure /usr/sbin and /sbin are in PATH — not guaranteed on minimal Debian installs
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 # ── Colours ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
@@ -1277,7 +1280,7 @@ rm -f  /root/.my.cnf
 
 echo "[*] Removing system user '${PANEL_USER}'…"
 crontab -r -u '${PANEL_USER}' 2>/dev/null || true
-userdel -r '${PANEL_USER}' 2>/dev/null || true
+/usr/sbin/userdel -r '${PANEL_USER}' 2>/dev/null || true
 
 echo "[*] Removing web vhost configs…"
 rm -f /etc/nginx/sites-enabled/strata-panel
