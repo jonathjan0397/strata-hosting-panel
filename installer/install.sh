@@ -104,8 +104,8 @@ SQLEOF
     echo -e "${YELLOW}[warn] Rollback complete.${NC}"
     echo -e "${YELLOW}       Packages installed by apt were NOT removed automatically.${NC}"
     echo -e "${YELLOW}       To purge them manually:${NC}"
-    echo -e "${YELLOW}         apt-get purge mariadb-server pdns-server pdns-backend-mysql \\${NC}"
-    echo -e "${YELLOW}           redis-server pure-ftpd postfix dovecot-core rspamd fail2ban${NC}"
+    echo    "         apt-get purge mariadb-server pdns-server pdns-backend-mysql \\"
+    echo    "           redis-server pure-ftpd postfix dovecot-core rspamd fail2ban"
     echo ""
     exit "$rc"
 }
@@ -275,13 +275,13 @@ for VER in "${PHP_VERSIONS[@]}"; do
     for EXT in $PHP_EXTENSIONS; do
         PKG_LIST="$PKG_LIST php${VER}-${EXT}"
     done
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $PKG_LIST
+    DEBIAN_FRONTEND=noninteractive apt-get install -y $PKG_LIST
 done
 success "PHP installed."
 
 # ── Step 3. MariaDB ───────────────────────────────────────────────────────────
 info "Installing MariaDB…"
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq mariadb-server mariadb-client
+DEBIAN_FRONTEND=noninteractive apt-get install -y mariadb-server mariadb-client
 systemctl enable --now mariadb
 
 info "Securing MariaDB and creating databases…"
@@ -324,7 +324,7 @@ if ss -tlnp 2>/dev/null | grep -q ':53 '; then
     fi
 fi
 
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq pdns-server pdns-backend-mysql
+DEBIAN_FRONTEND=noninteractive apt-get install -y pdns-server pdns-backend-mysql
 
 MYSQL_CMD -e "
     CREATE DATABASE IF NOT EXISTS pdns CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -372,7 +372,7 @@ success "PowerDNS ready (API on 127.0.0.1:8053)."
 
 # ── Step 3c. Pure-FTPd ────────────────────────────────────────────────────────
 info "Installing Pure-FTPd…"
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq pure-ftpd pure-ftpd-common
+DEBIAN_FRONTEND=noninteractive apt-get install -y pure-ftpd pure-ftpd-common
 
 mkdir -p /etc/pureftpd
 
@@ -400,7 +400,7 @@ success "Pure-FTPd ready (virtual users, FTPS, passive 30000-50000)."
 
 # ── Step 4. Redis ─────────────────────────────────────────────────────────────
 info "Installing Redis…"
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq redis-server
+DEBIAN_FRONTEND=noninteractive apt-get install -y redis-server
 
 # Bind to localhost only and set password
 sed -i 's/^supervised no/supervised systemd/' /etc/redis/redis.conf
@@ -428,7 +428,7 @@ mkdir -p /var/mail/vmail
 chown -R vmail:vmail /var/mail/vmail
 
 info "Installing Postfix + Dovecot + OpenDKIM…"
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
     postfix postfix-mysql \
     dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-mysql \
     opendkim opendkim-tools \
@@ -439,7 +439,7 @@ curl -fsSL https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/ke
 echo "deb [signed-by=/usr/share/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ ${PHP_CODENAME} main" \
     > /etc/apt/sources.list.d/rspamd.list
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq rspamd
+DEBIAN_FRONTEND=noninteractive apt-get install -y rspamd
 
 # Postfix
 postconf -e "myhostname = ${HOSTNAME_FQDN}"
@@ -602,13 +602,13 @@ success "OpenDKIM ready."
 # ── Step 5. Web server ────────────────────────────────────────────────────────
 if [[ "$WEB_SERVER" == "apache" ]]; then
     info "Installing Apache2…"
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apache2
+    DEBIAN_FRONTEND=noninteractive apt-get install -y apache2
     a2enmod proxy_fcgi setenvif headers rewrite ssl >/dev/null 2>&1
     systemctl enable apache2
     success "Apache2 installed."
 else
     info "Installing Nginx…"
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nginx
+    DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
     systemctl enable nginx
     success "Nginx installed."
 fi
@@ -616,7 +616,7 @@ fi
 # ── Step 6. Node.js 20 ────────────────────────────────────────────────────────
 info "Installing Node.js 20…"
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nodejs
+DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 success "Node.js $(node -v) installed."
 
 # ── Step 7. Composer ──────────────────────────────────────────────────────────
