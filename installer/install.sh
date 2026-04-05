@@ -298,18 +298,32 @@ echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.
     > /etc/apt/sources.list.d/php.list
 apt-get update
 
-PHP_VERSIONS=(8.1 8.2 8.3)
+# Debian 13 (Trixie) native repo has PHP 8.2; Sury Trixie has 8.1, 8.2, 8.4.
+# PHP 8.3 from Sury conflicts with Trixie native packages — skip it, use 8.4 instead.
+case "$DEBIAN_VERSION" in
+    13) PHP_VERSIONS=(8.1 8.2 8.4) ;;
+    *)  PHP_VERSIONS=(8.1 8.2 8.3) ;;
+esac
 PHP_EXTENSIONS="fpm cli common curl mbstring xml zip bcmath intl gd mysql redis"
+INSTALLED_PHP_VERSIONS=()
 
-info "Installing PHP 8.1, 8.2, 8.3 + extensions…"
+info "Installing PHP ${PHP_VERSIONS[*]} + extensions…"
 for VER in "${PHP_VERSIONS[@]}"; do
     PKG_LIST=""
     for EXT in $PHP_EXTENSIONS; do
         PKG_LIST="$PKG_LIST php${VER}-${EXT}"
     done
-    DEBIAN_FRONTEND=noninteractive apt-get install -y $PKG_LIST
+    if DEBIAN_FRONTEND=noninteractive apt-get install -y $PKG_LIST; then
+        INSTALLED_PHP_VERSIONS+=("$VER")
+        success "PHP ${VER} installed."
+    else
+        warn "PHP ${VER} not available for this platform — skipping."
+    fi
 done
-success "PHP installed."
+[[ ${#INSTALLED_PHP_VERSIONS[@]} -gt 0 ]] || die "No PHP versions could be installed — check the Sury repo."
+# Use the highest installed PHP version for the panel
+PANEL_PHP_VER="${INSTALLED_PHP_VERSIONS[-1]}"
+success "PHP installed. Panel will use PHP ${PANEL_PHP_VER}."
 
 # ── Step 3. MariaDB ───────────────────────────────────────────────────────────
 info "Installing MariaDB…"
@@ -889,7 +903,7 @@ After=network.target redis.service
 Type=simple
 User=${PANEL_USER}
 WorkingDirectory=${INSTALL_DIR}/panel
-ExecStart=/usr/bin/php ${INSTALL_DIR}/panel/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+ExecStart=/usr/bin/php${PANEL_PHP_VER} ${INSTALL_DIR}/panel/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
 Restart=always
 RestartSec=5
 
@@ -902,7 +916,7 @@ systemctl enable --now strata-queue
 success "Queue worker running."
 
 info "Adding Laravel scheduler cron job…"
-(crontab -l -u "$PANEL_USER" 2>/dev/null; echo "* * * * * cd ${INSTALL_DIR}/panel && /usr/bin/php artisan schedule:run >> /dev/null 2>&1") \
+(crontab -l -u "$PANEL_USER" 2>/dev/null; echo "* * * * * cd ${INSTALL_DIR}/panel && /usr/bin/php${PANEL_PHP_VER} artisan schedule:run >> /dev/null 2>&1") \
     | crontab -u "$PANEL_USER" -
 success "Scheduler cron added."
 
@@ -941,7 +955,7 @@ if [[ "$WEB_SERVER" == "apache" ]]; then
     </Directory>
 
     <FilesMatch \.php\$>
-        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
+        SetHandler "proxy:unix:/run/php/php${PANEL_PHP_VER}-fpm.sock|fcgi://localhost"
     </FilesMatch>
 
     <FilesMatch "\.(env|git|log|sql)\$">
@@ -957,7 +971,7 @@ if [[ "$WEB_SERVER" == "apache" ]]; then
         Require all granted
     </Directory>
     <FilesMatch "^/var/www/webmail/.+\.php\$">
-        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
+        SetHandler "proxy:unix:/run/php/php${PANEL_PHP_VER}-fpm.sock|fcgi://localhost"
     </FilesMatch>
 </VirtualHost>
 EOF
@@ -1020,7 +1034,7 @@ server {
     }
 
     location ~ \.php\$ {
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_pass unix:/run/php/php${PANEL_PHP_VER}-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
         include fastcgi_params;
@@ -1038,7 +1052,7 @@ server {
 
         location ~ ^/webmail/.+\.php\$ {
             root /var/www;
-            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+            fastcgi_pass unix:/run/php/php${PANEL_PHP_VER}-fpm.sock;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
             include fastcgi_params;
         }
