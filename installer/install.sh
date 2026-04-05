@@ -1156,24 +1156,31 @@ success "fail2ban configured (SSH, Postfix, Dovecot, Nginx jails active)."
 
 # ── Step 21. Register primary node ───────────────────────────────────────────
 info "Registering primary node in panel database…"
-cd "$INSTALL_DIR/panel"
-php artisan tinker --no-interaction <<TINKER 2>/dev/null
+cat > /tmp/strata-register-node.php <<'PHPEOF'
+<?php
+$app = require getenv('INSTALL_DIR') . '/panel/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 use App\Models\Node;
 Node::updateOrCreate(
-    ['node_id' => '${AGENT_NODE_ID}'],
+    ['node_id' => getenv('AGENT_NODE_ID')],
     [
-        'name'        => 'Primary',
-        'hostname'    => '${HOSTNAME_FQDN}',
-        'ip_address'  => '127.0.0.1',
-        'port'        => 8743,
-        'hmac_secret' => '${AGENT_HMAC_SECRET}',
-        'web_server'  => '${WEB_SERVER}',
-        'status'      => 'online',
-        'is_primary'  => true,
-        'last_seen_at'=> now(),
+        'name'         => 'Primary',
+        'hostname'     => getenv('HOSTNAME_FQDN'),
+        'ip_address'   => '127.0.0.1',
+        'port'         => 8743,
+        'hmac_secret'  => getenv('AGENT_HMAC_SECRET'),
+        'web_server'   => getenv('WEB_SERVER'),
+        'status'       => 'online',
+        'is_primary'   => true,
+        'last_seen_at' => now(),
     ]
 );
-TINKER
+echo "done\n";
+PHPEOF
+INSTALL_DIR="$INSTALL_DIR" AGENT_NODE_ID="$AGENT_NODE_ID" HOSTNAME_FQDN="$HOSTNAME_FQDN" \
+    AGENT_HMAC_SECRET="$AGENT_HMAC_SECRET" WEB_SERVER="$WEB_SERVER" \
+    php /tmp/strata-register-node.php || die "Failed to register primary node"
+rm -f /tmp/strata-register-node.php
 success "Primary node registered."
 
 # ── Step 22. SnappyMail webmail ───────────────────────────────────────────────
@@ -1251,18 +1258,30 @@ chmod 600 /etc/strata-panel/webmail-sso.php
 
 # ── Step 23. Set admin account ────────────────────────────────────────────────
 info "Setting up admin account…"
-cd "$INSTALL_DIR/panel"
-php artisan tinker --no-interaction <<TINKER 2>/dev/null
+cat > /tmp/strata-set-admin.php <<'PHPEOF'
+<?php
+$app = require getenv('INSTALL_DIR') . '/panel/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 use App\Models\User;
-\$u = User::where('email', 'admin@localhost')->orWhere('email', '${ADMIN_EMAIL}')->first();
-if (\$u) {
-    \$u->update([
-        'name'     => '${ADMIN_NAME}',
-        'email'    => '${ADMIN_EMAIL}',
-        'password' => bcrypt('${ADMIN_PASSWORD}'),
+$u = User::where('email', 'admin@localhost')
+         ->orWhere('email', getenv('ADMIN_EMAIL'))
+         ->first();
+if ($u) {
+    $u->update([
+        'name'     => getenv('ADMIN_NAME'),
+        'email'    => getenv('ADMIN_EMAIL'),
+        'password' => bcrypt(getenv('ADMIN_PASSWORD')),
     ]);
+    echo "done\n";
+} else {
+    fwrite(STDERR, "Admin user not found\n");
+    exit(1);
 }
-TINKER
+PHPEOF
+INSTALL_DIR="$INSTALL_DIR" ADMIN_EMAIL="$ADMIN_EMAIL" \
+    ADMIN_NAME="$ADMIN_NAME" ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+    php /tmp/strata-set-admin.php || die "Failed to configure admin account"
+rm -f /tmp/strata-set-admin.php
 success "Admin account configured: ${ADMIN_EMAIL}"
 
 # ── Step 24. Save credentials ─────────────────────────────────────────────────
