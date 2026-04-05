@@ -228,12 +228,14 @@ PANEL_USER="strata"
 # in Step 2 after the PHP repo is added.
 echo ""
 info "Checking package manager state…"
+# Match anything NOT cleanly installed (ii), not removed-with-config (rc),
+# and not unknown/not-installed (un). This catches iF, iH, iU, iW, iiR, iuR, etc.
 _pf_broken=$(dpkg -l 2>/dev/null \
-    | awk 'NR>5 && length($1)==3 && substr($1,3,1)~/[RX]/ {pkg=$2; sub(/:.*$/,"",pkg); print pkg}' \
+    | awk 'NR>5 && $1 !~ /^(ii|rc|un)/ {pkg=$2; sub(/:.*$/,"",pkg); print pkg}' \
     | sort -u | tr '\n' ' ')
 if [[ -n "${_pf_broken// }" ]]; then
     warn "Broken packages detected: ${_pf_broken}"
-    warn "Force-removing — they will be cleanly reinstalled by the installer…"
+    warn "Force-removing — they will be cleanly reinstalled…"
     for _pkg in $_pf_broken; do
         dpkg --remove --force-all "$_pkg" 2>/dev/null \
             || dpkg --purge  --force-all "$_pkg" 2>/dev/null \
@@ -292,8 +294,6 @@ esac
 echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ ${PHP_CODENAME} main" \
     > /etc/apt/sources.list.d/php.list
 apt-get update
-# Heal any remaining broken dependencies now that PHP repo is available
-DEBIAN_FRONTEND=noninteractive apt-get install -f -y 2>/dev/null || true
 
 PHP_VERSIONS=(8.1 8.2 8.3)
 PHP_EXTENSIONS="fpm cli common curl mbstring xml zip bcmath intl gd mysql redis"
