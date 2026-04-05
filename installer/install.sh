@@ -926,7 +926,7 @@ systemctl enable --now strata-queue
 success "Queue worker running."
 
 info "Adding Laravel scheduler cron job…"
-(crontab -l -u "$PANEL_USER" 2>/dev/null; echo "* * * * * cd ${INSTALL_DIR}/panel && /usr/bin/php${PANEL_PHP_VER} artisan schedule:run >> /dev/null 2>&1") \
+(crontab -l -u "$PANEL_USER" 2>/dev/null || true; echo "* * * * * cd ${INSTALL_DIR}/panel && /usr/bin/php${PANEL_PHP_VER} artisan schedule:run >> /dev/null 2>&1") \
     | crontab -u "$PANEL_USER" -
 success "Scheduler cron added."
 
