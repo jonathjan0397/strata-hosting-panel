@@ -244,6 +244,9 @@ info "Starting installation…"
 echo ""
 
 # ── Step 1. System update ─────────────────────────────────────────────────────
+info "Checking for interrupted dpkg operations…"
+dpkg --configure -a 2>/dev/null || true
+
 info "Updating package lists…"
 apt-get update || die "apt-get update failed — check your sources.list and network connectivity."
 
