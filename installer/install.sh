@@ -81,7 +81,7 @@ SQLEOF
     rm -f  /root/.my.cnf
 
     # Remove the strata system user
-    userdel -r "${PANEL_USER:-strata}" 2>/dev/null || true
+    /usr/sbin/userdel -r "${PANEL_USER:-strata}" 2>/dev/null || true
 
     # Remove scheduler cron
     crontab -r -u "${PANEL_USER:-strata}" 2>/dev/null || true
@@ -446,11 +446,11 @@ success "Redis ready (localhost only, password set)."
 # ── Step 4b. Mail stack ───────────────────────────────────────────────────────
 info "Creating vmail system user…"
 if ! getent group vmail > /dev/null 2>&1; then
-    groupadd -g 5000 vmail 2>/dev/null || groupadd vmail || die "Failed to create vmail group"
+    /usr/sbin/groupadd -g 5000 vmail 2>/dev/null || /usr/sbin/groupadd vmail || die "Failed to create vmail group"
 fi
 if ! getent passwd vmail > /dev/null 2>&1; then
-    useradd -u 5000 -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail 2>/dev/null \
-        || useradd -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail \
+    /usr/sbin/useradd -u 5000 -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail 2>/dev/null \
+        || /usr/sbin/useradd -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail \
         || die "Failed to create vmail user"
 fi
 mkdir -p /var/mail/vmail
@@ -623,7 +623,7 @@ touch /etc/opendkim/signing.table
 
 mkdir -p /var/spool/postfix/opendkim
 chown opendkim:postfix /var/spool/postfix/opendkim
-usermod -aG opendkim postfix 2>/dev/null || true
+/usr/sbin/usermod -aG opendkim postfix 2>/dev/null || true
 
 systemctl enable --now opendkim
 success "OpenDKIM ready."
@@ -672,7 +672,7 @@ success "acme.sh ready."
 
 # ── Step 10. System user ──────────────────────────────────────────────────────
 info "Creating system user '${PANEL_USER}'…"
-id "$PANEL_USER" &>/dev/null || useradd -r -m -d "$INSTALL_DIR" -s /bin/bash "$PANEL_USER"
+id "$PANEL_USER" &>/dev/null || /usr/sbin/useradd -r -m -d "$INSTALL_DIR" -s /bin/bash "$PANEL_USER"
 success "User '${PANEL_USER}' ready."
 
 # ── Step 11. Clone panel ──────────────────────────────────────────────────────
