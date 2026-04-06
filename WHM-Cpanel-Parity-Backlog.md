@@ -165,6 +165,7 @@ Implemented on `main`:
 - quick-jump navigation search for common role-specific destinations
 - shared page header, action card, and empty-state components
 - task-oriented user hosting dashboard with common workflow shortcuts
+- task-oriented admin dashboard with WHM-style operational shortcuts
 
 ### 10. Platform and API Expansion
 Status: `planned`

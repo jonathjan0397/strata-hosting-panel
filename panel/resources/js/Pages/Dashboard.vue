@@ -1,5 +1,20 @@
 <template>
     <AppLayout title="Dashboard">
+        <PageHeader
+            eyebrow="Admin Workspace"
+            title="Operate the hosting platform"
+            description="Monitor node health, manage accounts and packages, review backups, and jump into common WHM-style operations."
+        >
+            <template #actions>
+                <Link :href="route('admin.accounts.create')" class="btn-primary">
+                    Create Account
+                </Link>
+                <Link :href="route('admin.nodes.create')" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800">
+                    Add Node
+                </Link>
+            </template>
+        </PageHeader>
+
         <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
                 v-for="stat in stats"
@@ -8,6 +23,39 @@
                 :value="stat.value"
                 :color="stat.color"
             />
+        </div>
+
+        <div class="mt-6">
+            <div class="mb-3">
+                <h2 class="text-sm font-semibold text-gray-300">Admin Shortcuts</h2>
+                <p class="mt-1 text-xs text-gray-500">Common operational paths for account, infrastructure, security, and backup work.</p>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <ActionCard
+                    :href="route('admin.accounts.index')"
+                    title="Accounts"
+                    description="Create, suspend, deprovision, and inspect hosted accounts."
+                    cta="Manage accounts"
+                />
+                <ActionCard
+                    :href="route('admin.packages.index')"
+                    title="Packages"
+                    description="Maintain package defaults and feature-list assignments."
+                    cta="Manage packages"
+                />
+                <ActionCard
+                    :href="route('admin.security.firewall')"
+                    title="Security"
+                    description="Review firewall rules, block IPs, and inspect fail2ban state."
+                    cta="Open security"
+                />
+                <ActionCard
+                    :href="route('admin.backups.index')"
+                    title="Backups"
+                    description="Check backup jobs, restores, schedules, and remote destinations."
+                    cta="Open backups"
+                />
+            </div>
         </div>
 
         <!-- License status (only shown when managed / license server configured) -->
@@ -67,9 +115,17 @@
 
         <!-- Nodes status -->
         <div class="mt-8">
-            <h2 class="mb-4 text-sm font-semibold text-gray-400 uppercase tracking-wide">Nodes</h2>
+            <div class="mb-4 flex items-center justify-between">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-300">Nodes</h2>
+                    <p class="mt-1 text-xs text-gray-500">Agent status and last-seen telemetry across the fleet.</p>
+                </div>
+                <Link :href="route('admin.nodes.index')" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300">
+                    View all
+                </Link>
+            </div>
             <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
-                <table class="min-w-full divide-y divide-gray-800">
+                <table v-if="nodes.length" class="min-w-full divide-y divide-gray-800">
                     <thead>
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Name</th>
@@ -110,14 +166,17 @@
                             <td class="px-5 py-3.5 text-sm text-gray-400 font-mono">{{ node.agent_version ?? '—' }}</td>
                             <td class="px-5 py-3.5 text-sm text-gray-400">{{ node.last_seen_at ?? 'Never' }}</td>
                         </tr>
-                        <tr v-if="nodes.length === 0">
-                            <td colspan="5" class="px-5 py-8 text-center text-sm text-gray-500">
-                                No nodes configured yet.
-                                <Link :href="route('admin.nodes.create')" class="text-indigo-400 hover:underline ml-1">Add a node</Link>
-                            </td>
-                        </tr>
                     </tbody>
                 </table>
+                <EmptyState
+                    v-else
+                    title="No nodes configured"
+                    description="Add the first node so Strata Hosting Panel can provision accounts and domains."
+                >
+                    <template #actions>
+                        <Link :href="route('admin.nodes.create')" class="btn-primary">Add Node</Link>
+                    </template>
+                </EmptyState>
             </div>
         </div>
     </AppLayout>
@@ -127,6 +186,9 @@
 import { ref } from 'vue';
 import { usePage, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import ActionCard from '@/Components/ActionCard.vue';
+import EmptyState from '@/Components/EmptyState.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import StatCard from '@/Components/StatCard.vue';
 
 defineProps({
