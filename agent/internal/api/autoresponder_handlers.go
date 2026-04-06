@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,7 +28,13 @@ func handleAutoresponderSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	local, domain := parts[0], parts[1]
-	if err := writeAutoresponder(domain, local, req.Subject, req.Body, req.Active); err != nil {
+	script := ""
+	if req.Active {
+		subject := escapeSieveString(req.Subject)
+		body := escapeSieveMultiline(req.Body)
+		script = "require [\"vacation\"];\n\nvacation\n  :days 1\n  :subject \"" + subject + "\"\n  text:\n" + body + "\n.\n;\n"
+	}
+	if err := writeMailboxSieve(domain, local, script); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -45,30 +50,69 @@ func handleAutoresponderDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	local, domain := parts[0], parts[1]
-	sieveFile := filepath.Join(vMailBase, domain, local, ".dovecot.sieve")
-	_ = os.Remove(sieveFile)
-	_ = os.Remove(sieveFile + "c")
+	_ = writeMailboxSieve(domain, local, "")
 	respond(w, http.StatusOK, map[string]string{"status": "deleted", "email": email})
 }
 
-func writeAutoresponder(domain, local, subject, body string, active bool) error {
+func handleMailboxSieveSet(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email  string `json:"email"`
+		Script string `json:"script"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	parts := strings.SplitN(req.Email, "@", 2)
+	if len(parts) != 2 {
+		http.Error(w, "invalid email", http.StatusBadRequest)
+		return
+	}
+	local, domain := parts[0], parts[1]
+	if err := writeMailboxSieve(domain, local, req.Script); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "ok", "email": req.Email})
+}
+
+func handleMailboxSieveDelete(w http.ResponseWriter, r *http.Request) {
+	email := chi.URLParam(r, "email")
+	parts := strings.SplitN(email, "@", 2)
+	if len(parts) != 2 {
+		http.Error(w, "invalid email", http.StatusBadRequest)
+		return
+	}
+	local, domain := parts[0], parts[1]
+	if err := writeMailboxSieve(domain, local, ""); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "deleted", "email": email})
+}
+
+func writeMailboxSieve(domain, local, script string) error {
 	dir := filepath.Join(vMailBase, domain, local)
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
 	sieveFile := filepath.Join(dir, ".dovecot.sieve")
-	if !active {
+	if strings.TrimSpace(script) == "" {
 		_ = os.Remove(sieveFile)
 		_ = os.Remove(sieveFile + "c")
 		return nil
 	}
-	subject = strings.ReplaceAll(subject, `"`, `\"`)
-	bodyEsc := strings.ReplaceAll(body, `\`, `\\`)
-	bodyEsc = strings.ReplaceAll(bodyEsc, `"`, `\"`)
-	content := fmt.Sprintf("require [\"vacation\"];\nvacation\n  :days 1\n  :subject \"%s\"\n  \"%s\";\n", subject, bodyEsc)
-	if err := os.WriteFile(sieveFile, []byte(content), 0640); err != nil {
+	if err := os.WriteFile(sieveFile, []byte(script), 0640); err != nil {
 		return err
 	}
 	_ = os.Chown(sieveFile, 5000, 5000)
 	return nil
+}
+
+func escapeSieveString(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	return strings.ReplaceAll(value, `"`, `\"`)
+}
+
+func escapeSieveMultiline(value string) string {
+	return strings.ReplaceAll(value, "\r", "")
 }

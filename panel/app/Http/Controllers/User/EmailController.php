@@ -27,8 +27,8 @@ class EmailController extends Controller
         $domain->load('node');
 
         return Inertia::render('User/Email/Index', [
-            'domain'     => $domain,
-            'mailboxes'  => EmailAccount::where('domain_id', $domain->id)->get(),
+            'domain' => $domain,
+            'mailboxes' => EmailAccount::where('domain_id', $domain->id)->get(),
             'forwarders' => EmailForwarder::where('domain_id', $domain->id)->get(),
         ]);
     }
@@ -51,8 +51,8 @@ class EmailController extends Controller
 
         $data = $request->validate([
             'local_part' => ['required', 'regex:/^[a-zA-Z0-9._%+\-]+$/', 'max:64'],
-            'password'   => ['required', 'string', 'min:8'],
-            'quota_mb'   => ['nullable', 'integer', 'min:0'],
+            'password' => ['required', 'string', 'min:8'],
+            'quota_mb' => ['nullable', 'integer', 'min:0'],
         ]);
 
         [$success, $error] = app(MailProvisioner::class)->createMailbox(
@@ -106,7 +106,7 @@ class EmailController extends Controller
         }
 
         $data = $request->validate([
-            'source'      => ['required', 'email'],
+            'source' => ['required', 'email'],
             'destination' => ['required', 'email'],
         ]);
 
@@ -121,7 +121,7 @@ class EmailController extends Controller
         );
 
         return $success
-            ? back()->with('success', "Forwarder created: {$data['source']} → {$data['destination']}")
+            ? back()->with('success', "Forwarder created: {$data['source']} -> {$data['destination']}")
             : back()->with('error', "Forwarder failed: {$error}");
     }
 

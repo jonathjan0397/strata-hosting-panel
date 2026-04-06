@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmailAccount extends Model
@@ -32,5 +34,15 @@ class EmailAccount extends Model
     public function node(): BelongsTo
     {
         return $this->belongsTo(Node::class);
+    }
+
+    public function autoresponder(): HasOne
+    {
+        return $this->hasOne(Autoresponder::class);
+    }
+
+    public function filters(): HasMany
+    {
+        return $this->hasMany(EmailFilter::class)->orderBy('sort_order')->orderBy('id');
     }
 }

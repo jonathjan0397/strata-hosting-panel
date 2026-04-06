@@ -92,13 +92,19 @@ Implemented on `code-review-fixes`:
 ## Phase 2: cPanel Daily-Use Parity
 
 ### 5. Email Maturity
-Status: `planned`
+Status: `in progress`
 
 - email filters
 - spam controls per domain/account
 - delivery tracking
 - bulk address/forwarder import
 - mail archive controls
+
+Implemented on `code-review-fixes`:
+
+- mailbox-level email filters
+- shared Sieve compilation for filters plus autoresponders
+- user filter management UI inside the existing email workflow
 
 ### 6. Files and Developer Tooling
 Status: `planned`

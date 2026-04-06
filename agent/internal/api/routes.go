@@ -70,6 +70,8 @@ func Routes() chi.Router {
 	// Autoresponders
 	r.Post("/mail/autoresponder", handleAutoresponderSet)
 	r.Delete("/mail/autoresponder/{email}", handleAutoresponderDelete)
+	r.Post("/mail/mailbox-rules", handleMailboxSieveSet)
+	r.Delete("/mail/mailbox-rules/{email}", handleMailboxSieveDelete)
 
 	// Rspamd
 	r.Get("/mail/rspamd/stats", handleRspamdStats)

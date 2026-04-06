@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Autoresponder;
 use App\Models\Domain;
 use App\Models\EmailAccount;
-use App\Services\AgentClient;
+use App\Services\MailSieveProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -52,17 +52,10 @@ class AutoresponderController extends Controller
             $data,
         );
 
-        $client = AgentClient::for($account->node);
-        $response = $client->autoresponderSet(
-            $emailAccount->email,
-            $data['subject'],
-            $data['body'],
-            $data['active'],
-        );
-
-        if (! $response->successful()) {
+        [$success, $error] = app(MailSieveProvisioner::class)->sync($emailAccount);
+        if (! $success) {
             $autoresponder->delete();
-            return back()->with('error', 'Failed to set autoresponder: ' . $response->body());
+            return back()->with('error', 'Failed to set autoresponder: ' . $error);
         }
 
         return back()->with('success', 'Autoresponder saved.');
@@ -73,14 +66,12 @@ class AutoresponderController extends Controller
         $account = $this->account();
         abort_unless($emailAccount->account_id === $account->id, 403);
 
-        $client = AgentClient::for($account->node);
-        $response = $client->autoresponderDelete($emailAccount->email);
-
-        if (! $response->successful()) {
-            return back()->with('error', 'Failed to remove autoresponder: ' . $response->body());
-        }
-
         Autoresponder::where('email_account_id', $emailAccount->id)->delete();
+
+        [$success, $error] = app(MailSieveProvisioner::class)->sync($emailAccount);
+        if (! $success) {
+            return back()->with('error', 'Failed to remove autoresponder: ' . $error);
+        }
 
         return back()->with('success', 'Autoresponder removed.');
     }

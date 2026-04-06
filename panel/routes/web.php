@@ -30,6 +30,7 @@ use App\Http\Controllers\Admin\AdminWebsiteController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\User\AutoresponderController;
 use App\Http\Controllers\User\AppInstallerController;
+use App\Http\Controllers\User\EmailFilterController;
 use App\Http\Controllers\User\MetricsController;
 use App\Http\Controllers\User\SshKeyController;
 use App\Http\Controllers\Reseller;
@@ -84,6 +85,10 @@ Route::middleware(['auth'])->group(function () {
             Route::put('email/mailboxes/{mailbox}/password', [User\EmailController::class, 'changePassword'])->name('email.mailbox.password');
             Route::post('domains/{domain}/email/forwarders', [User\EmailController::class, 'createForwarder'])->name('email.forwarder.store');
             Route::delete('email/forwarders/{forwarder}', [User\EmailController::class, 'deleteForwarder'])->name('email.forwarder.destroy');
+            Route::get('email/mailboxes/{emailAccount}/filters', [EmailFilterController::class, 'index'])->name('email.filters.index');
+            Route::post('email/mailboxes/{emailAccount}/filters', [EmailFilterController::class, 'store'])->name('email.filters.store');
+            Route::put('email/filters/{filter}', [EmailFilterController::class, 'update'])->name('email.filters.update');
+            Route::delete('email/filters/{filter}', [EmailFilterController::class, 'destroy'])->name('email.filters.destroy');
         });
 
         // Autoresponders

@@ -431,6 +431,18 @@ class AgentClient
         return $this->delete("/mail/autoresponder/{$email}");
     }
 
+    public function mailboxSieveSet(string $email, ?string $script): Response
+    {
+        if ($script === null || trim($script) === '') {
+            return $this->delete("/mail/mailbox-rules/{$email}");
+        }
+
+        return $this->post('/mail/mailbox-rules', [
+            'email' => $email,
+            'script' => $script,
+        ]);
+    }
+
     // ── SSH Keys ──────────────────────────────────────────────────────────────
 
     public function sshKeyList(string $username): Response
