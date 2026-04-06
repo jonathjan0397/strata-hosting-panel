@@ -150,6 +150,42 @@ class BackupController extends Controller
         return back()->with('success', "Backup {$backup->filename} restored successfully.");
     }
 
+    public function restorePath(Request $request, BackupJob $backup): RedirectResponse
+    {
+        $account = Auth::user()->account;
+
+        if (! $account || $backup->account_id !== $account->id) {
+            abort(403);
+        }
+
+        if (! $backup->filename || $backup->status !== 'complete') {
+            return back()->with('error', 'Backup file not available for path restore.');
+        }
+
+        if ($backup->type === 'databases') {
+            return back()->with('error', 'Path restore is only available for file and full backups.');
+        }
+
+        $data = $request->validate([
+            'source_path' => ['required', 'string', 'max:500', 'not_regex:/^\//', 'not_regex:/(^|[\/\\\\])\.\.([\/\\\\]|$)/'],
+            'target_path' => ['nullable', 'string', 'max:500', 'not_regex:/^\//', 'not_regex:/(^|[\/\\\\])\.\.([\/\\\\]|$)/'],
+        ]);
+
+        $client = AgentClient::for($backup->node);
+        $response = $client->backupRestorePath(
+            $account->username,
+            $backup->filename,
+            $data['source_path'],
+            $data['target_path'] ?? null,
+        );
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Path restore failed: ' . $response->body());
+        }
+
+        return back()->with('success', "Restored {$data['source_path']} from {$backup->filename}.");
+    }
+
     public function download(BackupJob $backup): Response|RedirectResponse
     {
         $account = Auth::user()->account;

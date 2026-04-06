@@ -86,6 +86,47 @@ func handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "restored", "type": backupType})
 }
 
+// POST /backups/{username}/restore-path/{filename}
+func handleBackupRestorePath(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	filename := chi.URLParam(r, "filename")
+
+	var body struct {
+		SourcePath string `json:"source_path"`
+		TargetPath string `json:"target_path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	backupPath, err := backup.Path(username, filename)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	backupType := "full"
+	if strings.Contains(filename, "_files_") {
+		backupType = "files"
+	} else if strings.Contains(filename, "_databases_") {
+		backupType = "databases"
+	}
+
+	if err := backup.RestorePath(username, backupPath, backupType, body.SourcePath, body.TargetPath); err != nil {
+		http.Error(w, "path restore failed: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":      "restored",
+		"type":        backupType,
+		"source_path": body.SourcePath,
+		"target_path": body.TargetPath,
+	})
+}
+
 // GET /backups/{username}/download/{filename}
 func handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")

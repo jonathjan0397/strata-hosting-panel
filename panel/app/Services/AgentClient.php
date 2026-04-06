@@ -382,6 +382,14 @@ class AgentClient
         return $this->post("/backups/{$username}/restore/" . urlencode($filename));
     }
 
+    public function backupRestorePath(string $username, string $filename, string $sourcePath, ?string $targetPath = null): Response
+    {
+        return $this->post("/backups/{$username}/restore-path/" . urlencode($filename), [
+            'source_path' => $sourcePath,
+            'target_path' => $targetPath,
+        ]);
+    }
+
     // ── fail2ban ──────────────────────────────────────────────────────────────
 
     public function fail2banStatus(): Response

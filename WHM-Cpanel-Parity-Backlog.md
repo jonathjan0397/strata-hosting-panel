@@ -125,6 +125,7 @@ Implemented on `main`:
 - domain-aware path suggestions for hosted document roots
 - domain-level directory privacy with hashed credentials and reprovision-backed auth rules
 - package-gated disk-usage explorer with bounded account-jail scanning
+- file/directory path restore from completed files/full backups
 
 ### 7. Database Breadth
 Status: `planned`

@@ -105,6 +105,7 @@ func Routes() chi.Router {
 	r.Delete("/backups/{username}/{filename}", handleBackupDelete)
 	r.Get("/backups/{username}/download/{filename}", handleBackupDownload)
 	r.Post("/backups/{username}/restore/{filename}", handleBackupRestore)
+	r.Post("/backups/{username}/restore-path/{filename}", handleBackupRestorePath)
 	r.Post("/backups/{username}/push", handleBackupPush)
 
 	// fail2ban

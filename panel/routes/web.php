@@ -181,6 +181,7 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('backups/{backup}', [User\BackupController::class, 'destroy'])->name('backups.destroy');
             Route::get('backups/{backup}/download', [User\BackupController::class, 'download'])->name('backups.download');
             Route::post('backups/{backup}/restore', [User\BackupController::class, 'restore'])->name('backups.restore');
+            Route::post('backups/{backup}/restore-path', [User\BackupController::class, 'restorePath'])->name('backups.restore-path');
         });
 
         Route::middleware('account.feature:metrics')->group(function () {

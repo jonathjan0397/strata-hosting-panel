@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +20,7 @@ const (
 // Entry describes a single backup archive on disk.
 type Entry struct {
 	Filename  string    `json:"filename"`
-	Type      string    `json:"type"`       // files | databases | full
+	Type      string    `json:"type"` // files | databases | full
 	SizeBytes int64     `json:"size_bytes"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -191,6 +192,80 @@ func Restore(username, backupPath, backupType string) error {
 	}
 }
 
+// RestorePath restores a single file or directory from a files/full backup into
+// the account web root. sourceRel and targetRel are relative to /var/www/{user}.
+func RestorePath(username, backupPath, backupType, sourceRel, targetRel string) error {
+	if backupType == "databases" {
+		return fmt.Errorf("path restore is only available for files and full backups")
+	}
+
+	sourceRel, err := cleanAccountRelativePath(sourceRel)
+	if err != nil {
+		return fmt.Errorf("invalid source path: %w", err)
+	}
+	if strings.TrimSpace(targetRel) == "" {
+		targetRel = sourceRel
+	}
+	targetRel, err = cleanAccountRelativePath(targetRel)
+	if err != nil {
+		return fmt.Errorf("invalid target path: %w", err)
+	}
+
+	tmp, err := os.MkdirTemp("", "strata-path-restore-*")
+	if err != nil {
+		return fmt.Errorf("tempdir: %w", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	filesArchive := backupPath
+	if backupType == "full" {
+		if out, err := exec.Command("tar", "-xzf", backupPath, "-C", tmp).CombinedOutput(); err != nil {
+			return fmt.Errorf("extract files archive: %w — %s", err, string(out))
+		}
+		filesArchive = filepath.Join(tmp, "files.tar.gz")
+	}
+
+	extracted := filepath.Join(tmp, "files")
+	if err := os.MkdirAll(extracted, 0750); err != nil {
+		return fmt.Errorf("mkdir extracted files: %w", err)
+	}
+	if out, err := exec.Command("tar", "-xzf", filesArchive, "-C", extracted).CombinedOutput(); err != nil {
+		return fmt.Errorf("extract files: %w — %s", err, string(out))
+	}
+
+	sourceRoot := filepath.Join(extracted, username)
+	source := filepath.Join(sourceRoot, sourceRel)
+	if _, err := os.Stat(source); err != nil {
+		return fmt.Errorf("source path not found in backup: %s", sourceRel)
+	}
+	source, err = filepath.EvalSymlinks(source)
+	if err != nil {
+		return fmt.Errorf("resolve source path: %w", err)
+	}
+	if !strings.HasPrefix(source, sourceRoot+string(os.PathSeparator)) && source != sourceRoot {
+		return fmt.Errorf("source path escapes backup account root")
+	}
+
+	accountRoot := filepath.Join(webRoot, username)
+	target := filepath.Join(accountRoot, targetRel)
+	if !strings.HasPrefix(target, accountRoot+string(os.PathSeparator)) && target != accountRoot {
+		return fmt.Errorf("target path escapes account root")
+	}
+	if err := rejectSymlinkPath(accountRoot, targetRel); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(target); err != nil {
+		return fmt.Errorf("remove existing target: %w", err)
+	}
+	if err := copyRecursive(source, target); err != nil {
+		return fmt.Errorf("copy restored path: %w", err)
+	}
+	_ = exec.Command("chown", "-R", username+":"+username, target).Run()
+
+	return nil
+}
+
 // restoreFiles extracts a files.tar.gz back to /var/www (preserving the
 // top-level username directory that was packed into the archive).
 func restoreFiles(archivePath string) error {
@@ -203,6 +278,81 @@ func restoreFiles(archivePath string) error {
 		return fmt.Errorf("tar extract: %w — %s", err, string(out))
 	}
 	return nil
+}
+
+func cleanAccountRelativePath(raw string) (string, error) {
+	clean := filepath.Clean(strings.ReplaceAll(strings.TrimSpace(raw), "\\", "/"))
+	if clean == "." || clean == "" {
+		return "", fmt.Errorf("path is required")
+	}
+	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path must stay inside the account")
+	}
+	return clean, nil
+}
+
+func rejectSymlinkPath(root, rel string) error {
+	current := root
+	for _, part := range strings.Split(rel, string(os.PathSeparator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("inspect target path: %w", err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to restore through symlink target: %s", rel)
+		}
+	}
+	return nil
+}
+
+func copyRecursive(src, dst string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to restore symlink: %s", src)
+	}
+	if info.IsDir() {
+		if err := os.MkdirAll(dst, info.Mode().Perm()); err != nil {
+			return err
+		}
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if err := copyRecursive(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name())); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
 }
 
 // restoreDatabases imports a gzip-compressed SQL dump via mysql.

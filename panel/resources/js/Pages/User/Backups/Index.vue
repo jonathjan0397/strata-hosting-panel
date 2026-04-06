@@ -76,6 +76,11 @@
                                     class="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
                                 >Restore</button>
                                 <button
+                                    v-if="job.status === 'complete' && job.type !== 'databases'"
+                                    @click="openPathRestore(job)"
+                                    class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                                >Restore Path</button>
+                                <button
                                     @click="remove(job.id)"
                                     class="text-xs text-red-500 hover:text-red-400 transition-colors"
                                 >Delete</button>
@@ -88,6 +93,47 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div v-if="pathRestore.job" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                <div class="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 p-5 shadow-2xl">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-100">Restore a File or Directory</h2>
+                            <p class="mt-1 text-sm text-gray-400">
+                                Restore one path from <span class="font-mono text-gray-300">{{ pathRestore.job.filename }}</span>.
+                            </p>
+                        </div>
+                        <button @click="closePathRestore" class="text-gray-500 hover:text-gray-300">×</button>
+                    </div>
+
+                    <div class="mt-5 space-y-4">
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Source path in backup</span>
+                            <input v-model="pathRestore.source_path" class="field mt-1 w-full" placeholder="public_html/index.php" />
+                            <span class="mt-1 block text-xs text-gray-500">Relative to your account root. Absolute paths and .. are rejected.</span>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Restore target path</span>
+                            <input v-model="pathRestore.target_path" class="field mt-1 w-full" placeholder="Leave blank to restore to the same path" />
+                            <span class="mt-1 block text-xs text-gray-500">Existing files/directories at the target path will be replaced.</span>
+                        </label>
+                    </div>
+
+                    <div class="mt-6 flex items-center justify-end gap-3">
+                        <button @click="closePathRestore" class="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-900">
+                            Cancel
+                        </button>
+                        <button
+                            @click="restorePath"
+                            :disabled="pathRestore.submitting || !pathRestore.source_path"
+                            class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
+                        >
+                            {{ pathRestore.submitting ? 'Restoring...' : 'Restore Path' }}
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </AppLayout>
@@ -102,6 +148,12 @@ defineProps({ jobs: { type: Array, default: () => [] } });
 
 const backupType = ref('full');
 const creating   = ref(false);
+const pathRestore = ref({
+    job: null,
+    source_path: '',
+    target_path: '',
+    submitting: false,
+});
 
 function create() {
     creating.value = true;
@@ -113,6 +165,43 @@ function create() {
 function restore(id) {
     if (!confirm('Restore this backup? This will overwrite your current files.')) return;
     router.post(route('my.backups.restore', id));
+}
+
+function openPathRestore(job) {
+    pathRestore.value = {
+        job,
+        source_path: '',
+        target_path: '',
+        submitting: false,
+    };
+}
+
+function closePathRestore(force = false) {
+    if (pathRestore.value.submitting && !force) return;
+    pathRestore.value = {
+        job: null,
+        source_path: '',
+        target_path: '',
+        submitting: false,
+    };
+}
+
+function restorePath() {
+    if (!pathRestore.value.job || !pathRestore.value.source_path) return;
+    if (!confirm('Restore this path? Existing files at the target path will be replaced.')) return;
+
+    pathRestore.value.submitting = true;
+    router.post(route('my.backups.restore-path', pathRestore.value.job.id), {
+        source_path: pathRestore.value.source_path,
+        target_path: pathRestore.value.target_path || null,
+    }, {
+        onFinish: () => {
+            pathRestore.value.submitting = false;
+        },
+        onSuccess: () => {
+            closePathRestore(true);
+        },
+    });
 }
 
 function remove(id) {
