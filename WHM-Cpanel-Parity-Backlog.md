@@ -172,6 +172,7 @@ Implemented on `main`:
 - backup, database, and FTP workspaces converted to shared page structure with usage summaries and empty states
 - autoresponder, spam overview, DNS zone list, and SSH key pages converted to shared page structure
 - metrics, disk usage, and Git tooling pages converted to shared page structure
+- admin account, domain, and node indexes converted to shared page structure with operational summaries
 
 ### 10. Platform and API Expansion
 Status: `planned`

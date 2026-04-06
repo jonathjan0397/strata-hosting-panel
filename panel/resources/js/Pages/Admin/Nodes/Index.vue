@@ -1,76 +1,97 @@
 <template>
     <AppLayout title="Nodes">
-        <div class="mb-5 flex items-center justify-between">
-            <p class="text-sm text-gray-400">{{ nodes.length }} node{{ nodes.length !== 1 ? 's' : '' }} registered</p>
-            <Link
-                :href="route('admin.nodes.create')"
-                class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+        <div class="space-y-6 p-6">
+            <PageHeader
+                eyebrow="Platform"
+                title="Nodes"
+                description="Manage the servers that run agent services, account provisioning, mail, DNS, backups, and web traffic."
             >
-                Add Node
-            </Link>
-        </div>
+                <template #actions>
+                    <Link :href="route('admin.nodes.create')" class="btn-primary">Add Node</Link>
+                </template>
+            </PageHeader>
 
-        <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
-            <table class="min-w-full divide-y divide-gray-800">
-                <thead>
-                    <tr>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Name</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Hostname</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Agent</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Last Seen</th>
-                        <th class="px-5 py-3"></th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-800">
-                    <tr v-for="node in nodes" :key="node.id" class="hover:bg-gray-800/40 transition-colors">
-                        <td class="px-5 py-3.5 text-sm font-medium text-gray-100">
-                            {{ node.name }}
-                            <span v-if="node.is_primary" class="ml-1.5 rounded-full bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">Primary</span>
-                        </td>
-                        <td class="px-5 py-3.5 text-sm text-gray-400 font-mono">{{ node.hostname }}</td>
-                        <td class="px-5 py-3.5 text-sm">
-                            <NodeStatusBadge :status="node.status" />
-                        </td>
-                        <td class="px-5 py-3.5 text-sm text-gray-400 font-mono">{{ node.agent_version ?? '—' }}</td>
-                        <td class="px-5 py-3.5 text-sm text-gray-400">{{ node.last_seen_at ?? 'Never' }}</td>
-                        <td class="px-5 py-3.5 text-right">
-                            <Link
-                                :href="route('admin.nodes.shell', node.id)"
-                                class="mr-3 text-xs text-gray-400 hover:text-gray-200 transition-colors font-mono"
-                            >
-                                Shell
-                            </Link>
-                            <Link
-                                :href="route('admin.nodes.status', node.id)"
-                                class="mr-3 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                            >
-                                Status
-                            </Link>
-                            <Link
-                                :href="route('admin.nodes.show', node.id)"
-                                class="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                            >
-                                Details
-                            </Link>
-                        </td>
-                    </tr>
-                    <tr v-if="nodes.length === 0">
-                        <td colspan="6" class="px-5 py-8 text-center text-sm text-gray-500">
-                            No nodes yet.
-                            <Link :href="route('admin.nodes.create')" class="text-indigo-400 hover:underline ml-1">Add one</Link>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="grid gap-4 md:grid-cols-3">
+                <StatCard label="Registered Nodes" :value="nodes.length" color="indigo" />
+                <StatCard label="Online" :value="onlineCount" color="emerald" />
+                <StatCard label="Primary Nodes" :value="primaryCount" color="gray" />
+            </div>
+
+            <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
+                <table class="min-w-full divide-y divide-gray-800">
+                    <thead>
+                        <tr>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Name</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Hostname</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Agent</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Last Seen</th>
+                            <th class="px-5 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800">
+                        <tr v-for="node in nodes" :key="node.id" class="transition-colors hover:bg-gray-800/40">
+                            <td class="px-5 py-3.5 text-sm font-medium text-gray-100">
+                                {{ node.name }}
+                                <span v-if="node.is_primary" class="ml-1.5 rounded-full bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">Primary</span>
+                            </td>
+                            <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ node.hostname }}</td>
+                            <td class="px-5 py-3.5 text-sm">
+                                <NodeStatusBadge :status="node.status" />
+                            </td>
+                            <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ node.agent_version ?? '-' }}</td>
+                            <td class="px-5 py-3.5 text-sm text-gray-400">{{ node.last_seen_at ?? 'Never' }}</td>
+                            <td class="px-5 py-3.5 text-right">
+                                <Link
+                                    :href="route('admin.nodes.shell', node.id)"
+                                    class="mr-3 font-mono text-xs text-gray-400 transition-colors hover:text-gray-200"
+                                >
+                                    Shell
+                                </Link>
+                                <Link
+                                    :href="route('admin.nodes.status', node.id)"
+                                    class="mr-3 text-xs text-indigo-400 transition-colors hover:text-indigo-300"
+                                >
+                                    Status
+                                </Link>
+                                <Link
+                                    :href="route('admin.nodes.show', node.id)"
+                                    class="text-xs text-gray-500 transition-colors hover:text-gray-300"
+                                >
+                                    Details
+                                </Link>
+                            </td>
+                        </tr>
+                        <tr v-if="nodes.length === 0">
+                            <td colspan="6" class="px-5 py-8">
+                                <EmptyState
+                                    title="No nodes registered"
+                                    description="Add a node before provisioning hosting accounts."
+                                >
+                                    <template #actions>
+                                        <Link :href="route('admin.nodes.create')" class="btn-primary">Add Node</Link>
+                                    </template>
+                                </EmptyState>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </AppLayout>
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import NodeStatusBadge from '@/Components/NodeStatusBadge.vue';
+import PageHeader from '@/Components/PageHeader.vue';
+import StatCard from '@/Components/StatCard.vue';
 import { Link } from '@inertiajs/vue3';
 
-defineProps({ nodes: Array });
+const props = defineProps({ nodes: Array });
+
+const onlineCount = computed(() => props.nodes.filter((node) => node.status === 'online').length);
+const primaryCount = computed(() => props.nodes.filter((node) => node.is_primary).length);
 </script>
