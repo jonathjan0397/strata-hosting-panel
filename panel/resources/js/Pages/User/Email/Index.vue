@@ -55,6 +55,25 @@
                     </form>
                 </div>
 
+                <div v-if="domain.mail_enabled" class="mb-4 rounded-xl border border-dashed border-gray-700 bg-gray-900/60 p-4">
+                    <div class="mb-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Bulk mailbox import</p>
+                        <p class="mt-1 text-xs text-gray-400">CSV columns: <span class="font-mono text-gray-300">local_part,password,quota_mb</span>. Header row is optional.</p>
+                    </div>
+                    <form @submit.prevent="submitMailboxImport" class="space-y-3">
+                        <textarea
+                            v-model="mailboxImportForm.csv"
+                            rows="5"
+                            class="field w-full font-mono text-xs"
+                            placeholder="sales,Use-A-Strong-Password,1024&#10;support,Use-A-Strong-Password,2048"
+                        ></textarea>
+                        <p v-if="mailboxImportForm.errors.csv" class="text-xs text-red-400">{{ mailboxImportForm.errors.csv }}</p>
+                        <button type="submit" :disabled="mailboxImportForm.processing" class="btn-primary w-full">
+                            {{ mailboxImportForm.processing ? 'Importing...' : 'Import Mailboxes' }}
+                        </button>
+                    </form>
+                </div>
+
                 <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
                     <table v-if="mailboxes.length" class="min-w-full divide-y divide-gray-800">
                         <thead>
@@ -104,6 +123,25 @@
                         <p v-if="fwdForm.errors.destination" class="text-xs text-red-400">{{ fwdForm.errors.destination }}</p>
                         <button type="submit" :disabled="fwdForm.processing" class="btn-primary w-full">
                             {{ fwdForm.processing ? 'Creating...' : 'Create Forwarder' }}
+                        </button>
+                    </form>
+                </div>
+
+                <div v-if="domain.mail_enabled" class="mb-4 rounded-xl border border-dashed border-gray-700 bg-gray-900/60 p-4">
+                    <div class="mb-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Bulk forwarder import</p>
+                        <p class="mt-1 text-xs text-gray-400">CSV columns: <span class="font-mono text-gray-300">source,destination</span>. Source can be a local part or full address on this domain.</p>
+                    </div>
+                    <form @submit.prevent="submitForwarderImport" class="space-y-3">
+                        <textarea
+                            v-model="forwarderImportForm.csv"
+                            rows="5"
+                            class="field w-full font-mono text-xs"
+                            placeholder="sales,owner@example.com&#10;support@your-domain.com,helpdesk@example.com"
+                        ></textarea>
+                        <p v-if="forwarderImportForm.errors.csv" class="text-xs text-red-400">{{ forwarderImportForm.errors.csv }}</p>
+                        <button type="submit" :disabled="forwarderImportForm.processing" class="btn-primary w-full">
+                            {{ forwarderImportForm.processing ? 'Importing...' : 'Import Forwarders' }}
                         </button>
                     </form>
                 </div>
@@ -163,6 +201,8 @@ const props = defineProps({
 
 const mbForm = useForm({ local_part: '', password: '' });
 const fwdForm = useForm({ source: '', destination: '' });
+const mailboxImportForm = useForm({ csv: '' });
+const forwarderImportForm = useForm({ csv: '' });
 
 function submitMailbox() {
     mbForm.post(route('my.email.mailbox.store', props.domain.id), {
@@ -173,6 +213,18 @@ function submitMailbox() {
 function submitForwarder() {
     fwdForm.post(route('my.email.forwarder.store', props.domain.id), {
         onSuccess: () => fwdForm.reset(),
+    });
+}
+
+function submitMailboxImport() {
+    mailboxImportForm.post(route('my.email.mailbox.import', props.domain.id), {
+        onSuccess: () => mailboxImportForm.reset(),
+    });
+}
+
+function submitForwarderImport() {
+    forwarderImportForm.post(route('my.email.forwarder.import', props.domain.id), {
+        onSuccess: () => forwarderImportForm.reset(),
     });
 }
 </script>

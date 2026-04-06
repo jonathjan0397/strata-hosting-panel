@@ -67,6 +67,79 @@ class EmailController extends Controller
             : back()->with('error', "Mailbox creation failed: {$error}");
     }
 
+    public function importMailboxes(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        if (! $domain->mail_enabled) {
+            return back()->with('error', 'Mail is not enabled for this domain.');
+        }
+
+        $data = $request->validate([
+            'csv' => ['required', 'string', 'max:20000'],
+        ]);
+
+        $created = 0;
+        $errors = [];
+        $rows = $this->csvRows($data['csv']);
+
+        foreach ($rows as $row) {
+            if ($this->isHeaderRow($row['fields'], ['local_part', 'password'])) {
+                continue;
+            }
+
+            [$localPart, $password, $quota] = array_pad($row['fields'], 3, null);
+            $localPart = trim((string) $localPart);
+            $password = (string) $password;
+            $quotaMb = trim((string) $quota) === '' ? 0 : (int) $quota;
+            $email = "{$localPart}@{$domain->domain}";
+
+            if (! preg_match('/^[a-zA-Z0-9._%+\-]+$/', $localPart) || strlen($localPart) > 64) {
+                $errors[] = "Line {$row['line']}: invalid local part.";
+                continue;
+            }
+
+            if (strlen($password) < 8) {
+                $errors[] = "Line {$row['line']}: password must be at least 8 characters.";
+                continue;
+            }
+
+            if ($quotaMb < 0) {
+                $errors[] = "Line {$row['line']}: quota must be zero or greater.";
+                continue;
+            }
+
+            if (EmailAccount::where('email', $email)->exists()) {
+                $errors[] = "Line {$row['line']}: {$email} already exists.";
+                continue;
+            }
+
+            if ($account->max_email_accounts > 0) {
+                $current = EmailAccount::where('account_id', $account->id)->count();
+                if ($current >= $account->max_email_accounts) {
+                    $errors[] = "Line {$row['line']}: mailbox limit reached ({$account->max_email_accounts}).";
+                    continue;
+                }
+            }
+
+            [$success, $error] = app(MailProvisioner::class)->createMailbox(
+                $domain,
+                $localPart,
+                $password,
+                $quotaMb
+            );
+
+            if ($success) {
+                $created++;
+            } else {
+                $errors[] = "Line {$row['line']}: {$email} failed: {$error}";
+            }
+        }
+
+        return $this->bulkImportResponse($created, $errors, 'mailbox', 'mailboxes');
+    }
+
     public function deleteMailbox(EmailAccount $mailbox): RedirectResponse
     {
         $account = $this->account();
@@ -125,6 +198,72 @@ class EmailController extends Controller
             : back()->with('error', "Forwarder failed: {$error}");
     }
 
+    public function importForwarders(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        if (! $domain->mail_enabled) {
+            return back()->with('error', 'Mail is not enabled for this domain.');
+        }
+
+        $data = $request->validate([
+            'csv' => ['required', 'string', 'max:20000'],
+        ]);
+
+        $created = 0;
+        $errors = [];
+        $rows = $this->csvRows($data['csv']);
+
+        foreach ($rows as $row) {
+            if ($this->isHeaderRow($row['fields'], ['source', 'destination'])) {
+                continue;
+            }
+
+            [$source, $destination] = array_pad($row['fields'], 2, null);
+            $source = trim((string) $source);
+            $destination = trim((string) $destination);
+
+            if ($source !== '' && ! str_contains($source, '@')) {
+                $source = "{$source}@{$domain->domain}";
+            }
+
+            if (! filter_var($source, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = "Line {$row['line']}: invalid source address.";
+                continue;
+            }
+
+            if (! str_ends_with($source, '@' . $domain->domain)) {
+                $errors[] = "Line {$row['line']}: source must be @{$domain->domain}.";
+                continue;
+            }
+
+            if (! filter_var($destination, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = "Line {$row['line']}: invalid destination address.";
+                continue;
+            }
+
+            if (EmailForwarder::where('source', $source)->where('destination', $destination)->exists()) {
+                $errors[] = "Line {$row['line']}: {$source} -> {$destination} already exists.";
+                continue;
+            }
+
+            [$success, $error] = app(MailProvisioner::class)->createForwarder(
+                $domain,
+                $source,
+                $destination
+            );
+
+            if ($success) {
+                $created++;
+            } else {
+                $errors[] = "Line {$row['line']}: {$source} failed: {$error}";
+            }
+        }
+
+        return $this->bulkImportResponse($created, $errors, 'forwarder', 'forwarders');
+    }
+
     public function deleteForwarder(EmailForwarder $forwarder): RedirectResponse
     {
         $account = $this->account();
@@ -136,5 +275,62 @@ class EmailController extends Controller
         return $success
             ? redirect()->route('my.email.domain', $domainId)->with('success', 'Forwarder deleted.')
             : back()->with('error', "Delete failed: {$error}");
+    }
+
+    private function csvRows(string $csv): array
+    {
+        $rows = [];
+        $lines = preg_split('/\R/', $csv);
+
+        foreach ($lines as $index => $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+
+            $rows[] = [
+                'line' => $index + 1,
+                'fields' => array_map('trim', str_getcsv($line)),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function isHeaderRow(array $fields, array $expected): bool
+    {
+        $normalized = array_map(fn ($field) => strtolower(trim((string) $field)), $fields);
+
+        foreach ($expected as $index => $header) {
+            if (($normalized[$index] ?? null) !== $header) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function bulkImportResponse(int $created, array $errors, string $singular, string $plural): RedirectResponse
+    {
+        $response = back();
+
+        if ($created > 0) {
+            $label = $created === 1 ? $singular : $plural;
+            $response = $response->with('success', "Imported {$created} {$label}.");
+        }
+
+        if ($errors !== []) {
+            $message = implode(' ', array_slice($errors, 0, 8));
+            if (count($errors) > 8) {
+                $message .= ' ' . (count($errors) - 8) . ' more rows failed.';
+            }
+
+            $response = $response->with('error', $message);
+        }
+
+        if ($created === 0 && $errors === []) {
+            $response = $response->with('error', 'No importable rows were found.');
+        }
+
+        return $response;
     }
 }

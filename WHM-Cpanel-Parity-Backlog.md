@@ -107,6 +107,7 @@ Implemented on `main`:
 - user filter management UI inside the existing email workflow
 - user spam activity dashboard backed by Rspamd node stats
 - user delivery tracking against bounded postfix and dovecot log views
+- bulk mailbox and forwarder CSV import from the per-domain email workspace
 
 ### 6. Files and Developer Tooling
 Status: `in progress`

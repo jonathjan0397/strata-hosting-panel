@@ -99,9 +99,11 @@ Route::middleware(['auth'])->group(function () {
             Route::get('email/delivery', [DeliveryController::class, 'index'])->name('email.delivery');
             Route::get('email/delivery/search', [DeliveryController::class, 'search'])->name('email.delivery.search');
             Route::post('domains/{domain}/email/mailboxes', [User\EmailController::class, 'createMailbox'])->name('email.mailbox.store');
+            Route::post('domains/{domain}/email/mailboxes/import', [User\EmailController::class, 'importMailboxes'])->name('email.mailbox.import');
             Route::delete('email/mailboxes/{mailbox}', [User\EmailController::class, 'deleteMailbox'])->name('email.mailbox.destroy');
             Route::put('email/mailboxes/{mailbox}/password', [User\EmailController::class, 'changePassword'])->name('email.mailbox.password');
             Route::post('domains/{domain}/email/forwarders', [User\EmailController::class, 'createForwarder'])->name('email.forwarder.store');
+            Route::post('domains/{domain}/email/forwarders/import', [User\EmailController::class, 'importForwarders'])->name('email.forwarder.import');
             Route::delete('email/forwarders/{forwarder}', [User\EmailController::class, 'deleteForwarder'])->name('email.forwarder.destroy');
             Route::get('email/mailboxes/{emailAccount}/filters', [EmailFilterController::class, 'index'])->name('email.filters.index');
             Route::post('email/mailboxes/{emailAccount}/filters', [EmailFilterController::class, 'store'])->name('email.filters.store');
