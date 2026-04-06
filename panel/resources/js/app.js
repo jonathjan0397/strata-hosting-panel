@@ -4,7 +4,7 @@ import '../css/app.css';
 import { createApp, h } from 'vue';
 import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { ZiggyVue, route } from '../../vendor/tightenco/ziggy';
+import { ZiggyVue, route } from 'ziggy-js';
 
 // Keep window.Ziggy in sync so route() works inside <script setup>
 router.on('navigate', (event) => {
