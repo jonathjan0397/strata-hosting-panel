@@ -39,7 +39,7 @@ class AccountController extends Controller
     {
         return Inertia::render('Admin/Accounts/Create', [
             'nodes'        => Node::where('status', 'online')->select('id', 'name', 'hostname')->get(),
-            'phpVersions'  => ['8.1', '8.2', '8.3'],
+            'phpVersions'  => ['8.1', '8.2', '8.3', '8.4'],
         ]);
     }
 
@@ -51,7 +51,7 @@ class AccountController extends Controller
             'password'             => ['required', 'string', 'min:12'],
             'username'             => ['required', 'regex:/^[a-z][a-z0-9_]{1,31}$/', 'unique:accounts,username'],
             'node_id'              => ['required', 'exists:nodes,id'],
-            'php_version'          => ['required', 'in:8.1,8.2,8.3'],
+            'php_version'          => ['required', 'in:8.1,8.2,8.3,8.4'],
             'disk_limit_mb'        => ['nullable', 'integer', 'min:0'],
             'bandwidth_limit_mb'   => ['nullable', 'integer', 'min:0'],
             'max_domains'          => ['nullable', 'integer', 'min:0'],

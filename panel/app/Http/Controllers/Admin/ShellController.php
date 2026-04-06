@@ -22,9 +22,11 @@ class ShellController extends Controller
         $ts  = time();
         $sig = hash_hmac('sha256', "shell:{$ts}", $node->hmac_secret);
 
-        // Build the WebSocket URL — agent host/port, wss:// scheme, /v1/shell path.
-        $wsBase = preg_replace('#^https?://#', 'wss://', "https://{$node->ip_address}:{$node->port}");
-        $wsUrl  = rtrim($wsBase, '/') . "/v1/shell?ts={$ts}&sig={$sig}";
+        // Build the WebSocket URL using the node's public hostname so the
+        // browser TLS certificate check passes (the agent uses the panel cert).
+        // Fall back to ip_address only if hostname is not set.
+        $host   = $node->hostname ?: $node->ip_address;
+        $wsUrl  = "wss://{$host}:{$node->port}/v1/shell?ts={$ts}&sig={$sig}";
 
         return Inertia::render('Admin/Shell', [
             'node'  => $node->only('id', 'name', 'hostname', 'ip_address'),

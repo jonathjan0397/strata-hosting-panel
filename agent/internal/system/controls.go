@@ -12,15 +12,18 @@ var AllowedServiceControls = map[string]bool{
 	"php8.1-fpm": true,
 	"php8.2-fpm": true,
 	"php8.3-fpm": true,
+	"php8.4-fpm": true,
 	"postfix":    true,
 	"dovecot":    true,
 	"rspamd":     true,
 	"opendkim":   true,
 	"pdns":       true,
 	"mariadb":    true,
+	"mysql":      true,
 	"pure-ftpd":  true,
 	"fail2ban":   true,
 	"redis":      true,
+	"redis-server": true,
 }
 
 type ServiceStatus struct {
@@ -32,9 +35,11 @@ type ServiceStatus struct {
 
 func GetServiceStatuses() []ServiceStatus {
 	services := []string{
-		"nginx", "php8.1-fpm", "php8.2-fpm", "php8.3-fpm",
+		"nginx", "apache2",
+		"php8.1-fpm", "php8.2-fpm", "php8.3-fpm", "php8.4-fpm",
 		"postfix", "dovecot", "rspamd", "opendkim",
-		"pdns", "mariadb", "pure-ftpd", "fail2ban", "redis",
+		"pdns", "mariadb", "mysql", "pure-ftpd", "fail2ban",
+		"redis", "redis-server",
 	}
 
 	result := make([]ServiceStatus, 0, len(services))

@@ -39,7 +39,8 @@ func Provision(req ProvisionRequest) (*ProvisionResult, error) {
 		req.PHPVersion = "8.3"
 	}
 	if !isValidPHPVersion(req.PHPVersion) {
-		return nil, fmt.Errorf("unsupported PHP version: %s", req.PHPVersion)
+		// Fall back to highest installed version rather than hard-failing
+		req.PHPVersion = highestInstalledPHP()
 	}
 
 	homeDir     := filepath.Join(homeBase, req.Username)
@@ -96,7 +97,7 @@ func Deprovision(username string) error {
 	}
 
 	// Remove PHP pools for all versions
-	for _, ver := range []string{"8.1", "8.2", "8.3"} {
+	for _, ver := range []string{"8.1", "8.2", "8.3", "8.4"} {
 		RemovePHPPool(username, ver)
 	}
 
@@ -149,5 +150,15 @@ func createUser(username, homeDir string) error {
 }
 
 func isValidPHPVersion(v string) bool {
-	return v == "8.1" || v == "8.2" || v == "8.3"
+	return v == "8.1" || v == "8.2" || v == "8.3" || v == "8.4"
+}
+
+// highestInstalledPHP returns the highest PHP-FPM version with a running socket dir.
+func highestInstalledPHP() string {
+	for _, ver := range []string{"8.4", "8.3", "8.2", "8.1"} {
+		if _, err := exec.LookPath(fmt.Sprintf("php%s", ver)); err == nil {
+			return ver
+		}
+	}
+	return "8.3" // last-resort default
 }

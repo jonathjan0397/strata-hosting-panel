@@ -36,7 +36,7 @@ class AdminWebsiteController extends Controller
                 'node'        => $account->node?->only('id', 'name', 'hostname'),
                 'domain'      => $account->domains->first()?->only('id', 'domain', 'ssl_enabled', 'ssl_expires_at'),
             ] : null,
-            'phpVersions' => ['8.1', '8.2', '8.3'],
+            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
             'primaryNode' => $primaryNode?->only('id', 'name', 'hostname'),
         ]);
     }
@@ -49,7 +49,7 @@ class AdminWebsiteController extends Controller
 
         $data = $request->validate([
             'domain'      => ['required', 'string', 'max:253', 'unique:domains,domain', 'regex:/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/'],
-            'php_version' => ['required', 'in:8.1,8.2,8.3'],
+            'php_version' => ['required', 'in:8.1,8.2,8.3,8.4'],
         ]);
 
         $node = Node::where('status', 'online')->where('is_primary', true)->first()
