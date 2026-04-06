@@ -1158,6 +1158,7 @@ success "fail2ban configured (SSH, Postfix, Dovecot, Nginx jails active)."
 info "Registering primary node in panel database…"
 cat > /tmp/strata-register-node.php <<'PHPEOF'
 <?php
+require getenv('INSTALL_DIR') . '/panel/vendor/autoload.php';
 $app = require getenv('INSTALL_DIR') . '/panel/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 use App\Models\Node;
@@ -1260,6 +1261,7 @@ chmod 600 /etc/strata-panel/webmail-sso.php
 info "Setting up admin account…"
 cat > /tmp/strata-set-admin.php <<'PHPEOF'
 <?php
+require getenv('INSTALL_DIR') . '/panel/vendor/autoload.php';
 $app = require getenv('INSTALL_DIR') . '/panel/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 use App\Models\User;
