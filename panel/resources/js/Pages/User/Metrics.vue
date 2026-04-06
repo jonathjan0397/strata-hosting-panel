@@ -1,23 +1,17 @@
 <template>
     <AppLayout title="Metrics">
-        <div class="space-y-6">
+        <div class="space-y-6 p-6">
+            <PageHeader
+                eyebrow="Metrics"
+                title="Account Metrics"
+                description="Review account resource usage, hosted domains, and recent web/PHP log activity."
+            />
+
             <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                    <p class="mb-1 text-xs uppercase tracking-wide text-gray-500">Domains</p>
-                    <p class="text-2xl font-semibold text-gray-100">{{ summary.domains }}</p>
-                </div>
-                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                    <p class="mb-1 text-xs uppercase tracking-wide text-gray-500">Databases</p>
-                    <p class="text-2xl font-semibold text-gray-100">{{ summary.databases }}</p>
-                </div>
-                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                    <p class="mb-1 text-xs uppercase tracking-wide text-gray-500">Mailboxes</p>
-                    <p class="text-2xl font-semibold text-gray-100">{{ summary.mailboxes }}</p>
-                </div>
-                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                    <p class="mb-1 text-xs uppercase tracking-wide text-gray-500">FTP Accounts</p>
-                    <p class="text-2xl font-semibold text-gray-100">{{ summary.ftp_accounts }}</p>
-                </div>
+                <StatCard label="Domains" :value="summary.domains" color="indigo" />
+                <StatCard label="Databases" :value="summary.databases" color="emerald" />
+                <StatCard label="Mailboxes" :value="summary.mailboxes" color="amber" />
+                <StatCard label="FTP Accounts" :value="summary.ftp_accounts" color="gray" />
             </div>
 
             <div class="grid gap-5 xl:grid-cols-2">
@@ -105,7 +99,9 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import ResourceBar from '@/Components/ResourceBar.vue';
+import StatCard from '@/Components/StatCard.vue';
 import axios from 'axios';
 import { onMounted, ref } from 'vue';
 

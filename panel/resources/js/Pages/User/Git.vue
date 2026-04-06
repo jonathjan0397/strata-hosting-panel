@@ -1,6 +1,12 @@
 <template>
     <AppLayout title="Git Version Control">
-        <div class="space-y-6">
+        <div class="space-y-6 p-6">
+            <PageHeader
+                eyebrow="Files"
+                title="Git Version Control"
+                :description="`Inspect, initialize, clone, and pull repositories inside /var/www/${account.username}.`"
+            />
+
             <div class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
                 <section class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                     <div class="flex items-start justify-between gap-4">
@@ -158,6 +164,7 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import axios from 'axios';
 import { onMounted, reactive, ref } from 'vue';
 

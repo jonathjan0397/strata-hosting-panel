@@ -171,6 +171,7 @@ Implemented on `main`:
 - per-domain email workspace converted to shared page structure with diagnostics shortcuts
 - backup, database, and FTP workspaces converted to shared page structure with usage summaries and empty states
 - autoresponder, spam overview, DNS zone list, and SSH key pages converted to shared page structure
+- metrics, disk usage, and Git tooling pages converted to shared page structure
 
 ### 10. Platform and API Expansion
 Status: `planned`
