@@ -1018,6 +1018,12 @@ EOF
     apache2ctl configtest && systemctl restart apache2
     success "Apache2 configured."
 
+    # Switch agent to use panel TLS cert now that it exists (browser-trusted)
+    sed -i "s|STRATA_TLS_CERT=.*|STRATA_TLS_CERT=/etc/strata-panel/tls/fullchain.pem|" /etc/systemd/system/strata-agent.service
+    sed -i "s|STRATA_TLS_KEY=.*|STRATA_TLS_KEY=/etc/strata-panel/tls/privkey.pem|" /etc/systemd/system/strata-agent.service
+    systemctl daemon-reload && systemctl restart strata-agent
+    success "Agent switched to panel TLS certificate."
+
 else
     info "Configuring Nginx for $PANEL_DOMAIN…"
     cat > /etc/nginx/sites-available/strata-panel <<EOF
@@ -1107,6 +1113,12 @@ EOF
 
     nginx -t && systemctl reload nginx
     success "Nginx configured."
+
+    # Switch agent to use panel TLS cert now that it exists (browser-trusted)
+    sed -i "s|STRATA_TLS_CERT=.*|STRATA_TLS_CERT=/etc/strata-panel/tls/fullchain.pem|" /etc/systemd/system/strata-agent.service
+    sed -i "s|STRATA_TLS_KEY=.*|STRATA_TLS_KEY=/etc/strata-panel/tls/privkey.pem|" /etc/systemd/system/strata-agent.service
+    systemctl daemon-reload && systemctl restart strata-agent
+    success "Agent switched to panel TLS certificate."
 fi
 
 # ── Step 19. Firewall (UFW) ───────────────────────────────────────────────────
@@ -1174,7 +1186,7 @@ Node::updateOrCreate(
     ['node_id' => getenv('AGENT_NODE_ID')],
     [
         'name'         => 'Primary',
-        'hostname'     => getenv('HOSTNAME_FQDN'),
+        'hostname'     => getenv('PANEL_DOMAIN'),
         'ip_address'   => '127.0.0.1',
         'port'         => 8743,
         'hmac_secret'  => getenv('AGENT_HMAC_SECRET'),
@@ -1186,7 +1198,7 @@ Node::updateOrCreate(
 );
 echo "done\n";
 PHPEOF
-INSTALL_DIR="$INSTALL_DIR" AGENT_NODE_ID="$AGENT_NODE_ID" HOSTNAME_FQDN="$HOSTNAME_FQDN" \
+INSTALL_DIR="$INSTALL_DIR" AGENT_NODE_ID="$AGENT_NODE_ID" PANEL_DOMAIN="$PANEL_DOMAIN" \
     AGENT_HMAC_SECRET="$AGENT_HMAC_SECRET" WEB_SERVER="$WEB_SERVER" \
     php /tmp/strata-register-node.php || die "Failed to register primary node"
 rm -f /tmp/strata-register-node.php
