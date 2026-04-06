@@ -47,7 +47,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-800">
-                    <tr v-for="z in zones" :key="z.id">
+                    <tr v-for="z in zones" :key="z.zone_name">
                         <td class="px-4 py-3 font-mono text-xs text-gray-200">{{ z.zone_name }}</td>
                         <td class="px-4 py-3 text-xs text-gray-400">{{ z.node }}</td>
                         <td class="px-4 py-3 text-xs text-gray-400">{{ z.records_count }}</td>
@@ -58,16 +58,18 @@
                             </span>
                         </td>
                         <td class="px-4 py-3 text-right flex items-center justify-end gap-3">
-                            <Link :href="route('admin.dns.server.show', z.id)" class="text-xs text-indigo-400 hover:text-indigo-300">
+                            <Link v-if="z.id" :href="route('admin.dns.server.show', z.id)" class="text-xs text-indigo-400 hover:text-indigo-300">
                                 Manage
                             </Link>
                             <ConfirmButton
+                                v-if="z.id"
                                 :href="route('admin.dns.server.destroy', z.id)"
                                 method="delete"
                                 label="Delete"
                                 :confirm-message="`Delete zone ${z.zone_name}? All DNS records will be removed from the nameserver.`"
                                 color="red"
                             />
+                            <span v-else class="text-xs text-amber-400">Live only</span>
                         </td>
                     </tr>
                     <tr v-if="zones.length === 0">

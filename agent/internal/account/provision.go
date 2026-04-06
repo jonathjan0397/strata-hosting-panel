@@ -25,10 +25,11 @@ type ProvisionRequest struct {
 }
 
 type ProvisionResult struct {
-	Username    string `json:"username"`
-	HomeDir     string `json:"home_dir"`
+	Username     string `json:"username"`
+	HomeDir      string `json:"home_dir"`
 	DocumentRoot string `json:"document_root"`
-	PHPSocket   string `json:"php_socket"`
+	PHPSocket    string `json:"php_socket"`
+	PHPVersion   string `json:"php_version"`
 }
 
 // Provision creates the system user, home directory, document root, and PHP-FPM pool.
@@ -40,9 +41,9 @@ func Provision(req ProvisionRequest) (*ProvisionResult, error) {
 		req.PHPVersion = highestInstalledPHP()
 	}
 
-	homeDir     := filepath.Join(homeBase, req.Username)
-	docRoot     := filepath.Join(wwwBase, req.Username, "public_html")
-	phpSocket   := fmt.Sprintf("/run/php/php%s-fpm-%s.sock", req.PHPVersion, req.Username)
+	homeDir := filepath.Join(homeBase, req.Username)
+	docRoot := filepath.Join(wwwBase, req.Username, "public_html")
+	phpSocket := fmt.Sprintf("/run/php/php%s-fpm-%s.sock", req.PHPVersion, req.Username)
 
 	// Create system user (no login shell, no password)
 	if err := createUser(req.Username, homeDir); err != nil {
@@ -84,6 +85,7 @@ func Provision(req ProvisionRequest) (*ProvisionResult, error) {
 		HomeDir:      homeDir,
 		DocumentRoot: docRoot,
 		PHPSocket:    phpSocket,
+		PHPVersion:   req.PHPVersion,
 	}, nil
 }
 
@@ -118,9 +120,13 @@ func Deprovision(username string) error {
 }
 
 func restartPHPFPM(version string) error {
-	// Use reload (SIGUSR2) rather than restart — PHP-FPM handles new pool
-	// configs gracefully without dropping in-flight requests.
-	return exec.Command("systemctl", "reload", fmt.Sprintf("php%s-fpm", version)).Run()
+	// Prefer reload so existing workers finish in-flight requests, but fall
+	// back to restart when the service is installed but not currently active.
+	service := fmt.Sprintf("php%s-fpm", version)
+	if err := exec.Command("systemctl", "reload", service).Run(); err == nil {
+		return nil
+	}
+	return exec.Command("systemctl", "restart", service).Run()
 }
 
 // RemovePHPPool is a convenience wrapper used during deprovisioning.

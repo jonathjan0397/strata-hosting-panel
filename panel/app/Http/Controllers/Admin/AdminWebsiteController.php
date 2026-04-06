@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
-use App\Models\Domain;
 use App\Models\Node;
 use App\Services\AccountProvisioner;
 use App\Services\DomainProvisioner;
@@ -83,16 +82,34 @@ class AdminWebsiteController extends Controller
             return back()->with('error', "Server account creation failed: {$err}");
         }
 
+        $account->refresh();
+
         $domain = $account->domains()->create([
             'node_id'       => $node->id,
             'domain'        => $data['domain'],
             'document_root' => "/var/www/{$username}/public_html",
-            'php_version'   => $data['php_version'],
+            'php_version'   => $account->php_version,
         ]);
 
         [$ok, $err] = app(DomainProvisioner::class)->provision($domain);
         if (! $ok) {
-            return back()->with('error', "Web server vhost creation failed: {$err}");
+            $cleanupErrors = [];
+
+            $domain->delete();
+
+            [$accountRemoved, $accountCleanupError] = app(AccountProvisioner::class)->deprovision($account);
+            if (! $accountRemoved && $accountCleanupError) {
+                $cleanupErrors[] = "Account cleanup failed: {$accountCleanupError}";
+            }
+
+            $account->forceDelete();
+
+            $message = "Web server vhost creation failed: {$err}";
+            if ($cleanupErrors !== []) {
+                $message .= ' Cleanup warning: ' . implode('; ', $cleanupErrors);
+            }
+
+            return back()->with('error', $message);
         }
 
         return redirect()->route('admin.my-website.index')

@@ -19,6 +19,11 @@ class AccountProvisioner
             ]);
 
             if ($response->successful()) {
+                $actualPhpVersion = $response->json('php_version');
+                if (is_string($actualPhpVersion) && $actualPhpVersion !== '' && $actualPhpVersion !== $account->php_version) {
+                    $account->update(['php_version' => $actualPhpVersion]);
+                }
+
                 return [true, null];
             }
 
