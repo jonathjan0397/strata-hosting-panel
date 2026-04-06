@@ -1,5 +1,20 @@
 <template>
     <AppLayout title="My Hosting">
+        <PageHeader
+            eyebrow="Hosting Workspace"
+            title="Manage your site from one place"
+            :description="`Account ${account.username} on PHP ${account.php_version}. Start with the common actions below or review usage and domains.`"
+        >
+            <template #actions>
+                <Link v-if="hasFeature('domains')" :href="route('my.domains.create')" class="btn-primary">
+                    Add Domain
+                </Link>
+                <Link v-if="hasFeature('backups')" :href="route('my.backups.index')" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800">
+                    Backups
+                </Link>
+            </template>
+        </PageHeader>
+
         <!-- Status banner if suspended -->
         <div v-if="account.status === 'suspended'" class="mb-5 rounded-xl border border-amber-700 bg-amber-900/20 px-4 py-3 text-sm text-amber-300">
             Your account is suspended. Contact support to restore access.
@@ -7,21 +22,48 @@
 
         <!-- Stat cards -->
         <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Domains</p>
-                <p class="text-2xl font-semibold text-gray-100">{{ domainCount }}</p>
+            <StatCard label="Domains" :value="domainCount" color="indigo" />
+            <StatCard label="Databases" :value="databaseCount" color="emerald" />
+            <StatCard label="Mailboxes" :value="emailCount" color="amber" />
+            <StatCard label="FTP Accounts" :value="ftpCount" color="gray" />
+        </div>
+
+        <div class="mt-6">
+            <div class="mb-3 flex items-center justify-between">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-300">Common Tasks</h2>
+                    <p class="mt-1 text-xs text-gray-500">Shortcuts for the daily cPanel-style workflows.</p>
+                </div>
             </div>
-            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Databases</p>
-                <p class="text-2xl font-semibold text-gray-100">{{ databaseCount }}</p>
-            </div>
-            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Mailboxes</p>
-                <p class="text-2xl font-semibold text-gray-100">{{ emailCount }}</p>
-            </div>
-            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">FTP Accounts</p>
-                <p class="text-2xl font-semibold text-gray-100">{{ ftpCount }}</p>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <ActionCard
+                    v-if="hasFeature('domains')"
+                    :href="route('my.domains.index')"
+                    title="Websites"
+                    description="Manage domains, SSL, redirects, PHP, directory privacy, and hotlink protection."
+                    cta="Open websites"
+                />
+                <ActionCard
+                    v-if="hasFeature('email')"
+                    :href="route('my.email.delivery')"
+                    title="Email"
+                    description="Review delivery, spam activity, filters, autoresponders, mailboxes, and forwarders."
+                    cta="Open email tools"
+                />
+                <ActionCard
+                    v-if="hasFeature('file_manager')"
+                    :href="route('my.files.index')"
+                    title="Files"
+                    description="Browse files, upload assets, manage permissions, and restore paths from backups."
+                    cta="Open files"
+                />
+                <ActionCard
+                    v-if="hasFeature('metrics')"
+                    :href="route('my.metrics.index')"
+                    title="Metrics and Logs"
+                    description="Inspect resource usage, access logs, error logs, and PHP error output."
+                    cta="Open diagnostics"
+                />
             </div>
         </div>
 
@@ -124,20 +166,33 @@
                                 </Link>
                             </td>
                         </tr>
-                        <tr v-if="!account.domains?.length">
-                            <td colspan="4" class="px-5 py-6 text-center text-sm text-gray-500">No domains yet.</td>
-                        </tr>
                     </tbody>
                 </table>
+                <EmptyState
+                    v-if="!account.domains?.length"
+                    title="No domains yet"
+                    description="Add your first domain to start managing SSL, redirects, DNS, email, and security options."
+                >
+                    <template #actions>
+                        <Link v-if="hasFeature('domains')" :href="route('my.domains.create')" class="btn-primary">
+                            Add Domain
+                        </Link>
+                    </template>
+                </EmptyState>
             </div>
         </div>
     </AppLayout>
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import ActionCard from '@/Components/ActionCard.vue';
+import EmptyState from '@/Components/EmptyState.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import ResourceBar from '@/Components/ResourceBar.vue';
+import StatCard from '@/Components/StatCard.vue';
 
 defineProps({
     account:       Object,
@@ -146,4 +201,11 @@ defineProps({
     emailCount:    Number,
     ftpCount:      Number,
 });
+
+const page = usePage();
+const accountFeatures = computed(() => page.props.auth?.user?.account?.features ?? []);
+
+function hasFeature(feature) {
+    return page.props.auth?.user?.roles?.includes('admin') || accountFeatures.value.includes(feature);
+}
 </script>

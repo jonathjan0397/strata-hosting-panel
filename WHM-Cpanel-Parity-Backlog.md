@@ -163,6 +163,8 @@ Implemented on `main`:
 - day/night theme foundation with persisted user preference
 - workspace-aware top bar for admin, reseller, and hosting contexts
 - quick-jump navigation search for common role-specific destinations
+- shared page header, action card, and empty-state components
+- task-oriented user hosting dashboard with common workflow shortcuts
 
 ### 10. Platform and API Expansion
 Status: `planned`
