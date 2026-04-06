@@ -326,9 +326,9 @@ class AgentClient
         return $this->delete("/backups/{$username}/" . urlencode($filename));
     }
 
-    public function backupDownloadUrl(string $username, string $filename): string
+    public function backupDownload(string $username, string $filename): Response
     {
-        return $this->node->url("/backups/{$username}/download/" . urlencode($filename));
+        return $this->get("/backups/{$username}/download/" . urlencode($filename));
     }
 
     // ── PHP settings ──────────────────────────────────────────────────────────

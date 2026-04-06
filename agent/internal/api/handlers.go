@@ -3,9 +3,11 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -202,7 +204,7 @@ func handlePHPPoolCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePHPPoolDelete(w http.ResponseWriter, r *http.Request) {
-	user    := chi.URLParam(r, "user")
+	user := chi.URLParam(r, "user")
 	version := r.URL.Query().Get("version")
 	if version == "" {
 		version = "8.3"
@@ -280,6 +282,15 @@ func handleAgentUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Version == "" || req.DownloadURL == "" {
 		http.Error(w, "version and download_url required", http.StatusBadRequest)
+		return
+	}
+	downloadURL, err := url.Parse(req.DownloadURL)
+	if err != nil || downloadURL.Scheme != "https" {
+		http.Error(w, "download_url must be a valid https URL", http.StatusBadRequest)
+		return
+	}
+	if downloadURL.Host != "github.com" || !strings.HasPrefix(downloadURL.Path, "/jonathjan0397/strata-panel/releases/download/") {
+		http.Error(w, "download_url host/path not allowed", http.StatusBadRequest)
 		return
 	}
 	go func() {

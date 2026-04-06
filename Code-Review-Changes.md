@@ -178,3 +178,13 @@ This audit pass addressed mailbox secret handling, node deletion safety, and a f
 - Blocked node deletion when related resources still exist and added graceful foreign-key failure handling in `panel/app/Http/Controllers/Admin/NodeController.php`.
 - Fixed firewall add/delete controller error handling so agent-side plain-text failures are returned as panel JSON error messages in `panel/app/Http/Controllers/Admin/SecurityController.php`.
 - Limited service-action audit log entries to successful agent operations in `panel/app/Http/Controllers/Admin/NodeStatusController.php`.
+
+## Current Audit Pass 6
+
+This audit pass addressed the next agent-upgrade and backup-delivery issues:
+
+- Restricted the agent self-upgrade endpoint to trusted HTTPS GitHub release URLs under the Strata Panel repository in `agent/internal/api/handlers.go`.
+- Changed user backup downloads to fetch the archive through the authenticated panel-to-agent client instead of redirecting the browser to an unauthenticated raw agent URL in:
+  - `panel/app/Services/AgentClient.php`
+  - `panel/app/Http/Controllers/User/BackupController.php`
+- Recorded remote backup push failures on completed backup jobs and surfaced a panel error when one or more off-site destination uploads fail in `panel/app/Http/Controllers/User/BackupController.php`.

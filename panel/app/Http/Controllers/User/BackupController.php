@@ -4,6 +4,7 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\BackupJob;
+use App\Models\RemoteBackupDestination;
 use App\Services\AgentClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,17 +70,29 @@ class BackupController extends Controller
                     'status'     => 'complete',
                     'filename'   => $result['filename'] ?? null,
                     'size_bytes' => $result['size_bytes'] ?? null,
+                    'error'      => null,
                 ]);
 
+                $pushErrors = [];
                 if ($job->status === 'complete' && $job->filename) {
-                    $destinations = \App\Models\RemoteBackupDestination::where('active', true)->get();
+                    $destinations = RemoteBackupDestination::where('active', true)->get();
                     foreach ($destinations as $dest) {
                         try {
                             $config = array_merge(['destination_type' => $dest->type], $dest->config);
-                            $client->backupPush($account->username, $job->filename, $config);
-                        } catch (\Throwable) {
+                            $pushResponse = $client->backupPush($account->username, $job->filename, $config);
+                            if (! $pushResponse->successful()) {
+                                $pushErrors[] = "{$dest->name}: {$pushResponse->body()}";
+                            }
+                        } catch (\Throwable $e) {
+                            $pushErrors[] = "{$dest->name}: {$e->getMessage()}";
                         }
                     }
+                }
+
+                if ($pushErrors !== []) {
+                    $job->update(['error' => implode(' | ', $pushErrors)]);
+
+                    return back()->with('error', 'Backup completed, but remote copy failed for one or more destinations.');
                 }
             } else {
                 $job->update(['status' => 'failed', 'error' => $response->body()]);
@@ -150,8 +163,15 @@ class BackupController extends Controller
         }
 
         $client = new AgentClient($backup->node);
-        $url    = $client->backupDownloadUrl($account->username, $backup->filename);
+        $response = $client->backupDownload($account->username, $backup->filename);
 
-        return redirect($url);
+        if (! $response->successful()) {
+            return back()->withErrors(['error' => 'Backup download failed: ' . $response->body()]);
+        }
+
+        return response($response->body(), 200, [
+            'Content-Type' => $response->header('Content-Type', 'application/gzip'),
+            'Content-Disposition' => $response->header('Content-Disposition', 'attachment; filename="' . $backup->filename . '"'),
+        ]);
     }
 }
