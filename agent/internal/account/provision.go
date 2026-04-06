@@ -36,11 +36,7 @@ func Provision(req ProvisionRequest) (*ProvisionResult, error) {
 	if !validUsername.MatchString(req.Username) {
 		return nil, fmt.Errorf("invalid username: must be lowercase alphanumeric/underscore, 2-32 chars, start with letter")
 	}
-	if req.PHPVersion == "" {
-		req.PHPVersion = "8.3"
-	}
-	if !isValidPHPVersion(req.PHPVersion) {
-		// Fall back to highest installed version rather than hard-failing
+	if req.PHPVersion == "" || !isValidPHPVersion(req.PHPVersion) || !phpFPMAvailable(req.PHPVersion) {
 		req.PHPVersion = highestInstalledPHP()
 	}
 
@@ -183,12 +179,19 @@ func isValidPHPVersion(v string) bool {
 	return v == "8.1" || v == "8.2" || v == "8.3" || v == "8.4"
 }
 
-// highestInstalledPHP returns the highest PHP-FPM version with a running socket dir.
+// phpFPMAvailable returns true if php-fpmX.Y binary exists (i.e. the package is installed).
+func phpFPMAvailable(ver string) bool {
+	_, err := exec.LookPath(fmt.Sprintf("php-fpm%s", ver))
+	return err == nil
+}
+
+// highestInstalledPHP returns the highest PHP version that has both the CLI
+// binary and the FPM binary present.
 func highestInstalledPHP() string {
 	for _, ver := range []string{"8.4", "8.3", "8.2", "8.1"} {
-		if _, err := exec.LookPath(fmt.Sprintf("php%s", ver)); err == nil {
+		if phpFPMAvailable(ver) {
 			return ver
 		}
 	}
-	return "8.3" // last-resort default
+	return "8.4" // last-resort default
 }

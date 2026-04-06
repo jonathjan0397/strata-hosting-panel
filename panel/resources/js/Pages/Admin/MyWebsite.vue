@@ -156,7 +156,7 @@ const props = defineProps({
 
 const form = reactive({
     domain: '',
-    php_version: props.phpVersions?.[2] ?? '8.3',
+    php_version: props.phpVersions?.at(-1) ?? '8.4',
 })
 const errors = reactive({})
 const loading = ref(false)
