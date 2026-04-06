@@ -151,12 +151,18 @@ Implemented on `main`:
 - admin IP blocker backed by UFW deny-from rules
 
 ### 9. UX and Navigation
-Status: `planned`
+Status: `in progress`
 
 - section-level dashboards
 - bulk actions
 - search and discoverability improvements
 - package-centric onboarding flows
+
+Implemented on `main`:
+
+- day/night theme foundation with persisted user preference
+- workspace-aware top bar for admin, reseller, and hosting contexts
+- quick-jump navigation search for common role-specific destinations
 
 ### 10. Platform and API Expansion
 Status: `planned`

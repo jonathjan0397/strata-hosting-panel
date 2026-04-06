@@ -1,5 +1,5 @@
 <template>
-    <div class="min-h-screen bg-gray-950 text-gray-100">
+    <div :class="[themeClass, 'min-h-screen bg-gray-950 text-gray-100']">
         <!-- Sidebar -->
         <aside
             class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-gray-900 border-r border-gray-800"
@@ -394,9 +394,56 @@
         <div class="pl-64 flex flex-col min-h-screen">
             <!-- Top bar -->
             <header class="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-gray-800 bg-gray-950/80 backdrop-blur px-6">
-                <h1 class="text-base font-semibold text-gray-100">{{ title }}</h1>
-                <div class="ml-auto flex items-center gap-3">
-                    <!-- Flash messages badge area could go here -->
+                <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-400">{{ workspaceLabel }}</p>
+                    <h1 class="truncate text-base font-semibold text-gray-100">{{ title }}</h1>
+                </div>
+                <div class="ml-auto flex min-w-0 items-center gap-3">
+                    <div class="relative hidden w-80 lg:block">
+                        <svg class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        </svg>
+                        <input
+                            v-model="quickSearch"
+                            type="search"
+                            placeholder="Quick jump..."
+                            class="field w-full py-2 pl-9 pr-3 text-sm"
+                            @keydown.enter.prevent="goToFirstSearchResult"
+                            @focus="searchFocused = true"
+                            @blur="searchFocused = false"
+                        />
+                        <div
+                            v-if="showSearchResults"
+                            class="absolute right-0 top-11 z-50 w-full overflow-hidden rounded-xl border border-gray-800 bg-gray-900 shadow-2xl"
+                        >
+                            <button
+                                v-for="item in filteredNavActions"
+                                :key="item.href"
+                                type="button"
+                                class="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-800"
+                                @mousedown.prevent="router.visit(item.href)"
+                            >
+                                <span class="mt-1 h-2 w-2 rounded-full bg-indigo-400"></span>
+                                <span>
+                                    <span class="block text-sm font-semibold text-gray-100">{{ item.label }}</span>
+                                    <span class="block text-xs text-gray-500">{{ item.group }}</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-800"
+                        @click="toggleTheme"
+                    >
+                        <svg v-if="theme === 'night'" class="h-4 w-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+                        </svg>
+                        <svg v-else class="h-4 w-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75 9.75 9.75 0 0 1 8.25 6c0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25 9.75 9.75 0 0 0 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+                        </svg>
+                        {{ theme === 'night' ? 'Day' : 'Night' }}
+                    </button>
                 </div>
             </header>
 
@@ -458,7 +505,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import NavItem from '@/Components/NavItem.vue';
 import NavGroup from '@/Components/NavGroup.vue';
 
@@ -473,6 +520,9 @@ defineProps({
 
 const page = usePage();
 const accountFeatures = computed(() => page.props.auth?.user?.account?.features ?? []);
+const quickSearch = ref('');
+const searchFocused = ref(false);
+const theme = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('strata_theme') || 'night' : 'night');
 const featureFallbacks = {
     forwarders: 'email',
     autoresponders: 'email',
@@ -511,6 +561,83 @@ const licenseDot = computed(() => ({
     suspended: 'bg-red-400',
     unknown:   'bg-gray-500',
 }[licenseStatus.value] ?? 'bg-emerald-400'));
+
+const themeClass = computed(() => theme.value === 'day' ? 'theme-day' : 'theme-night');
+
+const workspaceLabel = computed(() => {
+    const roles = page.props.auth?.user?.roles ?? [];
+    if (roles.includes('admin')) return 'Admin Workspace';
+    if (roles.includes('reseller')) return 'Reseller Workspace';
+    if (roles.includes('user')) return 'Hosting Workspace';
+    return 'Workspace';
+});
+
+const navActions = computed(() => {
+    const roles = page.props.auth?.user?.roles ?? [];
+    const items = [{ label: 'Dashboard', group: workspaceLabel.value, href: route('dashboard') }];
+
+    if (roles.includes('admin')) {
+        items.push(
+            { label: 'Accounts', group: 'Hosting', href: route('admin.accounts.index') },
+            { label: 'Packages', group: 'Hosting', href: route('admin.packages.index') },
+            { label: 'Feature Lists', group: 'Hosting', href: route('admin.feature-lists.index') },
+            { label: 'Domains', group: 'Hosting', href: route('admin.domains.index') },
+            { label: 'DNS Zones', group: 'Hosting', href: route('admin.dns.index') },
+            { label: 'Nodes', group: 'Infrastructure', href: route('admin.nodes.index') },
+            { label: 'Backups', group: 'System', href: route('admin.backups.index') },
+            { label: 'Firewall and IP Blocker', group: 'Security', href: route('admin.security.firewall') },
+            { label: 'Audit Log', group: 'System', href: route('admin.audit-log.index') },
+        );
+    } else if (roles.includes('reseller')) {
+        items.push(
+            { label: 'Clients', group: 'Reseller', href: route('reseller.accounts.index') },
+            { label: 'Packages', group: 'Reseller', href: route('reseller.packages.index') },
+            { label: 'Branding', group: 'Reseller', href: route('reseller.branding') },
+        );
+    } else if (roles.includes('user')) {
+        addUserAction(items, 'domains', 'Domains', 'Websites', route('my.domains.index'));
+        addUserAction(items, 'email', 'Email Delivery', 'Mail', route('my.email.delivery'));
+        addUserAction(items, 'file_manager', 'File Manager', 'Files', route('my.files.index'));
+        addUserAction(items, 'databases', 'Databases', 'Data', route('my.databases.index'));
+        addUserAction(items, 'backups', 'Backups', 'Files', route('my.backups.index'));
+        addUserAction(items, 'metrics', 'Metrics and Logs', 'Diagnostics', route('my.metrics.index'));
+        addUserAction(items, 'git', 'Git Version Control', 'Developer Tools', route('my.git.index'));
+        addUserAction(items, 'ssh_keys', 'SSH Keys', 'Security', route('my.ssh-keys.index'));
+    }
+
+    return items;
+});
+
+const filteredNavActions = computed(() => {
+    const query = quickSearch.value.trim().toLowerCase();
+    if (! query) return navActions.value.slice(0, 6);
+
+    return navActions.value
+        .filter((item) => `${item.label} ${item.group}`.toLowerCase().includes(query))
+        .slice(0, 8);
+});
+
+const showSearchResults = computed(() =>
+    searchFocused.value && filteredNavActions.value.length > 0
+);
+
+function addUserAction(items, feature, label, group, href) {
+    if (hasFeature(feature)) {
+        items.push({ label, group, href });
+    }
+}
+
+function toggleTheme() {
+    theme.value = theme.value === 'night' ? 'day' : 'night';
+    localStorage.setItem('strata_theme', theme.value);
+}
+
+function goToFirstSearchResult() {
+    const first = filteredNavActions.value[0];
+    if (! first) return;
+    quickSearch.value = '';
+    router.visit(first.href);
+}
 
 function hasFeature(feature) {
     if (page.props.auth?.user?.roles?.includes('admin')) {
