@@ -84,11 +84,12 @@ class BackupController extends Controller
     public function restore(BackupJob $backup): RedirectResponse
     {
         abort_if(! $backup->filename, 422, 'Backup has no file to restore.');
+        abort_if(! $backup->node, 503, 'Backup has no assigned node.');
 
-        $account = $backup->account()->with('node')->first();
-        abort_if(! $account?->node, 503, 'Account has no assigned node.');
+        $account = $backup->account()->first();
+        abort_if(! $account, 404, 'Backup account no longer exists.');
 
-        $response = AgentClient::for($account->node)->backupRestore($account->username, $backup->filename);
+        $response = AgentClient::for($backup->node)->backupRestore($account->username, $backup->filename);
 
         if (! $response->successful()) {
             return back()->with('error', 'Restore failed: ' . $response->body());

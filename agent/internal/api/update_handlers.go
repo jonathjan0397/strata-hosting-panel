@@ -67,7 +67,6 @@ func handleUpdatesApply(w http.ResponseWriter, r *http.Request) {
 	cmd := exec.Command("apt-get", "upgrade", "-y",
 		"-o", "Dpkg::Options::=--force-confold",
 		"-o", "Dpkg::Options::=--force-confdef",
-		"--with-new-pkgs",
 	)
 	cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
 

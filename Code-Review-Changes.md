@@ -188,3 +188,22 @@ This audit pass addressed the next agent-upgrade and backup-delivery issues:
   - `panel/app/Services/AgentClient.php`
   - `panel/app/Http/Controllers/User/BackupController.php`
 - Recorded remote backup push failures on completed backup jobs and surfaced a panel error when one or more off-site destination uploads fail in `panel/app/Http/Controllers/User/BackupController.php`.
+
+## Current Audit Pass 7
+
+This audit pass addressed the next admin restore, update, and audit-log issues:
+
+- Changed admin backup restore to target the backup job's recorded node instead of the account's current node in `panel/app/Http/Controllers/Admin/BackupController.php`.
+- Removed `--with-new-pkgs` from the agent OS update apply command so the backend now matches the UI's in-place upgrade contract in `agent/internal/api/update_handlers.go`.
+- Hardened admin update apply error handling so plain-text agent failures are returned as structured JSON in `panel/app/Http/Controllers/Admin/UpdateController.php`.
+- Delayed admin FTP create/delete audit log writes until the underlying agent action succeeds in `panel/app/Http/Controllers/Admin/FtpController.php`.
+- Updated the admin updates page copy to match the backend behavior in `panel/resources/js/Pages/Admin/Updates/Index.vue`.
+
+Validation performed for this audit pass:
+
+- `gofmt` on:
+  - `agent/internal/api/update_handlers.go`
+- PHP lint on:
+  - `panel/app/Http/Controllers/Admin/BackupController.php`
+  - `panel/app/Http/Controllers/Admin/UpdateController.php`
+  - `panel/app/Http/Controllers/Admin/FtpController.php`

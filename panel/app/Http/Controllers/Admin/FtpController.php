@@ -50,7 +50,9 @@ class FtpController extends Controller
             $data['quota_mb'] ?? 0,
         );
 
-        AuditLog::record('ftp.account_created', $account, ['username' => $data['username']]);
+        if ($success) {
+            AuditLog::record('ftp.account_created', $account, ['username' => $data['username']]);
+        }
 
         return $success
             ? back()->with('success', "FTP account {$data['username']} created.")
@@ -66,9 +68,11 @@ class FtpController extends Controller
         $client  = AgentClient::for($ftpAccount->node);
         $provisioner = new FtpProvisioner($client);
 
-        AuditLog::record('ftp.account_deleted', $account, ['username' => $ftpAccount->username]);
-
         [$success, $error] = $provisioner->delete($ftpAccount);
+
+        if ($success) {
+            AuditLog::record('ftp.account_deleted', $account, ['username' => $ftpAccount->username]);
+        }
 
         return $success
             ? redirect()->route('admin.accounts.ftp', $account->id)

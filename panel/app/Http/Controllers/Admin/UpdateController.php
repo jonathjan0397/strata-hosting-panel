@@ -48,6 +48,14 @@ class UpdateController extends Controller
             AuditLog::record('system.updates.applied', null, ['node' => $node->name]);
         }
 
-        return response()->json($response->json(), $response->status());
+        $payload = $response->json();
+        if (! is_array($payload)) {
+            $payload = [
+                'status' => 'error',
+                'output' => $response->body(),
+            ];
+        }
+
+        return response()->json($payload, $response->status());
     }
 }

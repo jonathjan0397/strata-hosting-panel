@@ -5,13 +5,13 @@
             <!-- Header -->
             <div>
                 <h1 class="text-lg font-semibold text-gray-100">OS Updates</h1>
-                <p class="mt-0.5 text-sm text-gray-400">Check and apply system package updates per node. Safe upgrade only — no kernel or dist upgrades.</p>
+                <p class="mt-0.5 text-sm text-gray-400">Check and apply in-place package upgrades per node. This does not run a dist-upgrade or install new packages.</p>
             </div>
 
             <!-- Node selector -->
             <div class="flex items-center gap-3">
                 <select v-model="selectedNode" @change="checkUpdates" class="field">
-                    <option value="">— Select a node —</option>
+                    <option value="">- Select a node -</option>
                     <option v-for="n in nodes" :key="n.id" :value="n.id">{{ n.name }} ({{ n.hostname }})</option>
                 </select>
                 <button
@@ -19,7 +19,7 @@
                     @click="checkUpdates"
                     :disabled="checking"
                     class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors disabled:opacity-50"
-                >{{ checking ? 'Checking…' : 'Refresh' }}</button>
+                >{{ checking ? 'Checking...' : 'Refresh' }}</button>
             </div>
 
             <template v-if="selectedNode">
@@ -37,7 +37,7 @@
                         @click="applyUpdates"
                         :disabled="applying"
                         class="rounded-lg bg-yellow-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-yellow-500 disabled:opacity-60 transition-colors"
-                    >{{ applying ? 'Upgrading…' : 'Apply Updates' }}</button>
+                    >{{ applying ? 'Upgrading...' : 'Apply Updates' }}</button>
                 </div>
 
                 <!-- Apply result -->
@@ -61,8 +61,8 @@
                         <tbody class="divide-y divide-gray-800">
                             <tr v-for="pkg in packages" :key="pkg.name" class="hover:bg-gray-800/40">
                                 <td class="px-5 py-3 font-mono text-gray-200">{{ pkg.name }}</td>
-                                <td class="px-5 py-3 font-mono text-xs text-gray-500">{{ pkg.old_version || '—' }}</td>
-                                <td class="px-5 py-3 font-mono text-xs text-emerald-400">{{ pkg.new_version || '—' }}</td>
+                                <td class="px-5 py-3 font-mono text-xs text-gray-500">{{ pkg.old_version || '-' }}</td>
+                                <td class="px-5 py-3 font-mono text-xs text-emerald-400">{{ pkg.new_version || '-' }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -81,19 +81,19 @@ defineProps({
 });
 
 const selectedNode = ref('');
-const packages     = ref(null);
-const checking     = ref(false);
-const applying     = ref(false);
-const loadError    = ref('');
-const applyResult  = ref(null);
+const packages = ref(null);
+const checking = ref(false);
+const applying = ref(false);
+const loadError = ref('');
+const applyResult = ref(null);
 
 async function checkUpdates() {
     if (!selectedNode.value) return;
-    checking.value  = true;
+    checking.value = true;
     loadError.value = '';
     applyResult.value = null;
     try {
-        const res  = await fetch(route('admin.updates.available') + '?node_id=' + selectedNode.value);
+        const res = await fetch(route('admin.updates.available') + '?node_id=' + selectedNode.value);
         const data = await res.json();
         if (data.error) { loadError.value = data.error; packages.value = []; }
         else { packages.value = data.packages ?? []; }
@@ -106,13 +106,13 @@ async function checkUpdates() {
 
 async function applyUpdates() {
     if (!confirm('Apply all pending updates on this node? The upgrade runs in the background and may take a few minutes.')) return;
-    applying.value    = true;
+    applying.value = true;
     applyResult.value = null;
     try {
-        const res  = await fetch(route('admin.updates.apply'), {
-            method:  'POST',
+        const res = await fetch(route('admin.updates.apply'), {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
-            body:    JSON.stringify({ node_id: selectedNode.value }),
+            body: JSON.stringify({ node_id: selectedNode.value }),
         });
         applyResult.value = await res.json();
         if (applyResult.value.status === 'upgraded') await checkUpdates();
