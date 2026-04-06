@@ -447,6 +447,10 @@ else
 fi
 
 mkdir -p /etc/powerdns
+# Remove any package-default drop-in configs (e.g. bind.conf) from pdns.d/.
+# PowerDNS has a compiled-in include-dir=/etc/powerdns/pdns.d and any
+# launch=bind override there silently wins over our launch=gmysql.
+rm -f /etc/powerdns/pdns.d/*.conf 2>/dev/null || true
 cat > /etc/powerdns/pdns.conf <<EOF
 # PowerDNS — managed by Strata Panel
 local-port=53
