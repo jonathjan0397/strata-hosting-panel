@@ -310,4 +310,3 @@ func saveUploadedFile(username, destDir string, fh *multipart.FileHeader) error 
 	defer src.Close()
 	return files.SaveUpload(username, destDir, fh.Filename, src)
 }
-

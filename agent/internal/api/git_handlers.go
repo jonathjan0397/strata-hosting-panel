@@ -274,18 +274,18 @@ func gitRepoStatus(username, repoPath string) (map[string]any, error) {
 	}
 
 	return map[string]any{
-		"path": relativePath,
+		"path":          relativePath,
 		"absolute_path": topLevel,
-		"is_repo": true,
-		"branch": branch,
-		"remote_url": remoteURL,
-		"dirty": changedFiles > 0,
+		"is_repo":       true,
+		"branch":        branch,
+		"remote_url":    remoteURL,
+		"dirty":         changedFiles > 0,
 		"changed_files": changedFiles,
-		"ahead": ahead,
-		"behind": behind,
+		"ahead":         ahead,
+		"behind":        behind,
 		"last_commit": map[string]any{
-			"hash": lastCommitHash,
-			"subject": lastCommitSubject,
+			"hash":          lastCommitHash,
+			"subject":       lastCommitSubject,
 			"relative_time": lastCommitRelative,
 		},
 	}, nil

@@ -53,11 +53,11 @@ func handleMailDeliveryLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond(w, http.StatusOK, map[string]any{
-		"query": query,
-		"service": service,
+		"query":        query,
+		"service":      service,
 		"checked_logs": checked,
-		"count": len(results),
-		"entries": results,
+		"count":        len(results),
+		"entries":      results,
 	})
 }
 

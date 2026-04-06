@@ -73,7 +73,7 @@ type UsageEntry struct {
 }
 
 type UsageSummary struct {
-	Path       string       `json:"path"`
+	Path      string       `json:"path"`
 	Size      int64        `json:"size"`
 	Files     int          `json:"files"`
 	Dirs      int          `json:"dirs"`
