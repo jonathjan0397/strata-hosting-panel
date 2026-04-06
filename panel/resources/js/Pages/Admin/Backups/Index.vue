@@ -10,6 +10,29 @@
                 </div>
             </div>
 
+            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-100">Import Existing Node Backups</h2>
+                        <p class="mt-1 text-sm text-gray-400">
+                            Scan an account's node backup directory and register any completed archives that are not yet tracked in the panel.
+                        </p>
+                    </div>
+                    <form @submit.prevent="importExisting" class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <select v-model="importForm.account_id" class="field min-w-64" required>
+                            <option value="">Choose account</option>
+                            <option v-for="account in accounts" :key="account.id" :value="account.id">
+                                {{ account.username }}{{ account.node ? ` (${account.node})` : '' }}
+                            </option>
+                        </select>
+                        <button type="submit" :disabled="importForm.processing" class="btn-primary whitespace-nowrap">
+                            {{ importForm.processing ? 'Importing...' : 'Scan & Import' }}
+                        </button>
+                    </form>
+                </div>
+                <p v-if="importForm.errors.account_id" class="mt-3 text-xs text-red-400">{{ importForm.errors.account_id }}</p>
+            </div>
+
             <!-- Filters -->
             <div class="flex items-center gap-3">
                 <input
@@ -89,16 +112,18 @@
 
 <script setup>
 import { ref } from 'vue';
-import { router, Link } from '@inertiajs/vue3';
+import { router, Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
     jobs:    { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
+    accounts: { type: Array, default: () => [] },
 });
 
 const search = ref(props.filters.search ?? '');
 const status = ref(props.filters.status ?? '');
+const importForm = useForm({ account_id: '' });
 let debounce = null;
 
 function filter() {
@@ -116,6 +141,13 @@ function restore(id) {
 function remove(id) {
     if (!confirm('Delete this backup record?')) return;
     router.delete(route('admin.backups.destroy', id));
+}
+
+function importExisting() {
+    importForm.post(route('admin.backups.import-existing'), {
+        preserveScroll: true,
+        onSuccess: () => importForm.reset(),
+    });
 }
 
 function typeClass(type) {

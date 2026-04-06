@@ -67,12 +67,16 @@ Status: `in progress`
 - reseller package-scoped quota enforcement
 
 ### 3. Account Lifecycle and Migration
-Status: `planned`
+Status: `in progress`
 
 - import from backup archive
 - node-to-node migration workflow
 - transfer status UI
 - rollback-safe migration operations
+
+Implemented on `main`:
+
+- admin import workflow that scans an account node for existing backup archives and registers missing completed backup jobs
 
 ### 4. Metrics and Logs
 Status: `in progress`
