@@ -107,6 +107,64 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Fail2ban section -->
+                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-gray-300">Fail2ban</h2>
+                        <button
+                            @click="loadFail2ban"
+                            :disabled="f2bLoading"
+                            class="rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors disabled:opacity-50"
+                        >{{ f2bLoading ? 'Loading…' : 'Refresh' }}</button>
+                    </div>
+
+                    <div v-if="f2bError" class="rounded-lg border border-red-700/40 bg-red-900/20 px-3 py-2 text-xs text-red-300">{{ f2bError }}</div>
+
+                    <div v-if="f2bJails.length" class="space-y-3">
+                        <div v-for="jail in f2bJails" :key="jail.name" class="rounded-lg border border-gray-700 bg-gray-800/60 p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-mono text-sm text-gray-200">{{ jail.name }}</span>
+                                <span :class="jail.currently_failed > 0 ? 'bg-yellow-900/40 text-yellow-400' : 'bg-gray-700/60 text-gray-400'"
+                                    class="rounded-full px-2 py-0.5 text-xs">
+                                    {{ jail.currently_failed }} currently failed · {{ jail.total_banned }} total banned
+                                </span>
+                            </div>
+
+                            <!-- Banned IPs -->
+                            <div v-if="jail.banned_ips && jail.banned_ips.length" class="mt-2 space-y-1">
+                                <div v-for="ip in jail.banned_ips" :key="ip"
+                                    class="flex items-center justify-between rounded bg-gray-900/60 px-3 py-1.5">
+                                    <span class="font-mono text-xs text-gray-300">{{ ip }}</span>
+                                    <button
+                                        @click="unbanIp(jail.name, ip)"
+                                        class="text-xs text-amber-500 hover:text-amber-400 transition-colors"
+                                    >Unban</button>
+                                </div>
+                            </div>
+                            <p v-else class="text-xs text-gray-500 mt-1">No banned IPs.</p>
+
+                            <!-- Manual unban -->
+                            <div class="flex items-center gap-2 mt-3">
+                                <input
+                                    v-model="unbanForm[jail.name]"
+                                    type="text"
+                                    placeholder="Enter IP to unban"
+                                    class="field flex-1 text-xs py-1.5"
+                                    @keyup.enter="unbanIp(jail.name, unbanForm[jail.name])"
+                                />
+                                <button
+                                    @click="unbanIp(jail.name, unbanForm[jail.name])"
+                                    :disabled="!unbanForm[jail.name]"
+                                    class="rounded-lg bg-amber-600/80 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500 disabled:opacity-50 transition-colors"
+                                >Unban</button>
+                            </div>
+                        </div>
+                    </div>
+                    <p v-else-if="!f2bLoading && !f2bError" class="text-sm text-gray-500">
+                        {{ f2bJails.length === 0 && selectedNode ? 'Click Refresh to load fail2ban status.' : 'No jails found.' }}
+                    </p>
+                </div>
             </template>
         </div>
     </AppLayout>
@@ -129,6 +187,12 @@ const adding   = ref(false);
 const addError = ref('');
 
 const form = ref({ type: 'allow', port: '', proto: '', from: '' });
+
+// Fail2ban state
+const f2bJails   = ref([]);
+const f2bLoading = ref(false);
+const f2bError   = ref('');
+const unbanForm  = ref({});
 
 async function loadRules() {
     if (!selectedNode.value) return;
@@ -172,6 +236,39 @@ async function deleteRule(number) {
         body: JSON.stringify({ node_id: selectedNode.value, number }),
     });
     if (res.ok) await loadRules();
+}
+
+async function loadFail2ban() {
+    if (!selectedNode.value) return;
+    f2bLoading.value = true;
+    f2bError.value   = '';
+    try {
+        const res  = await fetch(route('admin.security.fail2ban') + '?node_id=' + selectedNode.value);
+        const data = await res.json();
+        if (data.error) { f2bError.value = data.error; f2bJails.value = []; }
+        else { f2bJails.value = data.jails ?? []; }
+    } catch (e) {
+        f2bError.value = 'Failed to load fail2ban status.';
+    } finally {
+        f2bLoading.value = false;
+    }
+}
+
+async function unbanIp(jail, ip) {
+    if (!ip) return;
+    const csrf = document.querySelector('meta[name=csrf-token]').content;
+    const res = await fetch(route('admin.security.unban'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+        body: JSON.stringify({ node_id: selectedNode.value, jail, ip }),
+    });
+    if (res.ok) {
+        unbanForm.value[jail] = '';
+        await loadFail2ban();
+    } else {
+        const d = await res.json().catch(() => ({}));
+        f2bError.value = d.message ?? `Failed to unban ${ip}.`;
+    }
 }
 </script>
 

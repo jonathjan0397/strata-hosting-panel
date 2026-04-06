@@ -127,6 +127,29 @@ func DeleteZone(domain string) error {
 	return nil
 }
 
+// ZoneSummary is a lightweight zone entry returned by ListZones.
+type ZoneSummary struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+}
+
+// ListZones returns all zones from PowerDNS.
+func ListZones() ([]ZoneSummary, error) {
+	data, status, err := pdnsRequest("GET", "/servers/"+serverID+"/zones", nil)
+	if err != nil {
+		return nil, err
+	}
+	if status != 200 {
+		return nil, fmt.Errorf("pdns list zones: status %d: %s", status, string(data))
+	}
+	var zones []ZoneSummary
+	if err := json.Unmarshal(data, &zones); err != nil {
+		return nil, err
+	}
+	return zones, nil
+}
+
 // GetZone retrieves zone details including all RRsets.
 func GetZone(domain string) (*Zone, error) {
 	name := canonical(domain)

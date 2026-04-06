@@ -1137,7 +1137,7 @@ ufw allow 25/tcp comment "SMTP"                 >/dev/null
 ufw allow 587/tcp comment "SMTP submission"     >/dev/null
 ufw allow 993/tcp comment "IMAPS"               >/dev/null
 ufw allow 995/tcp comment "POP3S"               >/dev/null
-# Agent port (8743) intentionally NOT opened — panel talks to it on localhost only
+ufw allow 8743/tcp comment "Strata agent (shell/WebSocket)" >/dev/null
 ufw --force enable >/dev/null
 success "Firewall enabled."
 

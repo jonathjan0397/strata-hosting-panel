@@ -7,6 +7,15 @@ import (
 	"github.com/jonathjan0397/strata-panel/agent/internal/dns"
 )
 
+func handleDNSListZones(w http.ResponseWriter, r *http.Request) {
+	zones, err := dns.ListZones()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	respond(w, http.StatusOK, zones)
+}
+
 func handleDNSCreateZone(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Domain string `json:"domain"`

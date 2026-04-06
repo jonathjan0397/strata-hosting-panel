@@ -177,6 +177,11 @@ class AgentClient
 
     // ── DNS ───────────────────────────────────────────────────────────────────
 
+    public function listDnsZones(): Response
+    {
+        return $this->get('/dns/zones');
+    }
+
     public function createDnsZone(string $domain): Response
     {
         return $this->post('/dns/zone', ['domain' => $domain]);

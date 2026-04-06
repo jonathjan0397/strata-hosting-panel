@@ -7,7 +7,6 @@ use App\Models\AuditLog;
 use App\Models\Node;
 use App\Services\AgentClient;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,7 +35,7 @@ class SecurityController extends Controller
         );
     }
 
-    public function unban(Request $request): RedirectResponse
+    public function unban(Request $request): JsonResponse
     {
         $data = $request->validate([
             'node_id' => ['required', 'exists:nodes,id'],
@@ -48,12 +47,12 @@ class SecurityController extends Controller
         $response = AgentClient::for($node)->fail2banUnban($data['jail'], $data['ip']);
 
         if (! $response->successful()) {
-            return back()->with('error', 'Unban failed: ' . $response->body());
+            return response()->json(['message' => 'Unban failed: ' . $response->body()], 502);
         }
 
         AuditLog::record('security.unban', null, ['jail' => $data['jail'], 'ip' => $data['ip'], 'node' => $node->name]);
 
-        return back()->with('success', "{$data['ip']} unbanned from {$data['jail']}.");
+        return response()->json(['status' => 'ok', 'message' => "{$data['ip']} unbanned from {$data['jail']}."]);
     }
 
     // ── Firewall (UFW) ────────────────────────────────────────────────────────

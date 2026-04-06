@@ -18,28 +18,74 @@ class StandaloneDnsController extends Controller
 {
     /**
      * List all standalone DNS zones (not tied to a hosting account/domain).
+     * Merges DB records with live PowerDNS zones fetched from each online node.
      */
     public function index(): Response
     {
-        $zones = DnsZone::whereNull('domain_id')
+        $dbZones = DnsZone::whereNull('domain_id')
             ->with('node:id,name')
             ->withCount('records')
             ->orderBy('zone_name')
             ->get()
-            ->map(fn ($z) => [
-                'id'           => $z->id,
-                'zone_name'    => $z->zone_name,
-                'node'         => $z->node?->name,
-                'node_id'      => $z->node_id,
-                'records_count' => $z->records_count,
-                'active'       => $z->active,
-            ]);
+            ->keyBy('zone_name');
 
-        $nodes = Node::where('status', 'online')->select('id', 'name')->get();
+        $nodes = Node::where('status', 'online')->select('id', 'name', 'hostname')->get();
+
+        // Collect live zones from each node's agent; de-duplicate by name.
+        $liveZones = collect();
+        foreach ($nodes as $node) {
+            try {
+                $response = AgentClient::for($node)->listDnsZones();
+                if ($response->successful()) {
+                    foreach ($response->json() as $z) {
+                        $name = rtrim(strtolower($z['name'] ?? ''), '.');
+                        if ($name && ! $liveZones->has($name)) {
+                            $liveZones->put($name, [
+                                'zone_name' => $name,
+                                'node'      => $node->name,
+                                'node_id'   => $node->id,
+                                'live'      => true,
+                            ]);
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+                // Node unreachable — skip silently.
+            }
+        }
+
+        // Merge: DB zones enriched with live flag; live-only zones have no DB id.
+        $merged = $liveZones->map(function ($live) use ($dbZones) {
+            $db = $dbZones->get($live['zone_name']);
+            return [
+                'id'            => $db?->id,
+                'zone_name'     => $live['zone_name'],
+                'node'          => $live['node'],
+                'node_id'       => $live['node_id'],
+                'records_count' => $db?->records_count ?? 0,
+                'active'        => $db?->active ?? true,
+                'live'          => true,
+            ];
+        });
+
+        // Add DB zones not found in live list (e.g. node offline).
+        foreach ($dbZones as $name => $db) {
+            if (! $merged->has($name)) {
+                $merged->put($name, [
+                    'id'            => $db->id,
+                    'zone_name'     => $db->zone_name,
+                    'node'          => $db->node?->name,
+                    'node_id'       => $db->node_id,
+                    'records_count' => $db->records_count,
+                    'active'        => $db->active,
+                    'live'          => false,
+                ]);
+            }
+        }
 
         return Inertia::render('Admin/Dns/ServerZones', [
-            'zones' => $zones,
-            'nodes' => $nodes,
+            'zones' => $merged->values()->sortBy('zone_name')->values(),
+            'nodes' => $nodes->map->only('id', 'name'),
         ]);
     }
 
