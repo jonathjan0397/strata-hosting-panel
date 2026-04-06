@@ -85,10 +85,12 @@ class NodeStatusController extends Controller
                 'reload'  => AgentClient::for($node)->reloadService($service),
             };
 
-            AuditLog::record("service.{$action}", $node, [
-                'service' => $service,
-                'node'    => $node->name,
-            ]);
+            if ($res->successful()) {
+                AuditLog::record("service.{$action}", $node, [
+                    'service' => $service,
+                    'node'    => $node->name,
+                ]);
+            }
 
             return response()->json($res->json(), $res->status());
         } catch (\Throwable $e) {

@@ -104,7 +104,11 @@ class SecurityController extends Controller
             ]);
         }
 
-        return response()->json($response->json(), $response->successful() ? 201 : 502);
+        if (! $response->successful()) {
+            return response()->json(['message' => 'Firewall update failed: ' . $response->body()], 502);
+        }
+
+        return response()->json($response->json(), 201);
     }
 
     public function firewallDelete(Request $request): JsonResponse
@@ -124,6 +128,10 @@ class SecurityController extends Controller
             ]);
         }
 
-        return response()->json($response->json(), $response->successful() ? 200 : 502);
+        if (! $response->successful()) {
+            return response()->json(['message' => 'Firewall delete failed: ' . $response->body()], 502);
+        }
+
+        return response()->json($response->json(), 200);
     }
 }

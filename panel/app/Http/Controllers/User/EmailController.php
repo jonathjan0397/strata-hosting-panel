@@ -9,7 +9,6 @@ use App\Models\EmailForwarder;
 use App\Services\MailProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Crypt;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -63,11 +62,6 @@ class EmailController extends Controller
             $data['quota_mb'] ?? 0
         );
 
-        if ($success) {
-            EmailAccount::where('email', $data['local_part'] . '@' . $domain->domain)
-                ->update(['password_encrypted' => Crypt::encrypt($data['password'])]);
-        }
-
         return $success
             ? back()->with('success', "{$data['local_part']}@{$domain->domain} created.")
             : back()->with('error', "Mailbox creation failed: {$error}");
@@ -96,10 +90,6 @@ class EmailController extends Controller
         ]);
 
         [$success, $error] = app(MailProvisioner::class)->changePassword($mailbox, $data['password']);
-
-        if ($success) {
-            $mailbox->update(['password_encrypted' => Crypt::encrypt($data['password'])]);
-        }
 
         return $success
             ? back()->with('success', "Password updated for {$mailbox->email}.")

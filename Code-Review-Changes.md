@@ -162,3 +162,19 @@ Validation performed for this audit pass:
   - `agent/internal/api/firewall_handlers.go`
   - `agent/internal/api/fail2ban_handlers.go`
   - `agent/internal/api/remote_backup_handlers.go`
+
+## Current Audit Pass 5
+
+This audit pass addressed mailbox secret handling, node deletion safety, and a few remaining admin integrity issues:
+
+- Disabled automatic webmail SSO in `panel/app/Http/Controllers/WebmailController.php` instead of decrypting and reusing stored mailbox passwords.
+- Removed mailbox password escrow from mailbox create and password-change flows in:
+  - `panel/app/Http/Controllers/User/EmailController.php`
+  - `panel/app/Http/Controllers/Admin/EmailController.php`
+- Replaced the mailbox "Open Webmail" actions with direct links to the normal webmail login page in:
+  - `panel/resources/js/Pages/User/Email/Index.vue`
+  - `panel/resources/js/Pages/Admin/Email/DomainEmail.vue`
+- Added a schema cleanup migration to drop the unused `password_encrypted` column from `email_accounts` in `panel/database/migrations/2026_04_06_000001_drop_password_encrypted_from_email_accounts.php`.
+- Blocked node deletion when related resources still exist and added graceful foreign-key failure handling in `panel/app/Http/Controllers/Admin/NodeController.php`.
+- Fixed firewall add/delete controller error handling so agent-side plain-text failures are returned as panel JSON error messages in `panel/app/Http/Controllers/Admin/SecurityController.php`.
+- Limited service-action audit log entries to successful agent operations in `panel/app/Http/Controllers/Admin/NodeStatusController.php`.

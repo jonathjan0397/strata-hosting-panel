@@ -4,8 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\AppInstallation;
+use App\Models\BackupJob;
+use App\Models\DatabaseGrant;
+use App\Models\DnsZone;
+use App\Models\Domain;
+use App\Models\EmailAccount;
+use App\Models\EmailForwarder;
+use App\Models\FtpAccount;
+use App\Models\HostingDatabase;
 use App\Models\Node;
 use App\Services\AgentClient;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -82,8 +92,30 @@ class NodeController extends Controller
 
     public function destroy(Node $node): RedirectResponse
     {
+        $dependencies = [
+            'accounts' => $node->accounts()->count(),
+            'domains' => Domain::where('node_id', $node->id)->count(),
+            'mailboxes' => EmailAccount::where('node_id', $node->id)->count(),
+            'forwarders' => EmailForwarder::where('node_id', $node->id)->count(),
+            'dns_zones' => DnsZone::where('node_id', $node->id)->count(),
+            'ftp_accounts' => FtpAccount::where('node_id', $node->id)->count(),
+            'databases' => HostingDatabase::where('node_id', $node->id)->count(),
+            'database_grants' => DatabaseGrant::where('node_id', $node->id)->count(),
+            'backups' => BackupJob::where('node_id', $node->id)->count(),
+            'app_installations' => AppInstallation::where('node_id', $node->id)->count(),
+        ];
+
+        if (array_sum($dependencies) > 0) {
+            return back()->with('error', 'Remove or migrate all resources from this node before deleting it.');
+        }
+
         AuditLog::record('node.deleted', $node);
-        $node->delete();
+
+        try {
+            $node->delete();
+        } catch (QueryException) {
+            return back()->with('error', 'Node deletion is blocked by existing related records.');
+        }
 
         return redirect()->route('admin.nodes.index')
             ->with('success', 'Node removed.');
