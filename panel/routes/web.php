@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\SecurityController;
 use App\Http\Controllers\Admin\SpamController;
 use App\Http\Controllers\Admin\StandaloneDnsController;
 use App\Http\Controllers\Admin\UpdateController;
+use App\Http\Controllers\Admin\AdminWebsiteController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\User\AutoresponderController;
 use App\Http\Controllers\User\AppInstallerController;
@@ -251,6 +252,11 @@ Route::middleware(['auth'])->group(function () {
         // Spam filter (Rspamd)
         Route::get('security/spam', [SpamController::class, 'index'])->name('security.spam');
         Route::get('security/spam/stats', [SpamController::class, 'stats'])->name('security.spam.stats');
+
+        // Admin's own website (apex domain hosted alongside the panel)
+        Route::get('my-website', [AdminWebsiteController::class, 'index'])->name('my-website.index');
+        Route::post('my-website', [AdminWebsiteController::class, 'provision'])->name('my-website.provision');
+        Route::delete('my-website', [AdminWebsiteController::class, 'deprovision'])->name('my-website.deprovision');
 
         // Standalone / server DNS zones
         Route::get('dns/server', [StandaloneDnsController::class, 'index'])->name('dns.server.index');
