@@ -515,7 +515,8 @@ grep -q '^requirepass' /etc/redis/redis.conf \
     && sed -i "s/^requirepass.*/requirepass ${REDIS_PASSWORD}/" /etc/redis/redis.conf \
     || echo "requirepass ${REDIS_PASSWORD}" >> /etc/redis/redis.conf
 
-systemctl enable --now redis-server
+systemctl enable redis-server
+systemctl restart redis-server
 success "Redis ready (localhost only, password set)."
 
 # ── Step 4b. Mail stack ───────────────────────────────────────────────────────
