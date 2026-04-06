@@ -6,7 +6,9 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -27,12 +29,12 @@ class User extends Authenticatable
         ];
     }
 
-    public function account(): HasMany
+    public function account(): HasOne
     {
-        return $this->hasMany(Account::class);
+        return $this->hasOne(Account::class);
     }
 
-    public function reseller(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function reseller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reseller_id');
     }

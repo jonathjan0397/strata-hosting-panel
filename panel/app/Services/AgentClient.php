@@ -537,8 +537,7 @@ class AgentClient
             'Content-Type'       => 'application/json',
             'Accept'             => 'application/json',
         ])
-            ->timeout($timeout)
-            ->withoutVerifying(); // TODO: verify against stored TLS fingerprint
+            ->timeout($timeout);
 
         $url = $this->node->apiUrl($path);
 

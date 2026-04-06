@@ -172,7 +172,7 @@ class FileManagerController extends Controller
         $agentResponse = Http::withHeaders([
             'X-Strata-Signature' => $signature,
             'X-Strata-Timestamp' => $timestamp,
-        ])->withoutVerifying()->get($agentUrl);
+        ])->get($agentUrl);
 
         if (! $agentResponse->successful()) {
             abort($agentResponse->status(), $agentResponse->body());
@@ -204,7 +204,7 @@ class FileManagerController extends Controller
         $http = Http::withHeaders([
             'X-Strata-Signature' => $signature,
             'X-Strata-Timestamp' => $timestamp,
-        ])->withoutVerifying();
+        ]);
 
         foreach ($request->file('files') as $file) {
             $http = $http->attach('files[]', file_get_contents($file->getRealPath()), $file->getClientOriginalName());

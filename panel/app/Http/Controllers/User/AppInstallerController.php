@@ -113,7 +113,7 @@ class AppInstallerController extends Controller
 
         InstallAppJob::dispatch($installation);
 
-        return redirect()->route('user.apps.installed')
+        return redirect()->route('my.apps.installed')
             ->with('success', config("apps.{$data['app_slug']}.name") . ' installation started. This may take a few minutes.');
     }
 
@@ -161,7 +161,7 @@ class AppInstallerController extends Controller
 
         $installation->delete();
 
-        return redirect()->route('user.apps.installed')
+        return redirect()->route('my.apps.installed')
             ->with('success', $installation->app_name . ' removed.');
     }
 }

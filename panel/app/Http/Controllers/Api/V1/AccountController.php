@@ -27,7 +27,7 @@ class AccountController extends Controller
             'username'           => ['required', 'regex:/^[a-z][a-z0-9_]{1,31}$/', 'unique:accounts,username'],
             'password'           => ['nullable', 'string', 'min:12'],
             'node_id'            => ['nullable', 'exists:nodes,id'],
-            'php_version'        => ['nullable', 'in:8.1,8.2,8.3'],
+            'php_version'        => ['nullable', 'in:8.1,8.2,8.3,8.4'],
             'disk_limit_mb'      => ['nullable', 'integer', 'min:0'],
             'bandwidth_limit_mb' => ['nullable', 'integer', 'min:0'],
             'max_domains'        => ['nullable', 'integer', 'min:0'],
@@ -54,7 +54,7 @@ class AccountController extends Controller
             'user_id'            => $user->id,
             'node_id'            => $node->id,
             'username'           => $data['username'],
-            'php_version'        => $data['php_version'] ?? '8.2',
+            'php_version'        => $data['php_version'] ?? '8.4',
             'status'             => 'active',
             'disk_limit_mb'      => $data['disk_limit_mb'] ?? 0,
             'bandwidth_limit_mb' => $data['bandwidth_limit_mb'] ?? 0,
@@ -63,12 +63,12 @@ class AccountController extends Controller
             'max_databases'      => $data['max_databases'] ?? 0,
         ]);
 
-        try {
-            (new AccountProvisioner($account))->provision();
-        } catch (\Throwable $e) {
+        [$success, $error] = app(AccountProvisioner::class)->provision($account);
+        if (! $success) {
             $account->delete();
             $user->delete();
-            return response()->json(['error' => 'Provisioning failed: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'Provisioning failed: ' . $error], 500);
         }
 
         AuditLog::record('api.account_created', $account, ['by' => 'api']);
@@ -115,18 +115,16 @@ class AccountController extends Controller
      */
     public function destroy(Account $account): JsonResponse
     {
-        try {
-            (new AccountProvisioner($account))->deprovision();
-        } catch (\Throwable $e) {
-            // Log but don't block — still delete from panel
-        }
+        [$success, $error] = app(AccountProvisioner::class)->deprovision($account);
 
         AuditLog::record('api.account_terminated', $account, ['username' => $account->username, 'by' => 'api']);
 
         $account->user?->delete();
         $account->delete();
 
-        return response()->json(null, 204);
+        return $success
+            ? response()->json(null, 204)
+            : response()->json(['warning' => 'Account deleted from panel but server cleanup failed: ' . $error], 202);
     }
 
     /**

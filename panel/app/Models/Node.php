@@ -43,6 +43,13 @@ class Node extends Model
 
     public function apiUrl(string $path = ''): string
     {
-        return "https://{$this->ip_address}:{$this->port}/v1{$path}";
+        return $this->url('/v1' . $path);
+    }
+
+    public function url(string $path = ''): string
+    {
+        $host = $this->hostname ?: $this->ip_address;
+
+        return "https://{$host}:{$this->port}{$path}";
     }
 }

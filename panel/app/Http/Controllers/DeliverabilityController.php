@@ -27,7 +27,7 @@ class DeliverabilityController extends Controller
         $account = $user->account;
 
         $domains = $account
-            ? Domain::where('account_id', $account->id)->pluck('name')
+            ? Domain::where('account_id', $account->id)->pluck('domain')
             : collect();
 
         return Inertia::render('User/Deliverability', [

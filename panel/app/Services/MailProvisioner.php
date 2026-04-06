@@ -82,7 +82,11 @@ class MailProvisioner
     public function deleteMailbox(EmailAccount $mailbox): array
     {
         try {
-            AgentClient::for($mailbox->node)->delete("/mail/mailbox/{$mailbox->email}");
+            $response = AgentClient::for($mailbox->node)->delete("/mail/mailbox/{$mailbox->email}");
+            if (! $response->successful()) {
+                return [false, $response->body()];
+            }
+
             $mailbox->delete();
             return [true, null];
         } catch (\Throwable $e) {
@@ -145,7 +149,11 @@ class MailProvisioner
     public function deleteForwarder(EmailForwarder $forwarder): array
     {
         try {
-            AgentClient::for($forwarder->node)->delete("/mail/forwarder/{$forwarder->source}");
+            $response = AgentClient::for($forwarder->node)->delete("/mail/forwarder/{$forwarder->source}");
+            if (! $response->successful()) {
+                return [false, $response->body()];
+            }
+
             $forwarder->delete();
             return [true, null];
         } catch (\Throwable $e) {

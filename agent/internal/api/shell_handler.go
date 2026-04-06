@@ -31,9 +31,9 @@ const tokenTTL = 60 * time.Second
 
 // ShellTokenSign returns the HMAC-SHA256 hex signature for a shell token.
 // Signed payload: "shell:{ts}"
-func ShellTokenSign(secret string, ts int64) string {
+func ShellTokenSign(secret string, ts int64, origin string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(fmt.Sprintf("shell:%d", ts)))
+	mac.Write([]byte(fmt.Sprintf("shell:%d:%s", ts, origin)))
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
@@ -43,9 +43,10 @@ func HandleShell(secret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// ── Validate token ────────────────────────────────────────────────
 		tsStr := r.URL.Query().Get("ts")
+		origin := r.URL.Query().Get("origin")
 		sig := r.URL.Query().Get("sig")
 
-		if tsStr == "" || sig == "" {
+		if tsStr == "" || origin == "" || sig == "" {
 			http.Error(w, "missing token", http.StatusUnauthorized)
 			return
 		}
@@ -65,7 +66,12 @@ func HandleShell(secret string) http.HandlerFunc {
 			return
 		}
 
-		expected := ShellTokenSign(secret, ts)
+		if r.Header.Get("Origin") != origin {
+			http.Error(w, "invalid origin", http.StatusUnauthorized)
+			return
+		}
+
+		expected := ShellTokenSign(secret, ts, origin)
 		if !hmac.Equal([]byte(expected), []byte(sig)) {
 			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return

@@ -5,7 +5,7 @@
                 <h2 class="text-lg font-semibold text-gray-100">App Installer</h2>
                 <p class="text-sm text-gray-400 mt-0.5">Install popular apps with one click. Auto-updates keep them current and secure.</p>
             </div>
-            <Link :href="route('user.apps.installed')" class="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+            <Link :href="route('my.apps.installed')" class="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
                 My Installed Apps →
             </Link>
         </div>

@@ -142,7 +142,11 @@ class DatabaseController extends Controller
         ]);
 
         $client   = AgentClient::for($account->node);
-        $client->databaseRevoke($data['db_name'], $data['db_user'], true);
+        $response = $client->databaseRevoke($data['db_name'], $data['db_user'], true);
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Revoke failed: ' . $response->body());
+        }
 
         \App\Models\DatabaseGrant::where('db_name', $data['db_name'])
             ->where('db_user', $data['db_user'])
