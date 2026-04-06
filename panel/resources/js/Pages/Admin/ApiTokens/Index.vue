@@ -33,7 +33,7 @@
                     </button>
                 </form>
                 <p class="mt-3 text-xs text-gray-500">
-                    Tokens carry full provisioning abilities: create, suspend, unsuspend, terminate, usage.
+                    Tokens carry provisioning abilities: create, suspend, unsuspend, terminate, usage, and catalog read.
                 </p>
             </div>
 
@@ -76,6 +76,8 @@
                     <p><span class="text-emerald-400">POST</span>   /api/v1/accounts/{id}/unsuspend</p>
                     <p><span class="text-red-400">DELETE</span> /api/v1/accounts/{id} — terminate</p>
                     <p><span class="text-indigo-400">GET</span>    /api/v1/accounts/{id}/usage</p>
+                    <p><span class="text-indigo-400">GET</span>    /api/v1/packages - active package catalog</p>
+                    <p><span class="text-indigo-400">GET</span>    /api/v1/feature-lists - feature-list catalog</p>
                 </div>
                 <p class="text-xs text-gray-600 pt-1">Send token as <code class="text-gray-500">Authorization: Bearer {token}</code></p>
             </div>

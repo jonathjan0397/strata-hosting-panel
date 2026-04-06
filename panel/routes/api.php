@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AccountController;
+use App\Http\Controllers\Api\V1\CatalogController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -34,4 +35,13 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     Route::get('accounts/{account}/usage', [AccountController::class, 'usage'])
         ->middleware('ability:accounts:usage')
         ->name('api.v1.accounts.usage');
+
+    // Catalog discovery for billing/provisioning integrations.
+    Route::get('packages', [CatalogController::class, 'packages'])
+        ->middleware('ability:catalog:read')
+        ->name('api.v1.packages.index');
+
+    Route::get('feature-lists', [CatalogController::class, 'featureLists'])
+        ->middleware('ability:catalog:read')
+        ->name('api.v1.feature-lists.index');
 });

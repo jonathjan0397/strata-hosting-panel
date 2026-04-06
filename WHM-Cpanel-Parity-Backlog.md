@@ -187,12 +187,16 @@ Implemented on `main`:
 - reseller branding and package catalog pages converted to shared page structure
 
 ### 10. Platform and API Expansion
-Status: `planned`
+Status: `in progress`
 
 - richer provisioning API
 - event/webhook model
 - migration/import API
 - package/feature-list API
+
+Implemented on `main`:
+
+- API package and feature-list catalog endpoints for provisioning integrations
 
 ## Implementation Order
 
