@@ -149,6 +149,22 @@
                             </template>
                             Accounts
                         </NavItem>
+                        <NavItem :href="route('admin.packages.index')" :active="$page.url.startsWith('/admin/packages')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75 12 6.75l5.571 3m-11.142 0L12 12.75m-5.571-3v6l5.571 3 5.571-3v-6M4.5 8.714l7.114-3.84a.75.75 0 0 1 .772 0L19.5 8.714a.75.75 0 0 1 .386.659v5.254a.75.75 0 0 1-.386.659l-7.114 3.84a.75.75 0 0 1-.772 0L4.5 15.286a.75.75 0 0 1-.386-.659V9.373A.75.75 0 0 1 4.5 8.714Z" />
+                                </svg>
+                            </template>
+                            Packages
+                        </NavItem>
+                        <NavItem :href="route('admin.feature-lists.index')" :active="$page.url.startsWith('/admin/feature-lists')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12m-12 4.5h12m-12 4.5h12m-16.5-9h.008v.008H3.75V6.75Zm0 4.5h.008v.008H3.75v-.008Zm0 4.5h.008v.008H3.75v-.008Z" />
+                                </svg>
+                            </template>
+                            Feature Lists
+                        </NavItem>
                         <NavItem :href="route('admin.domains.index')" :active="$page.url.startsWith('/admin/domains')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

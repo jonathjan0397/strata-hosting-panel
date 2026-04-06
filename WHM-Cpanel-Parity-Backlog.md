@@ -1,0 +1,152 @@
+# WHM-cPanel Parity Backlog
+
+Branch: `code-review-fixes`
+
+## Goal
+
+Bring Strata Panel to competitive feature parity with WHM/cPanel in the areas that matter operationally:
+
+- admin server management
+- account packaging and lifecycle
+- reseller controls
+- end-user hosting workflows
+- diagnostics, migrations, backups, and safety
+
+This is not a goal to clone every commercial integration in cPanel. The target is practical parity for real hosting operations.
+
+## Current Position
+
+Strata already has a usable hosting-panel core:
+
+- nodes and services
+- account, domain, DNS, email, database, FTP, file manager, backups
+- reseller layer
+- admin API tokens
+- shell, firewall, fail2ban, spam, updates
+
+The main parity gap is breadth and workflow maturity.
+
+## Phase 1: WHM Core
+
+### 1. Packages and Feature Lists
+Status: `in progress`
+
+- Add hosting packages with reusable limits and defaults.
+- Add feature lists as named capability bundles.
+- Attach packages to accounts.
+- Allow reseller-safe packages and package assignment.
+- Replace ad hoc account-limit entry with package-first flows.
+
+Deliverables:
+
+- `feature_lists` schema
+- `hosting_packages` schema
+- admin CRUD for feature lists
+- admin CRUD for hosting packages
+- account creation support for package assignment
+- reseller/API package assignment support
+
+Implemented on `code-review-fixes`:
+
+- `FeatureList` and `HostingPackage` models
+- package and feature-list migrations
+- admin CRUD controllers and Inertia pages
+- package-aware admin account creation
+- package-aware reseller account creation with reseller-safe filtering
+- package-aware API account creation
+- admin navigation entries for packages and feature lists
+
+### 2. Reseller Package Management
+Status: `planned`
+
+- Reseller-visible package catalog
+- package availability controls
+- reseller default package selection
+- reseller package-scoped quota enforcement
+
+### 3. Account Lifecycle and Migration
+Status: `planned`
+
+- import from backup archive
+- node-to-node migration workflow
+- transfer status UI
+- rollback-safe migration operations
+
+### 4. Metrics and Logs
+Status: `planned`
+
+- domain/account error logs
+- access log viewing/downloading
+- bandwidth and request summaries
+- account resource dashboards
+
+## Phase 2: cPanel Daily-Use Parity
+
+### 5. Email Maturity
+Status: `planned`
+
+- email filters
+- spam controls per domain/account
+- delivery tracking
+- bulk address/forwarder import
+- mail archive controls
+
+### 6. Files and Developer Tooling
+Status: `planned`
+
+- Git repository management
+- directory privacy
+- disk-usage explorer
+- partial/path restore from backups
+- Web Disk or equivalent
+
+### 7. Database Breadth
+Status: `planned`
+
+- PostgreSQL support
+- remote database access management
+- phpMyAdmin/phpPgAdmin integration
+
+## Phase 3: Advanced Platform Parity
+
+### 8. Security Depth
+Status: `planned`
+
+- ModSecurity controls
+- IP blocker
+- hotlink protection
+- leech protection
+- malware scan integration
+
+### 9. UX and Navigation
+Status: `planned`
+
+- section-level dashboards
+- bulk actions
+- search and discoverability improvements
+- package-centric onboarding flows
+
+### 10. Platform and API Expansion
+Status: `planned`
+
+- richer provisioning API
+- event/webhook model
+- migration/import API
+- package/feature-list API
+
+## Implementation Order
+
+1. Package and feature-list foundation
+2. Package-aware account creation and reseller flows
+3. Metrics/log visibility
+4. Migration/import tooling
+5. Email product depth
+6. Files/developer workflows
+7. Database expansion
+8. Security/product completeness
+
+## Notes
+
+- Feature lists are being added as a data/control primitive first.
+- Initial Phase 1 package work should not break existing account creation without packages.
+- Existing direct-limit fields remain valid during the transition period.

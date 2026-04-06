@@ -12,7 +12,7 @@ class Account extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'user_id', 'node_id', 'reseller_id', 'username', 'plan',
+        'user_id', 'node_id', 'reseller_id', 'hosting_package_id', 'username', 'plan',
         'status', 'php_version',
         'disk_limit_mb', 'bandwidth_limit_mb', 'max_domains',
         'max_subdomains', 'max_email_accounts', 'max_databases', 'max_ftp_accounts',
@@ -38,6 +38,11 @@ class Account extends Model
     public function reseller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reseller_id');
+    }
+
+    public function hostingPackage(): BelongsTo
+    {
+        return $this->belongsTo(HostingPackage::class);
     }
 
     public function domains(): HasMany

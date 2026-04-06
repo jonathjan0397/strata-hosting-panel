@@ -10,7 +10,9 @@ use App\Http\Controllers\Admin\DatabaseController;
 use App\Http\Controllers\Admin\DnsController;
 use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EmailController;
+use App\Http\Controllers\Admin\FeatureListController;
 use App\Http\Controllers\Admin\FtpController;
+use App\Http\Controllers\Admin\HostingPackageController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\LicenseSyncController;
@@ -167,6 +169,8 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('accounts', AccountController::class)->except(['edit', 'update']);
         Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])->name('accounts.suspend');
         Route::post('accounts/{account}/unsuspend', [AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
+        Route::resource('packages', HostingPackageController::class)->except(['show']);
+        Route::resource('feature-lists', FeatureListController::class)->except(['show']);
 
         // Databases (per account)
         Route::get('accounts/{account}/databases', [DatabaseController::class, 'index'])->name('accounts.databases');
