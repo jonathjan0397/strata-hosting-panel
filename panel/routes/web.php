@@ -32,6 +32,7 @@ use App\Http\Controllers\User\AutoresponderController;
 use App\Http\Controllers\User\AppInstallerController;
 use App\Http\Controllers\User\EmailFilterController;
 use App\Http\Controllers\User\MetricsController;
+use App\Http\Controllers\User\SpamController as UserSpamController;
 use App\Http\Controllers\User\SshKeyController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
@@ -80,6 +81,8 @@ Route::middleware(['auth'])->group(function () {
         // Email (per-domain)
         Route::middleware('account.feature:email')->group(function () {
             Route::get('domains/{domain}/email', [User\EmailController::class, 'index'])->name('email.domain');
+            Route::get('email/spam', [UserSpamController::class, 'index'])->name('email.spam');
+            Route::get('email/spam/stats', [UserSpamController::class, 'stats'])->name('email.spam.stats');
             Route::post('domains/{domain}/email/mailboxes', [User\EmailController::class, 'createMailbox'])->name('email.mailbox.store');
             Route::delete('email/mailboxes/{mailbox}', [User\EmailController::class, 'deleteMailbox'])->name('email.mailbox.destroy');
             Route::put('email/mailboxes/{mailbox}/password', [User\EmailController::class, 'changePassword'])->name('email.mailbox.password');

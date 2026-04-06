@@ -9,6 +9,9 @@
             <div>
                 <h2 class="text-base font-semibold text-gray-100">Email - {{ domain.domain }}</h2>
             </div>
+            <Link :href="route('my.email.spam')" class="ml-auto text-sm text-indigo-400 transition-colors hover:text-indigo-300">
+                Spam Overview
+            </Link>
         </div>
 
         <div v-if="!domain.mail_enabled" class="mb-6 rounded-xl border border-amber-700 bg-amber-900/20 px-4 py-3 text-sm text-amber-300">

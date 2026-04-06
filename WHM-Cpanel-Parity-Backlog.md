@@ -105,6 +105,7 @@ Implemented on `code-review-fixes`:
 - mailbox-level email filters
 - shared Sieve compilation for filters plus autoresponders
 - user filter management UI inside the existing email workflow
+- user spam activity dashboard backed by Rspamd node stats
 
 ### 6. Files and Developer Tooling
 Status: `planned`
