@@ -176,6 +176,49 @@
             </form>
         </div>
 
+        <div v-if="canManagePrivacy" class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <h3 class="text-sm font-semibold text-gray-300 mb-1">Directory Privacy</h3>
+            <p class="mb-4 text-xs text-gray-500">
+                Protect a directory with HTTP basic authentication. Passwords are stored as hashes and applied during vhost reprovisioning.
+            </p>
+
+            <div v-if="domain.directory_privacy && domain.directory_privacy.length" class="mb-4 space-y-2">
+                <div
+                    v-for="(rule, index) in domain.directory_privacy"
+                    :key="`${rule.path}-${index}`"
+                    class="flex items-center justify-between rounded-lg bg-gray-800 px-3 py-2 text-sm"
+                >
+                    <div>
+                        <p class="font-mono text-xs text-gray-200">{{ rule.path }}</p>
+                        <p class="mt-1 text-xs text-gray-500">User {{ rule.username }}</p>
+                    </div>
+                    <button @click="deletePrivacy(index)" class="text-xs text-red-500 hover:text-red-400 transition-colors">Remove</button>
+                </div>
+            </div>
+            <p v-else class="mb-4 text-xs text-gray-500">No protected directories configured.</p>
+
+            <form @submit.prevent="privacyForm.post(route('my.domains.privacy.store', domain.id))" class="flex flex-wrap items-end gap-3">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Directory path</label>
+                    <input v-model="privacyForm.path" type="text" placeholder="/members" class="field w-44" />
+                    <p v-if="privacyForm.errors.path" class="mt-0.5 text-xs text-red-400">{{ privacyForm.errors.path }}</p>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Username</label>
+                    <input v-model="privacyForm.username" type="text" placeholder="member" class="field w-40" />
+                    <p v-if="privacyForm.errors.username" class="mt-0.5 text-xs text-red-400">{{ privacyForm.errors.username }}</p>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Password</label>
+                    <input v-model="privacyForm.password" type="password" placeholder="Minimum 8 characters" class="field w-56" />
+                    <p v-if="privacyForm.errors.password" class="mt-0.5 text-xs text-red-400">{{ privacyForm.errors.password }}</p>
+                </div>
+                <button type="submit" :disabled="privacyForm.processing" class="btn-primary">
+                    {{ privacyForm.processing ? 'Protecting...' : 'Protect Directory' }}
+                </button>
+            </form>
+        </div>
+
         <!-- Custom Nginx/Apache Directives -->
         <div class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <h3 class="text-sm font-semibold text-gray-300 mb-1">Custom Directives</h3>
@@ -208,6 +251,7 @@ import ConfirmButton from '@/Components/ConfirmButton.vue';
 const props = defineProps({
     domain:      Object,
     phpVersions: Array,
+    canManagePrivacy: Boolean,
 });
 
 const showCertUpload = ref(false);
@@ -227,6 +271,12 @@ const redirectForm = useForm({
     type:        '301',
 });
 
+const privacyForm = useForm({
+    path: '',
+    username: '',
+    password: '',
+});
+
 const directivesForm = useForm({
     custom_directives: props.domain.custom_directives ?? '',
 });
@@ -238,6 +288,11 @@ function submitPhp() {
 function deleteRedirect(index) {
     if (!confirm('Remove this redirect?')) return;
     router.delete(route('my.domains.redirects.destroy', [props.domain.id, index]));
+}
+
+function deletePrivacy(index) {
+    if (!confirm('Remove directory privacy from this path?')) return;
+    router.delete(route('my.domains.privacy.destroy', [props.domain.id, index]));
 }
 </script>
 

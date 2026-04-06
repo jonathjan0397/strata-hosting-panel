@@ -6,12 +6,19 @@ use App\Models\Domain;
 
 class DomainProvisioner
 {
+    private const PRIVACY_DIR = '/.strata/directory-privacy';
+
     /**
      * Create the vhost on the node for this domain.
      */
     public function provision(Domain $domain): array
     {
         try {
+            [$filesSynced, $fileError] = $this->syncDirectoryPrivacy($domain);
+            if (! $filesSynced) {
+                return [false, $fileError];
+            }
+
             $response = AgentClient::for($domain->node)->createDomain(
                 $this->buildPayload($domain, ['ssl_enabled' => false])
             );
@@ -29,6 +36,11 @@ class DomainProvisioner
     public function reprovision(Domain $domain): array
     {
         try {
+            [$filesSynced, $fileError] = $this->syncDirectoryPrivacy($domain);
+            if (! $filesSynced) {
+                return [false, $fileError];
+            }
+
             $payload = $this->buildPayload($domain, [
                 'ssl_enabled' => $domain->ssl_enabled,
                 'ssl_cert'    => $domain->ssl_enabled ? "/etc/strata-panel/certs/{$domain->domain}/cert.pem" : null,
@@ -66,6 +78,15 @@ class DomainProvisioner
             }
         } catch (\Throwable $e) {
             $errors[] = "Vhost removal: " . $e->getMessage();
+        }
+
+        try {
+            [$filesRemoved, $fileError] = $this->syncDirectoryPrivacy($domain->forceFill(['directory_privacy' => []]));
+            if (! $filesRemoved && $fileError) {
+                $errors[] = $fileError;
+            }
+        } catch (\Throwable $e) {
+            $errors[] = "Directory privacy cleanup: " . $e->getMessage();
         }
 
         return [empty($errors), implode('; ', $errors) ?: null];
@@ -221,6 +242,147 @@ class DomainProvisioner
             }
         }
 
+        foreach ($domain->directory_privacy ?? [] as $index => $rule) {
+            $directive = $this->buildDirectoryPrivacyDirective($domain, $rule, $index, $webServer);
+            if ($directive) {
+                $parts[] = $directive;
+            }
+        }
+
         return implode("\n\n", array_filter($parts));
+    }
+
+    private function buildDirectoryPrivacyDirective(Domain $domain, array $rule, int $index, string $webServer): ?string
+    {
+        $path = $this->normalizeProtectedPath($rule['path'] ?? null);
+        $filePath = $this->privacyFilePath($domain, $path, $index);
+
+        if (! $path) {
+            return null;
+        }
+
+        if ($webServer === 'apache') {
+            $directoryPath = $this->directoryPath($domain, $path);
+
+            return implode("\n", [
+                '<Directory "' . $directoryPath . '">',
+                '    AuthType Basic',
+                '    AuthName "Restricted Area"',
+                '    AuthUserFile ' . $filePath,
+                '    Require valid-user',
+                '</Directory>',
+            ]);
+        }
+
+        return implode("\n", [
+            'location = ' . $path . ' {',
+            '    auth_basic "Restricted Area";',
+            '    auth_basic_user_file ' . $filePath . ';',
+            '}',
+            'location ^~ ' . rtrim($path, '/') . '/ {',
+            '    auth_basic "Restricted Area";',
+            '    auth_basic_user_file ' . $filePath . ';',
+            '}',
+        ]);
+    }
+
+    private function syncDirectoryPrivacy(Domain $domain): array
+    {
+        $client = AgentClient::for($domain->node);
+        $username = $domain->account->username;
+
+        $mkdir = $client->fileMkdir($username, self::PRIVACY_DIR);
+        if (! $mkdir->successful()) {
+            return [false, 'Directory privacy storage setup failed: ' . $mkdir->body()];
+        }
+
+        $desiredFiles = [];
+        foreach (($domain->directory_privacy ?? []) as $index => $rule) {
+            $path = $this->normalizeProtectedPath($rule['path'] ?? null);
+            $login = trim((string) ($rule['username'] ?? ''));
+            $hash = trim((string) ($rule['password_hash'] ?? ''));
+
+            if (! $path || $login === '' || $hash === '') {
+                continue;
+            }
+
+            $relativePath = $this->privacyRelativePath($domain, $path, $index);
+            $desiredFiles[$relativePath] = $login . ':' . $hash . "\n";
+        }
+
+        $existing = $client->fileList($username, self::PRIVACY_DIR);
+        if ($existing->successful()) {
+            foreach ($existing->json('entries') ?? [] as $entry) {
+                $entryPath = $entry['path'] ?? null;
+                $entryName = $entry['name'] ?? '';
+
+                if (! is_string($entryPath) || ! str_starts_with($entryName, $this->privacyFilePrefix($domain))) {
+                    continue;
+                }
+
+                if (! array_key_exists($entryPath, $desiredFiles)) {
+                    $delete = $client->fileDelete($username, $entryPath);
+                    if (! $delete->successful()) {
+                        return [false, 'Failed to remove obsolete directory privacy file: ' . $delete->body()];
+                    }
+                }
+            }
+        }
+
+        foreach ($desiredFiles as $relativePath => $content) {
+            $write = $client->fileWrite($username, $relativePath, $content);
+            if (! $write->successful()) {
+                return [false, 'Failed to write directory privacy credentials: ' . $write->body()];
+            }
+        }
+
+        return [true, null];
+    }
+
+    private function privacyRelativePath(Domain $domain, string $path, int $index): string
+    {
+        return self::PRIVACY_DIR . '/' . $this->privacyFileName($domain, $path, $index);
+    }
+
+    private function privacyFilePath(Domain $domain, string $path, int $index): string
+    {
+        return '/var/www/' . $domain->account->username . $this->privacyRelativePath($domain, $path, $index);
+    }
+
+    private function privacyFileName(Domain $domain, string $path, int $index): string
+    {
+        return $this->privacyFilePrefix($domain) . '-' . $index . '-' . substr(sha1($path), 0, 12) . '.htpasswd';
+    }
+
+    private function privacyFilePrefix(Domain $domain): string
+    {
+        return 'privacy-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($domain->domain));
+    }
+
+    private function directoryPath(Domain $domain, string $path): string
+    {
+        $documentRoot = rtrim($domain->document_root, '/');
+
+        return $path === '/'
+            ? $documentRoot
+            : $documentRoot . $path;
+    }
+
+    private function normalizeProtectedPath(?string $path): ?string
+    {
+        if (! is_string($path)) {
+            return null;
+        }
+
+        $path = trim($path);
+        if ($path === '' || $path === '/' || str_contains($path, '..') || ! str_starts_with($path, '/')) {
+            return null;
+        }
+
+        if (! preg_match('#^/[A-Za-z0-9._/\-]+$#', $path)) {
+            return null;
+        }
+
+        return rtrim($path, '/') ?: '/';
     }
 }

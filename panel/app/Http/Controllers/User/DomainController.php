@@ -92,6 +92,7 @@ class DomainController extends Controller
         return Inertia::render('User/Domains/Show', [
             'domain'      => $domain,
             'phpVersions' => ['8.1', '8.2', '8.3'],
+            'canManagePrivacy' => $account->hasFeature('directory_privacy'),
         ]);
     }
 
@@ -219,5 +220,78 @@ class DomainController extends Controller
         return $success
             ? back()->with('success', 'Redirect removed.')
             : back()->with('error', "Vhost update failed and the redirect change was rolled back: {$error}");
+    }
+
+    public function storePrivacy(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+        abort_unless($account->hasFeature('directory_privacy'), 403);
+
+        $data = $request->validate([
+            'path' => ['required', 'string', 'regex:/^\/[A-Za-z0-9._\/-]+$/', 'not_in:/', 'max:255'],
+            'username' => ['required', 'string', 'alpha_dash', 'max:64'],
+            'password' => ['required', 'string', 'min:8', 'max:255'],
+        ]);
+
+        if (str_contains($data['path'], '..')) {
+            return back()->with('error', 'Protected paths cannot contain parent directory traversal.');
+        }
+
+        $rules = $domain->directory_privacy ?? [];
+        $normalizedPath = rtrim($data['path'], '/');
+
+        foreach ($rules as $rule) {
+            if (($rule['path'] ?? null) === $normalizedPath) {
+                return back()->with('error', 'That directory already has privacy enabled.');
+            }
+        }
+
+        $previousRules = $domain->directory_privacy;
+        $rules[] = [
+            'path' => $normalizedPath,
+            'username' => $data['username'],
+            'password_hash' => password_hash($data['password'], PASSWORD_BCRYPT),
+        ];
+
+        $domain->update(['directory_privacy' => $rules]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        if (! $success) {
+            $domain->update(['directory_privacy' => $previousRules]);
+            app(DomainProvisioner::class)->reprovision($domain->fresh());
+        }
+
+        return $success
+            ? back()->with('success', 'Directory privacy enabled.')
+            : back()->with('error', "Directory privacy update failed and was rolled back: {$error}");
+    }
+
+    public function destroyPrivacy(Domain $domain, int $index): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+        abort_unless($account->hasFeature('directory_privacy'), 403);
+
+        $rules = $domain->directory_privacy ?? [];
+        if (! array_key_exists($index, $rules)) {
+            return back()->with('error', 'Protected directory rule not found.');
+        }
+
+        $previousRules = $domain->directory_privacy;
+        array_splice($rules, $index, 1);
+        $domain->update(['directory_privacy' => $rules ?: null]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        if (! $success) {
+            $domain->update(['directory_privacy' => $previousRules]);
+            app(DomainProvisioner::class)->reprovision($domain->fresh());
+        }
+
+        return $success
+            ? back()->with('success', 'Directory privacy removed.')
+            : back()->with('error', "Directory privacy removal failed and was rolled back: {$error}");
     }
 }

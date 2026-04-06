@@ -79,6 +79,11 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('domains/{domain}/redirects/{index}', [User\DomainController::class, 'destroyRedirect'])->name('domains.redirects.destroy');
         });
 
+        Route::middleware(['account.feature:domains', 'account.feature:directory_privacy'])->group(function () {
+            Route::post('domains/{domain}/privacy', [User\DomainController::class, 'storePrivacy'])->name('domains.privacy.store');
+            Route::delete('domains/{domain}/privacy/{index}', [User\DomainController::class, 'destroyPrivacy'])->name('domains.privacy.destroy');
+        });
+
         // Email (per-domain)
         Route::middleware('account.feature:email')->group(function () {
             Route::get('domains/{domain}/email', [User\EmailController::class, 'index'])->name('email.domain');
