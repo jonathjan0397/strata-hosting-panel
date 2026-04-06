@@ -1,11 +1,11 @@
 # Code Review Changes
 
-This file tracks code-review-driven changes made on the `code-review-fixes` branch so they stay separate from `main`.
+This file tracks code-review-driven changes that began on the `code-review-fixes` review branch and now live on the standalone `main` branch for Strata Hosting Panel.
 
 ## Branch
 
-- Branch: `code-review-fixes`
-- Base branch at review start: `main`
+- Current branch: `main`
+- Original review branch: `code-review-fixes`
 
 ## Commits
 
@@ -68,13 +68,13 @@ Validation performed for this commit:
 
 ## Notes
 
-- All changes listed here were made on `code-review-fixes`.
-- No changes in this file were applied directly to `main`.
-- Additional audit fixes should be appended here as new sections if more review-driven work is added to this branch.
+- These changes began on `code-review-fixes` and were moved into the standalone Strata Hosting Panel `main` branch.
+- The old source branch is preserved locally as `strata-panel-main` with remote `strata-panel-source`.
+- Additional audit fixes should be appended here as new sections if more review-driven work is added.
 
 ## Current Audit Pass
 
-This audit pass addressed the next batch of review findings on `code-review-fixes`:
+This audit pass addressed the next batch of review findings:
 
 - Fixed the agent HMAC middleware to restore authenticated request bodies with `bytes.NewReader` instead of a truncating custom reader in `agent/internal/api/hmac.go`.
 - Hardened app installer path validation in `agent/internal/api/app_handlers.go` so install, update, and uninstall requests are restricted to `/var/www/{site_owner}/...`, and added `site_owner` to uninstall requests.
@@ -183,7 +183,7 @@ This audit pass addressed mailbox secret handling, node deletion safety, and a f
 
 This audit pass addressed the next agent-upgrade and backup-delivery issues:
 
-- Restricted the agent self-upgrade endpoint to trusted HTTPS GitHub release URLs under the Strata Panel repository in `agent/internal/api/handlers.go`.
+- Restricted the agent self-upgrade endpoint to trusted HTTPS GitHub release URLs under the Strata Hosting Panel repository in `agent/internal/api/handlers.go`.
 - Changed user backup downloads to fetch the archive through the authenticated panel-to-agent client instead of redirecting the browser to an unauthenticated raw agent URL in:
   - `panel/app/Services/AgentClient.php`
   - `panel/app/Http/Controllers/User/BackupController.php`

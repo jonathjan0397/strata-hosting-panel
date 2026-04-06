@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jonathjan0397/strata-panel/agent/internal/system"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/system"
 )
 
 // GET /v1/mail/delivery

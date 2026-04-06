@@ -4,7 +4,7 @@ use App\Http\Controllers\Api\V1\AccountController;
 use Illuminate\Support\Facades\Route;
 
 /*
- * Strata Panel — Billing / Provisioning REST API  (v1)
+ * Strata Hosting Panel — Billing / Provisioning REST API  (v1)
  *
  * Authentication: Bearer token (Laravel Sanctum personal access token)
  * created by an admin via Admin → API Tokens.

@@ -1,15 +1,15 @@
-# Strata Panel — Project Plan
+# Strata Hosting Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 Created: 2026-03-31 | Last Updated: 2026-04-05 | v1.0-Beta Released
 
 ## Overview
-Strata Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
+Strata Hosting Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
 
 A single install gives you a fully functional hosting server — the panel and all services run together on one machine. Remote nodes can be added at any time to scale horizontally. Upgrades are self-managed: the primary node pulls from the GitHub repository and cascades the upgrade to all connected child nodes automatically.
 
 **License:** MIT
-**GitHub:** jonathjan0397/strata-panel
+**GitHub:** jonathjan0397/strata-hosting-panel
 **Target OS:** Debian 11/12/13
 
 ---
@@ -62,7 +62,7 @@ Everything runs on one machine. The panel manages itself via its own local agent
 │          Primary Server                 │
 │                                         │
 │  ┌──────────────────────────────────┐   │
-│  │        Strata Panel              │   │
+│  │        Strata Hosting Panel              │   │
 │  │  Laravel + Vue 3 + Inertia       │   │
 │  │  REST API (/api/v1/*)            │   │
 │  └─────────────┬────────────────────┘   │
@@ -324,7 +324,7 @@ Admin
 ## Repository Structure
 
 ```
-strata-panel/
+strata-hosting-panel/
 ├── panel/              # Laravel main panel application
 │   ├── app/
 │   ├── resources/js/   # Vue 3 + Inertia frontend

@@ -13,7 +13,7 @@ router.on('navigate', (event) => {
 window.route = route;
 
 createInertiaApp({
-    title: (title) => title ? `${title} — Strata Panel` : 'Strata Panel',
+    title: (title) => title ? `${title} — Strata Hosting Panel` : 'Strata Hosting Panel',
 
     resolve: (name) =>
         resolvePageComponent(

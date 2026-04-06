@@ -65,7 +65,7 @@ fi
 
 # Clone and build
 info "Building strata-agent…"
-git clone --depth=1 https://github.com/jonathjan0397/strata-panel.git /tmp/strata-src 2>/dev/null
+git clone --depth=1 https://github.com/jonathjan0397/strata-hosting-panel.git /tmp/strata-src 2>/dev/null
 cd /tmp/strata-src/agent
 GOOS=linux GOARCH=amd64 go build -o /usr/sbin/strata-agent ./main.go
 chmod 755 /usr/sbin/strata-agent
@@ -127,5 +127,5 @@ echo -e "  ${BOLD}Port:${NC}          ${AGENT_PORT}"
 echo -e "  ${BOLD}TLS fingerprint:${NC} ${FINGERPRINT}"
 echo -e "  ${BOLD}Log:${NC}           journalctl -u strata-agent -f"
 echo ""
-echo -e "  Update the node TLS fingerprint in the Strata Panel admin UI."
+echo -e "  Update the node TLS fingerprint in the Strata Hosting Panel admin UI."
 echo ""

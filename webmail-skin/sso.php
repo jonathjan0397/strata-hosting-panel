@@ -1,6 +1,6 @@
 <?php
 /**
- * Strata Panel — SnappyMail SSO Bridge
+ * Strata Hosting Panel — SnappyMail SSO Bridge
  *
  * Flow:
  *   1. Panel generates HMAC-signed token → stores {email, password} in Redis (60s TTL)

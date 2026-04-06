@@ -1,7 +1,7 @@
 {
     "Name": "Strata Dark",
-    "Description": "Dark theme for Strata Panel — indigo accents, matches the panel UI",
-    "Author": "Strata Panel",
+    "Description": "Dark theme for Strata Hosting Panel — indigo accents, matches the panel UI",
+    "Author": "Strata Hosting Panel",
     "Version": "1.0.0",
     "PreviewFile": "preview.png"
 }

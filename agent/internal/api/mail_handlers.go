@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonathjan0397/strata-panel/agent/internal/mail"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/mail"
 )
 
 func handleMailDomainProvision(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/jonathjan0397/strata-panel/agent/internal/database"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/database"
 )
 
 // POST /v1/databases/grant

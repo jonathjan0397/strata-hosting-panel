@@ -1,4 +1,4 @@
-# Strata Panel — Laravel Application
+# Strata Hosting Panel — Laravel Application
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 

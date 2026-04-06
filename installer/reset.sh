@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Strata Panel — Hard Reset Script
+#  Strata Hosting Panel — Hard Reset Script
 #  Removes everything installed by install.sh and returns the server to a
 #  clean Debian base. Packages, databases, users, files, and configs are all
 #  purged. This action is IRREVERSIBLE.
@@ -8,7 +8,7 @@
 #  Usage:
 #    bash reset.sh
 #  Or fetch and run directly:
-#    bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/reset.sh)
+#    bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/reset.sh)
 # =============================================================================
 set -uo pipefail
 
@@ -26,11 +26,11 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 
 echo ""
 echo -e "${BOLD}${RED}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}${RED}║          Strata Panel — Hard Reset                   ║${NC}"
+echo -e "${BOLD}${RED}║          Strata Hosting Panel — Hard Reset                   ║${NC}"
 echo -e "${BOLD}${RED}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  This script will ${BOLD}permanently remove${NC}:"
-echo -e "    • All Strata Panel files, databases, and configuration"
+echo -e "    • All Strata Hosting Panel files, databases, and configuration"
 echo -e "    • MariaDB, PowerDNS, Redis, Pure-FTPd, Postfix, Dovecot"
 echo -e "    • Rspamd, OpenDKIM, fail2ban, Nginx/Apache2"
 echo -e "    • PHP 8.1 / 8.2 / 8.3, Node.js, Go, Composer, acme.sh"

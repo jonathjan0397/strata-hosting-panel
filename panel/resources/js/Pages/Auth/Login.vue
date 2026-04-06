@@ -7,7 +7,7 @@
                 <div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 mb-4">
                     <span class="text-xl font-bold text-white">S</span>
                 </div>
-                <h1 class="text-2xl font-semibold text-gray-100">Sign in to Strata Panel</h1>
+                <h1 class="text-2xl font-semibold text-gray-100">Sign in to Strata Hosting Panel</h1>
                 <p class="mt-1 text-sm text-gray-400">Open-source hosting control panel</p>
             </div>
 
@@ -89,7 +89,7 @@
             <!-- Links -->
             <div class="flex items-center justify-center gap-4 text-xs text-gray-500">
                 <a
-                    href="https://github.com/jonathjan0397/strata-panel/issues"
+                    href="https://github.com/jonathjan0397/strata-hosting-panel/issues"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="flex items-center gap-1.5 hover:text-gray-300 transition-colors"
@@ -115,8 +115,8 @@
 
             <!-- Copyright -->
             <p class="text-center text-xs text-gray-600">
-                &copy; {{ year }} Strata Panel &mdash; MIT License &mdash;
-                <a href="https://github.com/jonathjan0397/strata-panel" target="_blank" rel="noopener noreferrer" class="hover:text-gray-400 transition-colors">jonathjan0397/strata-panel</a>
+                &copy; {{ year }} Strata Hosting Panel &mdash; MIT License &mdash;
+                <a href="https://github.com/jonathjan0397/strata-hosting-panel" target="_blank" rel="noopener noreferrer" class="hover:text-gray-400 transition-colors">jonathjan0397/strata-hosting-panel</a>
             </p>
         </div>
     </div>

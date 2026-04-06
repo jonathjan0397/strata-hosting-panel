@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jonathjan0397/strata-panel/agent/internal/php"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/php"
 )
 
 var validUsername = regexp.MustCompile(`^[a-z][a-z0-9_]{1,31}$`)

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonathjan0397/strata-panel/agent/internal/database"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/database"
 )
 
 func handleDatabaseCreate(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +43,7 @@ func handleDatabaseCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDatabaseDelete(w http.ResponseWriter, r *http.Request) {
-	dbName   := chi.URLParam(r, "name")
+	dbName := chi.URLParam(r, "name")
 	username := r.URL.Query().Get("username")
 
 	if username != "" {

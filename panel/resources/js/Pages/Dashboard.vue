@@ -36,7 +36,7 @@
                             'text-gray-400':    !['active','suspended'].includes(license.status),
                         }"
                     >
-                        Strata Panel — {{ license.status === 'active' ? 'Licensed' : license.status }}
+                        Strata Hosting Panel — {{ license.status === 'active' ? 'Licensed' : license.status }}
                     </span>
                     <div v-if="license.features.length" class="flex items-center gap-1.5 ml-2">
                         <span

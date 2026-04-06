@@ -6,8 +6,8 @@ import (
 	"regexp"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonathjan0397/strata-panel/agent/internal/php"
-	"github.com/jonathjan0397/strata-panel/agent/internal/system"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/php"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/system"
 )
 
 var phpSizeRe = regexp.MustCompile(`^\d+[KMGkmg]?$`)

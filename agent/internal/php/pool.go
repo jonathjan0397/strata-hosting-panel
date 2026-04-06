@@ -9,7 +9,7 @@ import (
 
 const poolDir = "/etc/php/%s/fpm/pool.d"
 
-var poolTemplate = template.Must(template.New("pool").Parse(`; Strata Panel managed — do not edit manually
+var poolTemplate = template.Must(template.New("pool").Parse(`; Strata Hosting Panel managed — do not edit manually
 [{{.Username}}]
 user  = {{.Username}}
 group = www-data

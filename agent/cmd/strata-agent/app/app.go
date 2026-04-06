@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jonathjan0397/strata-panel/agent/internal/api"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/api"
 )
 
 func Run() error {

@@ -1,4 +1,4 @@
-module github.com/jonathjan0397/strata-panel/agent
+module github.com/jonathjan0397/strata-hosting-panel/agent
 
 go 1.23
 

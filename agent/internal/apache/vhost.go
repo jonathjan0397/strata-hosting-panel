@@ -28,7 +28,7 @@ type VhostConfig struct {
 	CustomDirectives string
 }
 
-var vhostTemplate = template.Must(template.New("apachevhost").Parse(`# Strata Panel managed — do not edit manually
+var vhostTemplate = template.Must(template.New("apachevhost").Parse(`# Strata Hosting Panel managed — do not edit manually
 # Domain: {{.Domain}} | Account: {{.Username}}
 {{if .SSLEnabled}}
 <VirtualHost *:80>

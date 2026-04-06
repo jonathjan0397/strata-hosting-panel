@@ -29,7 +29,7 @@ type VhostConfig struct {
 	CustomDirectives string `json:"custom_directives"`
 }
 
-var vhostTemplate = template.Must(template.New("vhost").Parse(`# Strata Panel managed — do not edit manually
+var vhostTemplate = template.Must(template.New("vhost").Parse(`# Strata Hosting Panel managed — do not edit manually
 # Domain: {{.Domain}} | Account: {{.Username}}
 {{if .SSLEnabled}}
 server {

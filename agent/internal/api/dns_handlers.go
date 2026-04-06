@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonathjan0397/strata-panel/agent/internal/dns"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/dns"
 )
 
 func handleDNSListZones(w http.ResponseWriter, r *http.Request) {

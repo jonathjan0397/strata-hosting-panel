@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonathjan0397/strata-panel/agent/internal/account"
-	"github.com/jonathjan0397/strata-panel/agent/internal/apache"
-	"github.com/jonathjan0397/strata-panel/agent/internal/nginx"
-	"github.com/jonathjan0397/strata-panel/agent/internal/php"
-	"github.com/jonathjan0397/strata-panel/agent/internal/ssl"
-	"github.com/jonathjan0397/strata-panel/agent/internal/system"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/account"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/apache"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/nginx"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/php"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/ssl"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/system"
 )
 
 var Version = "dev"
@@ -289,7 +289,7 @@ func handleAgentUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "download_url must be a valid https URL", http.StatusBadRequest)
 		return
 	}
-	if downloadURL.Host != "github.com" || !strings.HasPrefix(downloadURL.Path, "/jonathjan0397/strata-panel/releases/download/") {
+	if downloadURL.Host != "github.com" || !strings.HasPrefix(downloadURL.Path, "/jonathjan0397/strata-hosting-panel/releases/download/") {
 		http.Error(w, "download_url host/path not allowed", http.StatusBadRequest)
 		return
 	}

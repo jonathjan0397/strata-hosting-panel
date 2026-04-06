@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/jonathjan0397/strata-panel/agent/cmd/strata-agent/app"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/cmd/strata-agent/app"
 	"os"
 )
 

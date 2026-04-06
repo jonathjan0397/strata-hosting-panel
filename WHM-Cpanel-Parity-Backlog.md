@@ -1,10 +1,10 @@
 # WHM-cPanel Parity Backlog
 
-Branch: `code-review-fixes`
+Branch: `main`
 
 ## Goal
 
-Bring Strata Panel to competitive feature parity with WHM/cPanel in the areas that matter operationally:
+Bring Strata Hosting Panel to competitive feature parity with WHM/cPanel in the areas that matter operationally:
 
 - admin server management
 - account packaging and lifecycle
@@ -46,7 +46,7 @@ Deliverables:
 - account creation support for package assignment
 - reseller/API package assignment support
 
-Implemented on `code-review-fixes`:
+Implemented on `main`:
 
 - `FeatureList` and `HostingPackage` models
 - package and feature-list migrations
@@ -82,7 +82,7 @@ Status: `in progress`
 - bandwidth and request summaries
 - account resource dashboards
 
-Implemented on `code-review-fixes`:
+Implemented on `main`:
 
 - package-gated user metrics route
 - user metrics dashboard with resource summaries
@@ -100,7 +100,7 @@ Status: `in progress`
 - bulk address/forwarder import
 - mail archive controls
 
-Implemented on `code-review-fixes`:
+Implemented on `main`:
 
 - mailbox-level email filters
 - shared Sieve compilation for filters plus autoresponders
@@ -117,7 +117,7 @@ Status: `in progress`
 - partial/path restore from backups
 - Web Disk or equivalent
 
-Implemented on `code-review-fixes`:
+Implemented on `main`:
 
 - package-gated user Git Version Control page
 - jailed repository inspection for account web roots

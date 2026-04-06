@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonathjan0397/strata-panel/agent/internal/ftp"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/ftp"
 )
 
 func handleFTPCreate(w http.ResponseWriter, r *http.Request) {

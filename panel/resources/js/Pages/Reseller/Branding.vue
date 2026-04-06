@@ -6,7 +6,7 @@
                 <h1 class="text-lg font-semibold text-gray-100">White-Label Branding</h1>
                 <p class="mt-1 text-sm text-gray-400">
                     Customise the panel name and accent colour shown to your clients.
-                    Leave blank to show the default Strata Panel branding.
+                    Leave blank to show the default Strata Hosting Panel branding.
                 </p>
             </div>
 
@@ -17,7 +17,7 @@
             >
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Preview</p>
                 <p class="text-base font-semibold text-gray-100">
-                    {{ form.brand_name || 'Strata Panel' }}
+                    {{ form.brand_name || 'Strata Hosting Panel' }}
                 </p>
                 <div class="h-2 w-24 rounded-full" :style="{ background: form.brand_color || '#6366f1' }"></div>
             </div>
@@ -29,7 +29,7 @@
                         v-model="form.brand_name"
                         type="text"
                         maxlength="60"
-                        placeholder="Strata Panel"
+                        placeholder="Strata Hosting Panel"
                         class="field w-full"
                     />
                     <p v-if="form.errors.brand_name" class="mt-1 text-xs text-red-400">{{ form.errors.brand_name }}</p>

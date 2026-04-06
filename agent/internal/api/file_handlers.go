@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonathjan0397/strata-panel/agent/internal/files"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/files"
 )
 
 // ── List directory ─────────────────────────────────────────────────────────────

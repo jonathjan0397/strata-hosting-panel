@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonathjan0397/strata-panel/agent/internal/backup"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/backup"
 )
 
 // POST /backups/{username}

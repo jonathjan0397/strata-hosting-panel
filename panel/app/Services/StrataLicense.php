@@ -45,7 +45,7 @@ class StrataLicense
                 ->post(rtrim($url, '/') . '/api/ping', [
                     'install_token'  => $token,
                     'install_secret' => $secret,
-                    'software'       => 'strata-panel',
+                    'software'       => 'strata-hosting-panel',
                     'version'        => config('strata.version', 'dev'),
                     'app_url'        => config('app.url'),
                     'demo_mode'      => (bool) config('strata.demo_mode'),

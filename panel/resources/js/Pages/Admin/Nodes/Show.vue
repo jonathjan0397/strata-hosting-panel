@@ -126,7 +126,7 @@ const props = defineProps({
 });
 
 const installCommand = computed(() => {
-    return `bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/agent.sh) \\
+    return `bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/agent.sh) \\
   --node-id "${props.node.node_id}" \\
   --hmac-secret "<shown once — check your panel DB>" \\
   --port ${props.node.port}`;

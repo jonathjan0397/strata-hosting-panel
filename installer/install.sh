@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Strata Panel — Installer
+#  Strata Hosting Panel — Installer
 #  Supported: Debian 11 (Bullseye) · Debian 12 (Bookworm) · Debian 13 (Trixie)
 #  Run as root or any sudo-capable user on a fresh server.
 #
 #  Usage:
-#    bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-panel/main/installer/install.sh)
+#    bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/install.sh)
 #  Or:
 #    bash install.sh
 # =============================================================================
@@ -42,7 +42,7 @@ SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk
 DETECTED_HOSTNAME=$(hostname -f 2>/dev/null || hostname)
 
 echo -e "\n${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║           Strata Panel Installer  v1.0-Beta          ║${NC}"
+echo -e "${BOLD}║           Strata Hosting Panel Installer  v1.0-Beta          ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${NC}\n"
 info "Debian $DEBIAN_VERSION · IP: $SERVER_IP"
 echo ""
@@ -452,7 +452,7 @@ mkdir -p /etc/powerdns
 # launch=bind override there silently wins over our launch=gmysql.
 rm -f /etc/powerdns/pdns.d/*.conf 2>/dev/null || true
 cat > /etc/powerdns/pdns.conf <<EOF
-# PowerDNS — managed by Strata Panel
+# PowerDNS — managed by Strata Hosting Panel
 local-port=53
 launch=gmysql
 gmysql-host=127.0.0.1
@@ -676,7 +676,7 @@ info "Configuring OpenDKIM…"
 mkdir -p /etc/opendkim/keys
 
 cat > /etc/opendkim.conf <<EOF
-# OpenDKIM — managed by Strata Panel
+# OpenDKIM — managed by Strata Hosting Panel
 Syslog          yes
 UMask           002
 Mode            sv
@@ -756,23 +756,23 @@ id "$PANEL_USER" &>/dev/null || /usr/sbin/useradd -r -m -d "$INSTALL_DIR" -s /bi
 success "User '${PANEL_USER}' ready."
 
 # ── Step 11. Clone panel ──────────────────────────────────────────────────────
-info "Cloning Strata Panel…"
+info "Cloning Strata Hosting Panel…"
 if [[ -d "$INSTALL_DIR/panel" ]]; then
     warn "Panel directory exists — pulling latest…"
     git -C "$INSTALL_DIR/panel" pull --ff-only
 else
-    git clone --depth=1 https://github.com/jonathjan0397/strata-panel.git /tmp/strata-panel-src
+    git clone --depth=1 https://github.com/jonathjan0397/strata-hosting-panel.git /tmp/strata-hosting-panel-src
     mkdir -p "$INSTALL_DIR"
-    cp -r /tmp/strata-panel-src/panel "$INSTALL_DIR/panel"
-    cp -r /tmp/strata-panel-src/agent "$INSTALL_DIR/agent-src"
-    rm -rf /tmp/strata-panel-src
+    cp -r /tmp/strata-hosting-panel-src/panel "$INSTALL_DIR/panel"
+    cp -r /tmp/strata-hosting-panel-src/agent "$INSTALL_DIR/agent-src"
+    rm -rf /tmp/strata-hosting-panel-src
 fi
 success "Panel source ready at $INSTALL_DIR/panel"
 
 # ── Step 12. Panel .env ───────────────────────────────────────────────────────
 info "Writing .env…"
 cat > "$INSTALL_DIR/panel/.env" <<EOF
-APP_NAME="Strata Panel"
+APP_NAME="Strata Hosting Panel"
 APP_ENV=production
 APP_KEY=${APP_KEY}
 APP_DEBUG=false
@@ -851,7 +851,7 @@ info "Building strata-agent…"
 cd "$INSTALL_DIR/agent-src"
 go mod tidy 2>&1 || die "go mod tidy failed — check network and Go installation"
 GOOS=linux GOARCH=amd64 go build \
-    -ldflags "-X github.com/jonathjan0397/strata-panel/agent/internal/api.Version=$(git -C "$INSTALL_DIR" describe --tags --always 2>/dev/null || echo 'v1.0-beta')" \
+    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=$(git -C "$INSTALL_DIR" describe --tags --always 2>/dev/null || echo 'v1.0-beta')" \
     -o /usr/sbin/strata-agent \
     .
 chmod 755 /usr/sbin/strata-agent
@@ -911,7 +911,7 @@ chmod 600 /etc/strata-agent/mysql.cnf
 info "Installing queue worker service…"
 cat > /etc/systemd/system/strata-queue.service <<EOF
 [Unit]
-Description=Strata Panel Queue Worker
+Description=Strata Hosting Panel Queue Worker
 After=network.target redis.service
 
 [Service]
@@ -1308,7 +1308,7 @@ success "Admin account configured: ${ADMIN_EMAIL}"
 CREDS_FILE="/root/strata-credentials.txt"
 cat > "$CREDS_FILE" <<EOF
 # ============================================================
-#  Strata Panel — Installation Credentials
+#  Strata Hosting Panel — Installation Credentials
 #  Generated: $(date)
 #  KEEP THIS FILE SECURE. chmod 600 is set automatically.
 # ============================================================
@@ -1358,14 +1358,14 @@ info "Generating uninstall script…"
 cat > /root/strata-uninstall.sh <<UNINSTEOF
 #!/usr/bin/env bash
 # =============================================================================
-#  Strata Panel — Uninstaller
+#  Strata Hosting Panel — Uninstaller
 #  Generated: $(date)
-#  Run as root to fully remove Strata Panel from this server.
+#  Run as root to fully remove Strata Hosting Panel from this server.
 # =============================================================================
 set -euo pipefail
 [[ \$EUID -eq 0 ]] || { echo "Must be run as root."; exit 1; }
 
-read -rp "This will PERMANENTLY remove Strata Panel and all its data. Type YES to confirm: " _CONFIRM
+read -rp "This will PERMANENTLY remove Strata Hosting Panel and all its data. Type YES to confirm: " _CONFIRM
 [[ "\$_CONFIRM" == "YES" ]] || { echo "Aborted."; exit 0; }
 
 echo "[*] Stopping services…"
@@ -1411,7 +1411,7 @@ rm -f /usr/share/keyrings/deb.sury.org-php.gpg
 rm -f /usr/share/keyrings/rspamd.gpg
 
 echo ""
-echo "[ok] Strata Panel removed."
+echo "[ok] Strata Hosting Panel removed."
 echo "     Packages (mariadb-server, pdns-server, redis-server, etc.) were NOT purged."
 echo "     To remove them: apt-get purge mariadb-server pdns-server pdns-backend-mysql \\"
 echo "       redis-server pure-ftpd postfix dovecot-core rspamd fail2ban"
@@ -1422,7 +1422,7 @@ success "Uninstall script saved to /root/strata-uninstall.sh"
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}${GREEN}║      Strata Panel installation complete!             ║${NC}"
+echo -e "${BOLD}${GREEN}║      Strata Hosting Panel installation complete!             ║${NC}"
 echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Hostname:${NC}         ${HOSTNAME_FQDN}"
