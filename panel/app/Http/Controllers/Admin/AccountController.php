@@ -132,13 +132,13 @@ class AccountController extends Controller
             'deprovisioned' => $success,
         ]);
 
-        $account->user->delete();
-        $account->delete();
-
         if (! $success) {
             return redirect()->route('admin.accounts.index')
-                ->with('error', "Account deleted from panel but server cleanup failed: {$error}");
+                ->with('error', "Server cleanup failed, account was kept in the panel: {$error}");
         }
+
+        $account->user->delete();
+        $account->delete();
 
         return redirect()->route('admin.accounts.index')
             ->with('success', "Account deleted.");

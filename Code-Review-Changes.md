@@ -71,3 +71,35 @@ Validation performed for this commit:
 - All changes listed here were made on `code-review-fixes`.
 - No changes in this file were applied directly to `main`.
 - Additional audit fixes should be appended here as new sections if more review-driven work is added to this branch.
+
+## Current Audit Pass
+
+This audit pass addressed the next batch of review findings on `code-review-fixes`:
+
+- Fixed the agent HMAC middleware to restore authenticated request bodies with `bytes.NewReader` instead of a truncating custom reader in `agent/internal/api/hmac.go`.
+- Hardened app installer path validation in `agent/internal/api/app_handlers.go` so install, update, and uninstall requests are restricted to `/var/www/{site_owner}/...`, and added `site_owner` to uninstall requests.
+- Prevented panel SSH key deletion from removing the local record when the agent-side delete fails in `panel/app/Http/Controllers/User/SshKeyController.php`.
+- Prevented autoresponder deletion from removing the local record when the agent-side delete fails in `panel/app/Http/Controllers/User/AutoresponderController.php`.
+- Changed user app uninstall to keep the installation record unless the node-side uninstall succeeds in `panel/app/Http/Controllers/User/AppInstallerController.php`.
+- Changed admin domain deletion to keep the domain record unless remote deprovision succeeds in `panel/app/Http/Controllers/Admin/DomainController.php`.
+- Changed admin and reseller account deletion to keep the account and user records unless remote deprovision succeeds in:
+  - `panel/app/Http/Controllers/Admin/AccountController.php`
+  - `panel/app/Http/Controllers/Reseller/AccountController.php`
+- Changed admin and user backup deletion to keep the backup job record unless node-side deletion succeeds in:
+  - `panel/app/Http/Controllers/Admin/BackupController.php`
+  - `panel/app/Http/Controllers/User/BackupController.php`
+
+Validation performed for this audit pass:
+
+- `gofmt` on:
+  - `agent/internal/api/hmac.go`
+  - `agent/internal/api/app_handlers.go`
+- PHP syntax lint on:
+  - `panel/app/Http/Controllers/User/SshKeyController.php`
+  - `panel/app/Http/Controllers/User/AutoresponderController.php`
+  - `panel/app/Http/Controllers/User/AppInstallerController.php`
+  - `panel/app/Http/Controllers/Admin/DomainController.php`
+  - `panel/app/Http/Controllers/Admin/AccountController.php`
+  - `panel/app/Http/Controllers/Reseller/AccountController.php`
+  - `panel/app/Http/Controllers/Admin/BackupController.php`
+  - `panel/app/Http/Controllers/User/BackupController.php`

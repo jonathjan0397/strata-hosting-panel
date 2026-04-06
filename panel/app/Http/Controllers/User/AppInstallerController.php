@@ -150,13 +150,18 @@ class AppInstallerController extends Controller
         abort_if($installation->account_id !== $account->id, 403);
 
         try {
-            AgentClient::for($installation->node)->appUninstall([
+            $response = AgentClient::for($installation->node)->appUninstall([
                 'install_dir' => $installation->install_dir,
                 'db_name'     => $installation->db_name,
                 'db_user'     => $installation->db_user,
+                'site_owner'  => $account->username,
             ]);
-        } catch (\Throwable) {
-            // Continue with panel-side removal even if agent call fails
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to remove app from the node: ' . $e->getMessage());
+        }
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Failed to remove app: ' . $response->body());
         }
 
         $installation->delete();

@@ -71,7 +71,6 @@ class BackupController extends Controller
                     'size_bytes' => $result['size_bytes'] ?? null,
                 ]);
 
-                // Push to remote destinations
                 if ($job->status === 'complete' && $job->filename) {
                     $destinations = \App\Models\RemoteBackupDestination::where('active', true)->get();
                     foreach ($destinations as $dest) {
@@ -79,7 +78,6 @@ class BackupController extends Controller
                             $config = array_merge(['destination_type' => $dest->type], $dest->config);
                             $client->backupPush($account->username, $job->filename, $config);
                         } catch (\Throwable) {
-                            // Best-effort
                         }
                     }
                 }
@@ -104,9 +102,12 @@ class BackupController extends Controller
         if ($backup->filename) {
             try {
                 $client = new AgentClient($backup->node);
-                $client->backupDelete($account->username, $backup->filename);
-            } catch (\Throwable) {
-                // Best-effort — remove DB record regardless
+                $response = $client->backupDelete($account->username, $backup->filename);
+                if (! $response->successful()) {
+                    return back()->with('error', 'Failed to delete backup: ' . $response->body());
+                }
+            } catch (\Throwable $e) {
+                return back()->with('error', 'Failed to delete backup: ' . $e->getMessage());
             }
         }
 

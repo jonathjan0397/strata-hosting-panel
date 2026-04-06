@@ -121,14 +121,14 @@ class DomainController extends Controller
             'deprovisioned' => $success,
         ]);
 
-        $domain->delete();
-
-        $redirect = redirect()->route('admin.accounts.show', $accountId);
-
         if (! $success) {
-            return $redirect->with('error', "Domain removed from panel but server cleanup had errors: {$error}");
+            return redirect()->route('admin.accounts.show', $accountId)
+                ->with('error', "Server cleanup failed, domain was kept in the panel: {$error}");
         }
 
-        return $redirect->with('success', 'Domain removed.');
+        $domain->delete();
+
+        return redirect()->route('admin.accounts.show', $accountId)
+            ->with('success', 'Domain removed.');
     }
 }

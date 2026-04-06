@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -64,18 +65,8 @@ func HMACAuth(secret string) func(http.Handler) http.Handler {
 				return
 			}
 
-			r.Body = io.NopCloser(byteReader(body))
+			r.Body = io.NopCloser(bytes.NewReader(body))
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-type byteReader []byte
-
-func (b byteReader) Read(p []byte) (int, error) {
-	if len(b) == 0 {
-		return 0, io.EOF
-	}
-	n := copy(p, b)
-	return n, io.EOF
 }

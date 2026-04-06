@@ -73,10 +73,14 @@ class AutoresponderController extends Controller
         $account = $this->account();
         abort_unless($emailAccount->account_id === $account->id, 403);
 
-        Autoresponder::where('email_account_id', $emailAccount->id)->delete();
-
         $client = AgentClient::for($account->node);
-        $client->autoresponderDelete($emailAccount->email);
+        $response = $client->autoresponderDelete($emailAccount->email);
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Failed to remove autoresponder: ' . $response->body());
+        }
+
+        Autoresponder::where('email_account_id', $emailAccount->id)->delete();
 
         return back()->with('success', 'Autoresponder removed.');
     }

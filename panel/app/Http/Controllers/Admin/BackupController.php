@@ -102,8 +102,13 @@ class BackupController extends Controller
         if ($backup->filename && $backup->node) {
             try {
                 $client = new AgentClient($backup->node);
-                $client->backupDelete($backup->account->username, $backup->filename);
-            } catch (\Throwable) {}
+                $response = $client->backupDelete($backup->account->username, $backup->filename);
+                if (! $response->successful()) {
+                    return back()->with('error', 'Failed to delete backup from node: ' . $response->body());
+                }
+            } catch (\Throwable $e) {
+                return back()->with('error', 'Failed to delete backup from node: ' . $e->getMessage());
+            }
         }
 
         $backup->delete();

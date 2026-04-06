@@ -12,15 +12,15 @@ import (
 )
 
 type appInstallRequest struct {
-	App         string `json:"app"`
-	InstallDir  string `json:"install_dir"`
-	DBName      string `json:"db_name"`
-	DBUser      string `json:"db_user"`
-	DBPassword  string `json:"db_password"`
-	SiteURL     string `json:"site_url"`
-	SiteTitle   string `json:"site_title"`
-	AdminEmail  string `json:"admin_email"`
-	SiteOwner   string `json:"site_owner"`
+	App        string `json:"app"`
+	InstallDir string `json:"install_dir"`
+	DBName     string `json:"db_name"`
+	DBUser     string `json:"db_user"`
+	DBPassword string `json:"db_password"`
+	SiteURL    string `json:"site_url"`
+	SiteTitle  string `json:"site_title"`
+	AdminEmail string `json:"admin_email"`
+	SiteOwner  string `json:"site_owner"`
 }
 
 type appUpdateRequest struct {
@@ -36,6 +36,7 @@ type appUninstallRequest struct {
 	InstallDir string `json:"install_dir"`
 	DBName     string `json:"db_name"`
 	DBUser     string `json:"db_user"`
+	SiteOwner  string `json:"site_owner"`
 }
 
 // POST /v1/apps/install
@@ -48,8 +49,7 @@ func handleAppInstall(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "app and install_dir are required", http.StatusBadRequest)
 		return
 	}
-	// Basic path safety
-	if strings.Contains(req.InstallDir, "..") {
+	if !isSafeInstallDir(req.InstallDir, req.SiteOwner) {
 		http.Error(w, "invalid install_dir", http.StatusBadRequest)
 		return
 	}
@@ -105,7 +105,7 @@ func handleAppUpdate(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if strings.Contains(req.InstallDir, "..") {
+	if !isSafeInstallDir(req.InstallDir, req.SiteOwner) {
 		http.Error(w, "invalid install_dir", http.StatusBadRequest)
 		return
 	}
@@ -142,7 +142,7 @@ func handleAppUninstall(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if strings.Contains(req.InstallDir, "..") {
+	if !isSafeInstallDir(req.InstallDir, req.SiteOwner) {
 		http.Error(w, "invalid install_dir", http.StatusBadRequest)
 		return
 	}
@@ -396,4 +396,21 @@ func generateRandomHex(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func isSafeInstallDir(installDir, siteOwner string) bool {
+	if installDir == "" || siteOwner == "" {
+		return false
+	}
+	if strings.Contains(installDir, "..") {
+		return false
+	}
+
+	cleanDir := filepath.Clean(installDir)
+	baseDir := filepath.Clean(filepath.Join("/var/www", siteOwner))
+	if cleanDir == "/" || cleanDir == "." || baseDir == "/" {
+		return false
+	}
+
+	return cleanDir == baseDir || strings.HasPrefix(cleanDir, baseDir+"/")
 }

@@ -61,7 +61,11 @@ class SshKeyController extends Controller
         abort_unless($sshKey->account_id === $account->id, 403);
 
         $client = AgentClient::for($account->node);
-        $client->sshKeyDelete($account->username, $sshKey->fingerprint);
+        $response = $client->sshKeyDelete($account->username, $sshKey->fingerprint);
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Failed to remove key: ' . $response->body());
+        }
 
         $sshKey->delete();
 
