@@ -25,20 +25,40 @@ func JailRoot(username string) string {
 // Returns an error if the resolved path escapes the jail.
 func Resolve(username, rel string) (string, error) {
 	root := JailRoot(username)
-	clean := filepath.Join(root, filepath.Clean("/"+rel))
-	if !strings.HasPrefix(clean, root+"/") && clean != root {
+	rootResolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
+
+	clean := filepath.Join(rootResolved, filepath.Clean("/"+rel))
+	resolved := clean
+
+	if existing, err := filepath.EvalSymlinks(clean); err == nil {
+		resolved = existing
+	} else if !os.IsNotExist(err) {
+		return "", err
+	} else {
+		parentResolved, parentErr := filepath.EvalSymlinks(filepath.Dir(clean))
+		if parentErr != nil {
+			return "", parentErr
+		}
+		resolved = filepath.Join(parentResolved, filepath.Base(clean))
+	}
+
+	if !strings.HasPrefix(resolved, rootResolved+"/") && resolved != rootResolved {
 		return "", fmt.Errorf("path escapes jail")
 	}
-	return clean, nil
+
+	return resolved, nil
 }
 
 // Entry represents a single directory entry.
 type Entry struct {
 	Name    string    `json:"name"`
-	Path    string    `json:"path"`    // relative to jail root
+	Path    string    `json:"path"` // relative to jail root
 	IsDir   bool      `json:"is_dir"`
 	Size    int64     `json:"size"`
-	Mode    string    `json:"mode"`    // e.g. "0755"
+	Mode    string    `json:"mode"` // e.g. "0755"
 	ModTime time.Time `json:"mod_time"`
 }
 

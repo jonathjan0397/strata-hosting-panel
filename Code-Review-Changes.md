@@ -103,3 +103,21 @@ Validation performed for this audit pass:
   - `panel/app/Http/Controllers/Reseller/AccountController.php`
   - `panel/app/Http/Controllers/Admin/BackupController.php`
   - `panel/app/Http/Controllers/User/BackupController.php`
+
+## Current Audit Pass 2
+
+This audit pass addressed file-manager trust-boundary issues and the next set of remote-state mismatches:
+
+- Hardened jail path resolution in `agent/internal/files/manager.go` by resolving symlinks before allowing file operations, so symlinked paths cannot escape `/var/www/{user}`.
+- Fixed multipart file-upload signing in `panel/app/Http/Controllers/User/FileManagerController.php` by constructing the actual multipart payload, signing the real request body, and sending it with the matching content type.
+- Changed the billing API account terminate endpoint to keep local panel state when remote deprovision fails in `panel/app/Http/Controllers/Api/V1/AccountController.php`.
+- Changed SSL issuance and custom SSL storage flows to only persist `ssl_enabled` state after the vhost reprovision step succeeds in `panel/app/Services/DomainProvisioner.php`.
+
+Validation performed for this audit pass:
+
+- `gofmt` on:
+  - `agent/internal/files/manager.go`
+- PHP syntax lint on:
+  - `panel/app/Http/Controllers/User/FileManagerController.php`
+  - `panel/app/Http/Controllers/Api/V1/AccountController.php`
+  - `panel/app/Services/DomainProvisioner.php`

@@ -105,19 +105,23 @@ class DomainProvisioner
             }
 
             $paths = $response->json();
-            $domain->update([
-                'ssl_enabled'    => true,
-                'ssl_provider'   => 'letsencrypt',
-                'ssl_expires_at' => now()->addDays(90),
-            ]);
-
-            AgentClient::for($domain->node)->createDomain(
+            $vhostResponse = AgentClient::for($domain->node)->createDomain(
                 $this->buildPayload($domain, [
                     'ssl_enabled' => true,
                     'ssl_cert'    => $paths['chain_file'],
                     'ssl_key'     => $paths['key_file'],
                 ])
             );
+
+            if (! $vhostResponse->successful()) {
+                return [false, $vhostResponse->json('message') ?? $vhostResponse->body()];
+            }
+
+            $domain->update([
+                'ssl_enabled'    => true,
+                'ssl_provider'   => 'letsencrypt',
+                'ssl_expires_at' => now()->addDays(90),
+            ]);
 
             return [true, null];
         } catch (\Throwable $e) {
@@ -142,19 +146,23 @@ class DomainProvisioner
                 ? \Carbon\Carbon::parse($result['expires'])
                 : now()->addYear();
 
-            $domain->update([
-                'ssl_enabled'    => true,
-                'ssl_provider'   => 'custom',
-                'ssl_expires_at' => $expires,
-            ]);
-
-            AgentClient::for($domain->node)->createDomain(
+            $vhostResponse = AgentClient::for($domain->node)->createDomain(
                 $this->buildPayload($domain, [
                     'ssl_enabled' => true,
                     'ssl_cert'    => $result['cert_file'],
                     'ssl_key'     => $result['key_file'],
                 ])
             );
+
+            if (! $vhostResponse->successful()) {
+                return [false, $vhostResponse->json('message') ?? $vhostResponse->body()];
+            }
+
+            $domain->update([
+                'ssl_enabled'    => true,
+                'ssl_provider'   => 'custom',
+                'ssl_expires_at' => $expires,
+            ]);
 
             return [true, null];
         } catch (\Throwable $e) {

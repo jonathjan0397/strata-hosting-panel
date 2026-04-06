@@ -119,12 +119,14 @@ class AccountController extends Controller
 
         AuditLog::record('api.account_terminated', $account, ['username' => $account->username, 'by' => 'api']);
 
+        if (! $success) {
+            return response()->json(['error' => 'Server cleanup failed, account was kept in the panel: ' . $error], 502);
+        }
+
         $account->user?->delete();
         $account->delete();
 
-        return $success
-            ? response()->json(null, 204)
-            : response()->json(['warning' => 'Account deleted from panel but server cleanup failed: ' . $error], 202);
+        return response()->json(null, 204);
     }
 
     /**

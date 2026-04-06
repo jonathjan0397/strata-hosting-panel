@@ -199,18 +199,13 @@ class FileManagerController extends Controller
 
         $agentUrl  = $client->node->apiUrl("/files/{$username}/upload?path=" . urlencode($path));
         $timestamp = (string) time();
-        $signature = hash_hmac('sha256', $timestamp . "\n", $client->node->hmac_secret);
+        [$body, $contentType] = $this->buildMultipartUploadPayload($request->file('files'));
+        $signature = hash_hmac('sha256', $timestamp . "\n" . $body, $client->node->hmac_secret);
 
-        $http = Http::withHeaders([
+        $response = Http::withHeaders([
             'X-Strata-Signature' => $signature,
             'X-Strata-Timestamp' => $timestamp,
-        ]);
-
-        foreach ($request->file('files') as $file) {
-            $http = $http->attach('files[]', file_get_contents($file->getRealPath()), $file->getClientOriginalName());
-        }
-
-        $response = $http->post($agentUrl);
+        ])->withBody($body, $contentType)->post($agentUrl);
 
         return $response->successful()
             ? response()->json(['status' => 'ok'])
@@ -232,5 +227,24 @@ class FileManagerController extends Controller
         abort_if(! $account->node, 503, 'Account has no assigned node.');
 
         return [AgentClient::for($account->node), $account->username];
+    }
+
+    private function buildMultipartUploadPayload(array $files): array
+    {
+        $boundary = 'strata-' . bin2hex(random_bytes(16));
+        $eol = "\r\n";
+        $body = '';
+
+        foreach ($files as $file) {
+            $body .= "--{$boundary}{$eol}";
+            $body .= 'Content-Disposition: form-data; name="files[]"; filename="' . addslashes($file->getClientOriginalName()) . "\"{$eol}";
+            $body .= 'Content-Type: ' . ($file->getMimeType() ?: 'application/octet-stream') . "{$eol}{$eol}";
+            $body .= file_get_contents($file->getRealPath());
+            $body .= $eol;
+        }
+
+        $body .= "--{$boundary}--{$eol}";
+
+        return [$body, "multipart/form-data; boundary={$boundary}"];
     }
 }
