@@ -887,8 +887,6 @@ Environment=STRATA_TLS_CERT=/etc/strata-agent/tls/cert.pem
 Environment=STRATA_TLS_KEY=/etc/strata-agent/tls/key.pem
 Environment=STRATA_PDNS_API_KEY=${PDNS_API_KEY}
 Environment=STRATA_DB_ROOT_PASSWORD=${DB_PASSWORD}
-ProtectSystem=full
-PrivateTmp=true
 NoNewPrivileges=false
 
 [Install]
