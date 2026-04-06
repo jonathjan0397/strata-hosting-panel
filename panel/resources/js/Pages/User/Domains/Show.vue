@@ -1,17 +1,20 @@
 <template>
     <AppLayout :title="domain.domain">
         <!-- Header -->
-        <div class="mb-6 flex items-center gap-3">
-            <Link :href="route('my.domains.index')" class="text-gray-500 hover:text-gray-300 transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                </svg>
-            </Link>
-            <div>
-                <h2 class="text-lg font-semibold font-mono text-gray-100">{{ domain.domain }}</h2>
-                <p class="text-sm text-gray-400 capitalize">{{ domain.type }} · PHP {{ domain.php_version }}</p>
-            </div>
-        </div>
+        <div class="space-y-6 p-6">
+        <PageHeader
+            eyebrow="Websites"
+            :title="domain.domain"
+            :description="`${domain.type} - PHP ${domain.php_version}`"
+        >
+            <template #actions>
+                <Link :href="route('my.domains.index')" class="text-sm font-medium text-indigo-400 transition-colors hover:text-indigo-300">
+                    Back to Domains
+                </Link>
+            </template>
+        </PageHeader>
+
+
 
         <div class="grid gap-5 xl:grid-cols-3">
             <!-- Domain info -->
@@ -301,6 +304,7 @@
                 </div>
             </form>
         </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -309,6 +313,7 @@ import { ref } from 'vue';
 import { Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({
     domain:      Object,

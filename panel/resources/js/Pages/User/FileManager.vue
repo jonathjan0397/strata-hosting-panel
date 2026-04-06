@@ -1,6 +1,11 @@
 <template>
     <AppLayout title="File Manager">
-        <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-4 p-6">
+            <PageHeader
+                eyebrow="Files"
+                title="File Manager"
+                :description="`Browse and manage files in ${currentPath}.`"
+            />
 
             <!-- Toolbar -->
             <div class="flex flex-wrap items-center gap-2">
@@ -260,6 +265,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import axios from 'axios';
 
 const props = defineProps({ accountId: Number });

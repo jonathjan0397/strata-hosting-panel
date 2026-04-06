@@ -1,14 +1,19 @@
 <template>
     <AppLayout title="App Installer">
-        <div class="mb-6 flex items-center justify-between">
-            <div>
-                <h2 class="text-lg font-semibold text-gray-100">App Installer</h2>
-                <p class="text-sm text-gray-400 mt-0.5">Install popular apps with one click. Auto-updates keep them current and secure.</p>
-            </div>
-            <Link :href="route('my.apps.installed')" class="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
-                My Installed Apps →
-            </Link>
-        </div>
+        <div class="space-y-6 p-6">
+        <PageHeader
+            eyebrow="Apps"
+            title="App Installer"
+            description="Install popular applications with assisted setup and optional auto-updates."
+        >
+            <template #actions>
+                <Link :href="route('my.apps.installed')" class="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
+                    My Installed Apps
+                </Link>
+            </template>
+        </PageHeader>
+
+
 
         <!-- Category filter -->
         <div class="mb-5 flex gap-2 flex-wrap">
@@ -116,6 +121,7 @@
                 </form>
             </div>
         </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -123,6 +129,7 @@
 import { ref, computed } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({ catalog: Object, domains: Array });
 

@@ -1,18 +1,23 @@
 <template>
     <AppLayout title="Delivery Tracking">
-        <div class="space-y-6">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-100">Delivery Tracking</h2>
-                    <p class="mt-1 text-sm text-gray-400">
-                        Search recent mail delivery log activity for a hosted domain or mailbox on
-                        <span v-if="account.node" class="font-mono text-gray-500">{{ account.node.name }}</span>.
-                    </p>
-                </div>
-                <Link :href="route('my.email.spam')" class="text-sm text-indigo-400 transition-colors hover:text-indigo-300">
-                    Spam Overview
-                </Link>
+        <div class="space-y-6 p-6">
+            <PageHeader
+                eyebrow="Email"
+                title="Delivery Tracking"
+                description="Search recent mail delivery log activity for a hosted domain or mailbox."
+            >
+                <template #actions>
+                    <Link :href="route('my.email.spam')" class="text-sm font-medium text-indigo-400 transition-colors hover:text-indigo-300">
+                        Spam Overview
+                    </Link>
+                </template>
+            </PageHeader>
+
+            <div v-if="account.node" class="rounded-xl border border-gray-800 bg-gray-900 px-4 py-3 text-sm text-gray-400">
+                Mail node: <span class="font-mono text-gray-200">{{ account.node.name }}</span>
             </div>
+
+
 
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <form class="grid gap-4 md:grid-cols-4" @submit.prevent="loadEntries">
@@ -70,6 +75,7 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import { Link } from '@inertiajs/vue3';
 import axios from 'axios';
 import { computed, reactive, ref } from 'vue';

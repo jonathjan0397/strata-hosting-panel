@@ -1,20 +1,20 @@
 <template>
     <AppLayout :title="`DNS — ${domain.domain}`">
+        <div class="space-y-6 p-6">
+        <PageHeader
+            eyebrow="DNS"
+            :title="domain.domain"
+            description="Manage DNS records and import BIND zone data for this domain."
+        >
+            <template #actions>
+                <Link :href="route('my.domains.show', domain.id)" class="text-sm font-medium text-indigo-400 transition-colors hover:text-indigo-300">
+                    Back to Domain
+                </Link>
+            </template>
+        </PageHeader>
+
         <!-- Header -->
-        <div class="mb-6 flex items-center gap-3">
-            <Link :href="route('my.domains.show', domain.id)" class="text-gray-500 hover:text-gray-300 transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                </svg>
-            </Link>
-            <div class="flex items-center gap-2">
-                <h2 class="text-lg font-semibold font-mono text-gray-100">{{ domain.domain }}</h2>
-                <span v-if="zone" class="inline-flex items-center gap-1.5 rounded-full bg-emerald-900/40 px-2.5 py-0.5 text-xs text-emerald-400">
-                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>Zone active
-                </span>
-                <span v-else class="rounded-full bg-gray-800 px-2.5 py-0.5 text-xs text-gray-500">No zone</span>
-            </div>
-        </div>
+
 
         <!-- No zone -->
         <template v-if="!zone">
@@ -110,6 +110,7 @@
                 </div>
             </div>
         </template>
+        </div>
     </AppLayout>
 </template>
 
@@ -118,6 +119,7 @@ import { ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({
     domain:  Object,

@@ -1,14 +1,17 @@
 <template>
     <AppLayout title="My Apps">
-        <div class="mb-6 flex items-center justify-between">
-            <div>
-                <h2 class="text-lg font-semibold text-gray-100">My Installed Apps</h2>
-                <p class="text-sm text-gray-400 mt-0.5">Manage your installed applications.</p>
-            </div>
-            <Link :href="route('my.apps.catalog')" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
-                + Install App
-            </Link>
-        </div>
+        <div class="space-y-6 p-6">
+        <PageHeader
+            eyebrow="Apps"
+            title="My Installed Apps"
+            description="Manage installed applications, updates, auto-update state, and removal workflows."
+        >
+            <template #actions>
+                <Link :href="route('my.apps.catalog')" class="btn-primary">Install App</Link>
+            </template>
+        </PageHeader>
+
+
 
         <div v-if="installations.length === 0"
             class="rounded-xl border border-gray-800 bg-gray-900 px-6 py-16 text-center">
@@ -109,6 +112,7 @@
                 </div>
             </div>
         </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -116,6 +120,7 @@
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 defineProps({ installations: Array });
 

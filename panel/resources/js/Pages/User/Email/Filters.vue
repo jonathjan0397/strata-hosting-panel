@@ -1,16 +1,19 @@
 <template>
     <AppLayout :title="`Mailbox Filters - ${mailbox.email}`">
-        <div class="mb-6 flex items-center gap-3">
-            <Link :href="route('my.email.domain', mailbox.domain.id)" class="text-gray-500 transition-colors hover:text-gray-300">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                </svg>
-            </Link>
-            <div>
-                <h2 class="text-lg font-semibold text-gray-100">Mailbox Filters</h2>
-                <p class="text-sm text-gray-400">{{ mailbox.email }}</p>
-            </div>
-        </div>
+        <div class="space-y-6 p-6">
+        <PageHeader
+            eyebrow="Email"
+            title="Mailbox Filters"
+            :description="mailbox.email"
+        >
+            <template #actions>
+                <Link :href="route('my.email.domain', mailbox.domain.id)" class="text-sm font-medium text-indigo-400 transition-colors hover:text-indigo-300">
+                    Back to Mail
+                </Link>
+            </template>
+        </PageHeader>
+
+
 
         <div class="grid gap-6 xl:grid-cols-[24rem,1fr]">
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
@@ -118,6 +121,7 @@
                 </div>
             </div>
         </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -125,6 +129,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 import FormField from '@/Components/FormField.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
 

@@ -1,9 +1,15 @@
 <template>
     <AppLayout title="PHP Settings">
-        <div class="max-w-lg space-y-6">
+        <div class="max-w-3xl space-y-6 p-6">
+            <PageHeader
+                eyebrow="Websites"
+                title="PHP Settings"
+                :description="`Tune resource limits for PHP ${account.php_version} across this hosting account.`"
+            />
+
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                <h2 class="text-sm font-semibold text-gray-300 mb-4">
-                    PHP {{ account.php_version }} — Resource Limits
+                <h2 class="mb-4 text-sm font-semibold text-gray-300">
+                    PHP {{ account.php_version }} - Resource Limits
                 </h2>
 
                 <form @submit.prevent="save" class="space-y-4">
@@ -49,7 +55,7 @@
             </div>
 
             <div class="rounded-xl border border-gray-800 bg-gray-900/40 p-4">
-                <p class="text-xs text-gray-500 leading-relaxed">
+                <p class="text-xs leading-relaxed text-gray-500">
                     These limits apply to all PHP scripts running under your account.
                     Changes take effect immediately after saving.
                     Your PHP version is managed by your administrator.
@@ -62,15 +68,16 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({
     account: Object,
 });
 
 const form = useForm({
-    php_upload_max:    props.account.php_upload_max   ?? '64M',
-    php_post_max:      props.account.php_post_max     ?? '64M',
-    php_memory_limit:  props.account.php_memory_limit ?? '256M',
+    php_upload_max: props.account.php_upload_max ?? '64M',
+    php_post_max: props.account.php_post_max ?? '64M',
+    php_memory_limit: props.account.php_memory_limit ?? '256M',
     php_max_exec_time: props.account.php_max_exec_time ?? 30,
 });
 
@@ -81,7 +88,5 @@ function save() {
 
 <style scoped>
 @reference "tailwindcss";
-.label      { @apply block text-sm font-medium text-gray-300 mb-1.5; }
-.field      { @apply block rounded-lg border border-gray-700 bg-gray-800 px-3.5 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500; }
-.btn-primary { @apply rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 transition-colors; }
+.label { @apply mb-1.5 block text-sm font-medium text-gray-300; }
 </style>

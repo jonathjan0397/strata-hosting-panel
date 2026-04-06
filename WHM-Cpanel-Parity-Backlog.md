@@ -173,6 +173,7 @@ Implemented on `main`:
 - autoresponder, spam overview, DNS zone list, and SSH key pages converted to shared page structure
 - metrics, disk usage, and Git tooling pages converted to shared page structure
 - admin account, domain, and node indexes converted to shared page structure with operational summaries
+- remaining user-facing app installer, file manager, domain detail, DNS detail, deliverability, delivery tracking, filters, PHP settings, and no-account pages converted to shared page structure
 
 ### 10. Platform and API Expansion
 Status: `planned`
