@@ -892,7 +892,9 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now strata-agent
+systemctl daemon-reload
+systemctl enable strata-agent
+systemctl restart strata-agent
 success "strata-agent running."
 
 cat > /etc/strata-agent/mysql.cnf <<EOF
@@ -923,7 +925,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now strata-queue
+systemctl enable strata-queue
+systemctl restart strata-queue
 success "Queue worker running."
 
 info "Adding Laravel scheduler cron job…"
