@@ -52,6 +52,24 @@ func handleFileRead(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func handleFileTail(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	path := r.URL.Query().Get("path")
+	lines, _ := strconv.Atoi(r.URL.Query().Get("lines"))
+
+	content, err := files.TailFile(username, path, lines)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	respond(w, http.StatusOK, map[string]any{
+		"path":    path,
+		"lines":   lines,
+		"content": string(content),
+	})
+}
+
 // ── Write file ────────────────────────────────────────────────────────────────
 
 func handleFileWrite(w http.ResponseWriter, r *http.Request) {

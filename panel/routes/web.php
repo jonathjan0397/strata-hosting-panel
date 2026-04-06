@@ -30,6 +30,7 @@ use App\Http\Controllers\Admin\AdminWebsiteController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\User\AutoresponderController;
 use App\Http\Controllers\User\AppInstallerController;
+use App\Http\Controllers\User\MetricsController;
 use App\Http\Controllers\User\SshKeyController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
@@ -149,6 +150,11 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('backups/{backup}', [User\BackupController::class, 'destroy'])->name('backups.destroy');
             Route::get('backups/{backup}/download', [User\BackupController::class, 'download'])->name('backups.download');
             Route::post('backups/{backup}/restore', [User\BackupController::class, 'restore'])->name('backups.restore');
+        });
+
+        Route::middleware('account.feature:metrics')->group(function () {
+            Route::get('metrics', [MetricsController::class, 'index'])->name('metrics.index');
+            Route::get('metrics/logs', [MetricsController::class, 'logs'])->name('metrics.logs');
         });
 
         // PHP settings

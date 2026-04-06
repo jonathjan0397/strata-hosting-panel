@@ -289,6 +289,14 @@
                             </template>
                             Backups
                         </NavItem>
+                        <NavItem v-if="hasFeature('metrics')" :href="route('my.metrics.index')" :active="$page.url.startsWith('/my/metrics')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v18m0 0h18M3.75 21 9 14.25l4.5 4.5L20.25 9" />
+                                </svg>
+                            </template>
+                            Metrics
+                        </NavItem>
                         <NavItem v-if="hasFeature('app_installer')" :href="route('my.apps.catalog')" :active="$page.url.startsWith('/my/apps')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

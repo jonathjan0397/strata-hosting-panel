@@ -31,6 +31,7 @@ class FeatureList extends Model
             'ftp' => 'FTP Accounts',
             'file_manager' => 'File Manager',
             'backups' => 'Backups',
+            'metrics' => 'Metrics and Logs',
             'ssh_keys' => 'SSH Keys',
             'php' => 'PHP Settings',
             'deliverability' => 'Deliverability',

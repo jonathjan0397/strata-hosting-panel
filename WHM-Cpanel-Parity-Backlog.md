@@ -75,12 +75,19 @@ Status: `planned`
 - rollback-safe migration operations
 
 ### 4. Metrics and Logs
-Status: `planned`
+Status: `in progress`
 
 - domain/account error logs
 - access log viewing/downloading
 - bandwidth and request summaries
 - account resource dashboards
+
+Implemented on `code-review-fixes`:
+
+- package-gated user metrics route
+- user metrics dashboard with resource summaries
+- bounded domain access/error log tailing
+- bounded PHP error log tailing
 
 ## Phase 2: cPanel Daily-Use Parity
 

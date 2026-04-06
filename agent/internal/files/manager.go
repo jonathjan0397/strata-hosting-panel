@@ -3,6 +3,7 @@ package files
 import (
 	"archive/tar"
 	"archive/zip"
+	"bufio"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -124,6 +125,79 @@ func ReadFile(username, relPath string) ([]byte, error) {
 	}
 
 	return os.ReadFile(abs)
+}
+
+// TailFile returns the last N lines of a file, capped to small inline diagnostics usage.
+func TailFile(username, relPath string, lines int) ([]byte, error) {
+	abs, err := ResolveLogPath(username, relPath)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := os.Stat(abs)
+	if err != nil {
+		return nil, err
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("path is a directory")
+	}
+	if info.Size() > 10<<20 {
+		return nil, fmt.Errorf("file too large for inline tailing (>10 MB)")
+	}
+
+	f, err := os.Open(abs)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	if lines <= 0 {
+		lines = 100
+	}
+	if lines > 500 {
+		lines = 500
+	}
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 512*1024)
+
+	buffer := make([]string, 0, lines)
+	for scanner.Scan() {
+		if len(buffer) == lines {
+			copy(buffer, buffer[1:])
+			buffer[len(buffer)-1] = scanner.Text()
+			continue
+		}
+		buffer = append(buffer, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return []byte(strings.Join(buffer, "\n")), nil
+}
+
+func ResolveLogPath(username, relPath string) (string, error) {
+	root := filepath.Join("/home", username, "logs")
+	rootResolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
+
+	clean := filepath.Join(rootResolved, filepath.Base(filepath.Clean(relPath)))
+	resolved := clean
+
+	if existing, err := filepath.EvalSymlinks(clean); err == nil {
+		resolved = existing
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+
+	if !strings.HasPrefix(resolved, rootResolved+"/") && resolved != rootResolved {
+		return "", fmt.Errorf("path escapes log jail")
+	}
+
+	return resolved, nil
 }
 
 // WriteFile writes (creates or overwrites) a file.

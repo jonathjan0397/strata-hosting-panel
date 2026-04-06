@@ -265,6 +265,11 @@ class AgentClient
         return $this->get("/files/{$username}/read?path=" . urlencode($path));
     }
 
+    public function fileTail(string $username, string $path, int $lines = 100): Response
+    {
+        return $this->get("/files/{$username}/tail?path=" . urlencode($path) . "&lines={$lines}");
+    }
+
     public function fileWrite(string $username, string $path, string $content): Response
     {
         return $this->post("/files/{$username}/write", ['path' => $path, 'content' => $content]);
