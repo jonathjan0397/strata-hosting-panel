@@ -55,9 +55,11 @@ Implemented on `code-review-fixes`:
 - package-aware reseller account creation with reseller-safe filtering
 - package-aware API account creation
 - admin navigation entries for packages and feature lists
+- package-aware user feature enforcement in routing and navigation
+- reseller-visible package catalog and package reassignment on client edits
 
 ### 2. Reseller Package Management
-Status: `planned`
+Status: `in progress`
 
 - Reseller-visible package catalog
 - package availability controls

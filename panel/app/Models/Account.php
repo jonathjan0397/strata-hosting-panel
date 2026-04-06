@@ -11,6 +11,11 @@ class Account extends Model
 {
     use SoftDeletes;
 
+    public const FEATURE_FALLBACKS = [
+        'forwarders' => 'email',
+        'autoresponders' => 'email',
+    ];
+
     protected $fillable = [
         'user_id', 'node_id', 'reseller_id', 'hosting_package_id', 'username', 'plan',
         'status', 'php_version',
@@ -58,5 +63,29 @@ class Account extends Model
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    public function enabledFeatures(): array
+    {
+        $features = $this->hostingPackage?->featureList?->features;
+
+        if (! is_array($features) || $features === []) {
+            return array_keys(\App\Models\FeatureList::catalog());
+        }
+
+        return array_values(array_unique($features));
+    }
+
+    public function hasFeature(string $feature): bool
+    {
+        $enabled = $this->enabledFeatures();
+
+        if (in_array($feature, $enabled, true)) {
+            return true;
+        }
+
+        $fallback = self::FEATURE_FALLBACKS[$feature] ?? null;
+
+        return $fallback ? in_array($fallback, $enabled, true) : false;
     }
 }

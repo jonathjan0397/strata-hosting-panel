@@ -211,6 +211,14 @@
                             </template>
                             Clients
                         </NavItem>
+                        <NavItem :href="route('reseller.packages.index')" :active="$page.url.startsWith('/reseller/packages')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75 12 6.75l5.571 3m-11.142 0L12 12.75m-5.571-3v6l5.571 3 5.571-3v-6M4.5 8.714l7.114-3.84a.75.75 0 0 1 .772 0L19.5 8.714a.75.75 0 0 1 .386.659v5.254a.75.75 0 0 1-.386.659l-7.114 3.84a.75.75 0 0 1-.772 0L4.5 15.286a.75.75 0 0 1-.386-.659V9.373A.75.75 0 0 1 4.5 8.714Z" />
+                                </svg>
+                            </template>
+                            Packages
+                        </NavItem>
                         <NavItem :href="route('reseller.branding')" :active="$page.url.startsWith('/reseller/branding')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -225,7 +233,7 @@
                 <!-- User nav -->
                 <template v-else-if="$page.props.auth.user.roles?.includes('user')">
                     <NavGroup label="My Hosting">
-                        <NavItem :href="route('my.domains.index')" :active="$page.url.startsWith('/my/domains')">
+                        <NavItem v-if="hasFeature('domains')" :href="route('my.domains.index')" :active="$page.url.startsWith('/my/domains')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
@@ -233,7 +241,7 @@
                             </template>
                             Domains
                         </NavItem>
-                        <NavItem :href="route('my.dns.index')" :active="$page.url.startsWith('/my/dns')">
+                        <NavItem v-if="hasFeature('dns')" :href="route('my.dns.index')" :active="$page.url.startsWith('/my/dns')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5" />
@@ -241,7 +249,7 @@
                             </template>
                             DNS
                         </NavItem>
-                        <NavItem :href="route('my.databases.index')" :active="$page.url.startsWith('/my/databases')">
+                        <NavItem v-if="hasFeature('databases')" :href="route('my.databases.index')" :active="$page.url.startsWith('/my/databases')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
@@ -249,7 +257,7 @@
                             </template>
                             Databases
                         </NavItem>
-                        <NavItem :href="route('my.ftp.index')" :active="$page.url.startsWith('/my/ftp')">
+                        <NavItem v-if="hasFeature('ftp')" :href="route('my.ftp.index')" :active="$page.url.startsWith('/my/ftp')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
@@ -257,7 +265,7 @@
                             </template>
                             FTP
                         </NavItem>
-                        <NavItem :href="route('my.files.index')" :active="$page.url.startsWith('/my/files')">
+                        <NavItem v-if="hasFeature('file_manager')" :href="route('my.files.index')" :active="$page.url.startsWith('/my/files')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v8.25m19.5 0v-5.625c0-.621-.504-1.125-1.125-1.125H4.875c-.621 0-1.125.504-1.125 1.125v5.625m19.5 0v2.625c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-2.625" />
@@ -265,7 +273,7 @@
                             </template>
                             File Manager
                         </NavItem>
-                        <NavItem :href="route('my.deliverability.index')" :active="$page.url.startsWith('/my/deliverability')">
+                        <NavItem v-if="hasFeature('deliverability')" :href="route('my.deliverability.index')" :active="$page.url.startsWith('/my/deliverability')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
@@ -273,7 +281,7 @@
                             </template>
                             Deliverability
                         </NavItem>
-                        <NavItem :href="route('my.backups.index')" :active="$page.url.startsWith('/my/backups')">
+                        <NavItem v-if="hasFeature('backups')" :href="route('my.backups.index')" :active="$page.url.startsWith('/my/backups')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
@@ -281,7 +289,7 @@
                             </template>
                             Backups
                         </NavItem>
-                        <NavItem :href="route('my.apps.catalog')" :active="$page.url.startsWith('/my/apps')">
+                        <NavItem v-if="hasFeature('app_installer')" :href="route('my.apps.catalog')" :active="$page.url.startsWith('/my/apps')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 0 0 2.25-2.25V6a2.25 2.25 0 0 0-2.25-2.25H6A2.25 2.25 0 0 0 3.75 6v2.25A2.25 2.25 0 0 0 6 10.5Zm0 9.75h2.25A2.25 2.25 0 0 0 10.5 18v-2.25a2.25 2.25 0 0 0-2.25-2.25H6a2.25 2.25 0 0 0-2.25 2.25V18A2.25 2.25 0 0 0 6 20.25Zm9.75-9.75H18a2.25 2.25 0 0 0 2.25-2.25V6A2.25 2.25 0 0 0 18 3.75h-2.25A2.25 2.25 0 0 0 13.5 6v2.25a2.25 2.25 0 0 0 2.25 2.25Z" />
@@ -289,7 +297,7 @@
                             </template>
                             App Installer
                         </NavItem>
-                        <NavItem :href="route('my.ssh-keys.index')" :active="$page.url.startsWith('/my/security/ssh-keys')">
+                        <NavItem v-if="hasFeature('ssh_keys')" :href="route('my.ssh-keys.index')" :active="$page.url.startsWith('/my/security/ssh-keys')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 0 1 21.75 8.25Z" />
@@ -297,7 +305,7 @@
                             </template>
                             SSH Keys
                         </NavItem>
-                        <NavItem :href="route('my.php.index')" :active="$page.url.startsWith('/my/php')">
+                        <NavItem v-if="hasFeature('php')" :href="route('my.php.index')" :active="$page.url.startsWith('/my/php')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
@@ -440,6 +448,11 @@ defineProps({
 });
 
 const page = usePage();
+const accountFeatures = computed(() => page.props.auth?.user?.account?.features ?? []);
+const featureFallbacks = {
+    forwarders: 'email',
+    autoresponders: 'email',
+};
 
 const nudgeDismissed = ref(localStorage.getItem('2fa_nudge_dismissed') === '1');
 
@@ -474,4 +487,18 @@ const licenseDot = computed(() => ({
     suspended: 'bg-red-400',
     unknown:   'bg-gray-500',
 }[licenseStatus.value] ?? 'bg-emerald-400'));
+
+function hasFeature(feature) {
+    if (page.props.auth?.user?.roles?.includes('admin')) {
+        return true;
+    }
+
+    if (accountFeatures.value.includes(feature)) {
+        return true;
+    }
+
+    const fallback = featureFallbacks[feature];
+
+    return fallback ? accountFeatures.value.includes(fallback) : false;
+}
 </script>

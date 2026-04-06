@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Reseller;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\HostingPackage;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -40,9 +41,13 @@ class DashboardController extends Controller
         ];
 
         return Inertia::render('Reseller/Dashboard', [
-            'quota'   => $quota,
-            'used'    => $used,
+            'quota' => $quota,
+            'used' => $used,
             'clients' => $clients->take(5),
+            'packageCount' => HostingPackage::query()
+                ->where('is_active', true)
+                ->where('available_to_resellers', true)
+                ->count(),
         ]);
     }
 }

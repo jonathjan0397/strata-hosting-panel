@@ -42,6 +42,10 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $account = $request->user()?->account()
+            ->with('hostingPackage.featureList')
+            ->first();
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -51,6 +55,12 @@ class HandleInertiaRequests extends Middleware
                     'email'            => $request->user()->email,
                     'roles'            => $request->user()->getRoleNames(),
                     'two_factor_enabled' => (bool) $request->user()->two_factor_confirmed_at,
+                    'account' => $account ? [
+                        'id' => $account->id,
+                        'username' => $account->username,
+                        'hosting_package' => $account->hostingPackage?->only(['id', 'name', 'slug']),
+                        'features' => $account->enabledFeatures(),
+                    ] : null,
                 ] : null,
             ],
             'flash' => [

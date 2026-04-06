@@ -19,6 +19,9 @@
                 <Link :href="route('reseller.accounts.create')" class="btn-primary">
                     New Client Account
                 </Link>
+                <Link :href="route('reseller.packages.index')" class="btn-secondary">
+                    {{ packageCount }} Available Packages
+                </Link>
                 <Link :href="route('reseller.accounts.index')" class="btn-secondary">
                     View All Clients
                 </Link>
@@ -78,6 +81,7 @@ defineProps({
     quota:   Object,
     used:    Object,
     clients: Array,
+    packageCount: Number,
 });
 
 const QuotaMeter = defineComponent({
