@@ -314,6 +314,30 @@ class AgentClient
         return $this->node->apiUrl("/files/{$username}/download?path=" . urlencode($path));
     }
 
+    public function gitStatus(string $username, string $path = '/public_html'): Response
+    {
+        return $this->get("/git/{$username}/status?path=" . urlencode($path));
+    }
+
+    public function gitInit(string $username, string $path): Response
+    {
+        return $this->post("/git/{$username}/init", ['path' => $path]);
+    }
+
+    public function gitClone(string $username, string $path, string $remoteUrl, ?string $branch = null): Response
+    {
+        return $this->post("/git/{$username}/clone", array_filter([
+            'path' => $path,
+            'remote_url' => $remoteUrl,
+            'branch' => $branch,
+        ], fn ($value) => $value !== null && $value !== ''));
+    }
+
+    public function gitPull(string $username, string $path): Response
+    {
+        return $this->post("/git/{$username}/pull", ['path' => $path]);
+    }
+
     // ── Backups ───────────────────────────────────────────────────────────────
 
     public function backupCreate(string $username, string $type = 'full'): Response

@@ -139,5 +139,11 @@ func Routes() chi.Router {
 	r.Post("/files/{username}/extract", handleFileExtract)
 	r.Post("/files/{username}/upload", handleFileUpload)
 
+	// Git repository management (jailed to /var/www/{username}/)
+	r.Get("/git/{username}/status", handleGitStatus)
+	r.Post("/git/{username}/init", handleGitInit)
+	r.Post("/git/{username}/clone", handleGitClone)
+	r.Post("/git/{username}/pull", handleGitPull)
+
 	return r
 }

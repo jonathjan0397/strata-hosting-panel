@@ -31,6 +31,7 @@ use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\User\AutoresponderController;
 use App\Http\Controllers\User\AppInstallerController;
 use App\Http\Controllers\User\EmailFilterController;
+use App\Http\Controllers\User\GitController;
 use App\Http\Controllers\User\MetricsController;
 use App\Http\Controllers\User\SpamController as UserSpamController;
 use App\Http\Controllers\User\SshKeyController;
@@ -143,6 +144,14 @@ Route::middleware(['auth'])->group(function () {
             Route::post('files/compress', [User\FileManagerController::class, 'compress'])->name('files.compress');
             Route::post('files/extract', [User\FileManagerController::class, 'extract'])->name('files.extract');
             Route::post('files/upload', [User\FileManagerController::class, 'upload'])->name('files.upload');
+        });
+
+        Route::middleware('account.feature:git')->group(function () {
+            Route::get('git', [GitController::class, 'index'])->name('git.index');
+            Route::get('git/status', [GitController::class, 'status'])->name('git.status');
+            Route::post('git/init', [GitController::class, 'init'])->name('git.init');
+            Route::post('git/clone', [GitController::class, 'clone'])->name('git.clone');
+            Route::post('git/pull', [GitController::class, 'pull'])->name('git.pull');
         });
 
         // Email deliverability troubleshooter

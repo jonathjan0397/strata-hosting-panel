@@ -273,6 +273,14 @@
                             </template>
                             File Manager
                         </NavItem>
+                        <NavItem v-if="hasFeature('git')" :href="route('my.git.index')" :active="$page.url.startsWith('/my/git')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.008v.008H6.75V6.75Zm0 10.5h.008v.008H6.75v-.008Zm10.5-10.5h.008v.008H17.25V6.75Zm0 10.5h.008v.008H17.25v-.008ZM8.25 6.75a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm0 10.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm12-10.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm0 10.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0ZM8.25 6.75h7.5m-7.5 10.5h7.5m-9-9 1.5 7.5m9-7.5-1.5 7.5" />
+                                </svg>
+                            </template>
+                            Git
+                        </NavItem>
                         <NavItem v-if="hasFeature('deliverability')" :href="route('my.deliverability.index')" :active="$page.url.startsWith('/my/deliverability')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

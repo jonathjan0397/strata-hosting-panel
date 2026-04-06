@@ -108,13 +108,20 @@ Implemented on `code-review-fixes`:
 - user spam activity dashboard backed by Rspamd node stats
 
 ### 6. Files and Developer Tooling
-Status: `planned`
+Status: `in progress`
 
 - Git repository management
 - directory privacy
 - disk-usage explorer
 - partial/path restore from backups
 - Web Disk or equivalent
+
+Implemented on `code-review-fixes`:
+
+- package-gated user Git Version Control page
+- jailed repository inspection for account web roots
+- jailed repository init, HTTPS clone, and fast-forward pull operations
+- domain-aware path suggestions for hosted document roots
 
 ### 7. Database Breadth
 Status: `planned`

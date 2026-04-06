@@ -30,6 +30,7 @@ class FeatureList extends Model
             'databases' => 'Databases',
             'ftp' => 'FTP Accounts',
             'file_manager' => 'File Manager',
+            'git' => 'Git Version Control',
             'backups' => 'Backups',
             'metrics' => 'Metrics and Logs',
             'ssh_keys' => 'SSH Keys',
