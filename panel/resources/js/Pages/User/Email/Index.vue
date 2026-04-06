@@ -9,6 +9,9 @@
             <div>
                 <h2 class="text-base font-semibold text-gray-100">Email - {{ domain.domain }}</h2>
             </div>
+            <Link :href="route('my.email.delivery')" class="text-sm text-gray-400 transition-colors hover:text-gray-200">
+                Delivery Tracking
+            </Link>
             <Link :href="route('my.email.spam')" class="ml-auto text-sm text-indigo-400 transition-colors hover:text-indigo-300">
                 Spam Overview
             </Link>

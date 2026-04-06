@@ -106,6 +106,7 @@ Implemented on `code-review-fixes`:
 - shared Sieve compilation for filters plus autoresponders
 - user filter management UI inside the existing email workflow
 - user spam activity dashboard backed by Rspamd node stats
+- user delivery tracking against bounded postfix and dovecot log views
 
 ### 6. Files and Developer Tooling
 Status: `in progress`

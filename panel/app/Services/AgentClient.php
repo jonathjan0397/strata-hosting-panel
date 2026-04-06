@@ -491,6 +491,11 @@ class AgentClient
         return $this->get('/mail/rspamd/stats');
     }
 
+    public function mailDeliveryLog(string $query, string $service = 'postfix', int $lines = 100): Response
+    {
+        return $this->get('/mail/delivery?query=' . urlencode($query) . '&service=' . urlencode($service) . '&lines=' . $lines);
+    }
+
     // ── Database Grants ───────────────────────────────────────────────────────
 
     public function databaseGrant(string $dbName, string $dbUser, string $password): Response
