@@ -1,16 +1,12 @@
 <template>
     <AppLayout title="Backups">
-        <div class="max-w-4xl space-y-6 p-6">
-
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-lg font-semibold text-gray-100">Backups</h1>
-                    <p class="mt-0.5 text-sm text-gray-400">On-demand and scheduled backups of your files and databases.</p>
-                </div>
-
-                <!-- Trigger backup -->
-                <div class="flex items-center gap-2">
+        <div class="max-w-6xl space-y-6 p-6">
+            <PageHeader
+                eyebrow="Files"
+                title="Backups"
+                description="Create restore points, download archives, and restore a full backup or a single path when you need a targeted rollback."
+            >
+                <template #actions>
                     <select v-model="backupType" class="field text-sm">
                         <option value="full">Full backup</option>
                         <option value="files">Files only</option>
@@ -19,24 +15,32 @@
                     <button
                         @click="create"
                         :disabled="creating"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 transition-colors"
+                        class="btn-primary"
                     >
                         <span v-if="creating" class="flex items-center gap-2">
-                            <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                            Running…
+                            <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            Running...
                         </span>
                         <span v-else>Run Backup</span>
                     </button>
-                </div>
+                </template>
+            </PageHeader>
+
+            <div class="grid gap-4 md:grid-cols-4">
+                <StatCard label="Total Backups" :value="jobs.length" color="indigo" />
+                <StatCard label="Complete" :value="completeCount" color="emerald" />
+                <StatCard label="Failed" :value="failedCount" color="red" />
+                <StatCard label="Latest Status" :value="latestStatus" color="gray" />
             </div>
 
-            <!-- Info banner -->
             <div class="rounded-xl border border-indigo-700/40 bg-indigo-900/20 px-4 py-3 text-sm text-indigo-300">
-                Backups run automatically every night at 02:00. Backups are stored on the server — download them regularly for off-site protection.
+                Backups run automatically every night at 02:00. Backups are stored on the server; download them regularly for off-site protection.
             </div>
 
-            <!-- Table -->
-            <div class="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
+            <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-gray-800 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -50,45 +54,48 @@
                     </thead>
                     <tbody class="divide-y divide-gray-800">
                         <tr v-for="job in jobs" :key="job.id">
-                            <td class="px-5 py-3.5 text-gray-300 font-mono text-xs">{{ job.created_at }}</td>
+                            <td class="px-5 py-3.5 text-xs font-mono text-gray-300">{{ job.created_at }}</td>
                             <td class="px-5 py-3.5">
                                 <span :class="typeClass(job.type)" class="rounded-full px-2 py-0.5 text-xs font-semibold capitalize">
                                     {{ job.type }}
                                 </span>
                             </td>
-                            <td class="px-5 py-3.5 text-gray-400 font-mono text-xs">{{ job.size_human ?? '—' }}</td>
-                            <td class="px-5 py-3.5 text-gray-500 text-xs capitalize">{{ job.trigger }}</td>
+                            <td class="px-5 py-3.5 text-xs font-mono text-gray-400">{{ job.size_human ?? '-' }}</td>
+                            <td class="px-5 py-3.5 text-xs capitalize text-gray-500">{{ job.trigger }}</td>
                             <td class="px-5 py-3.5">
                                 <span :class="statusClass(job.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold capitalize">
                                     {{ job.status }}
                                 </span>
-                                <p v-if="job.error" class="mt-0.5 text-xs text-red-400 truncate max-w-xs" :title="job.error">{{ job.error }}</p>
+                                <p v-if="job.error" class="mt-0.5 max-w-xs truncate text-xs text-red-400" :title="job.error">{{ job.error }}</p>
                             </td>
-                            <td class="px-5 py-3.5 text-right space-x-3">
+                            <td class="space-x-3 px-5 py-3.5 text-right">
                                 <a
                                     v-if="job.status === 'complete'"
                                     :href="route('my.backups.download', job.id)"
-                                    class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                                    class="text-xs text-indigo-400 transition-colors hover:text-indigo-300"
                                 >Download</a>
                                 <button
                                     v-if="job.status === 'complete'"
                                     @click="restore(job.id)"
-                                    class="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                                    class="text-xs text-emerald-400 transition-colors hover:text-emerald-300"
                                 >Restore</button>
                                 <button
                                     v-if="job.status === 'complete' && job.type !== 'databases'"
                                     @click="openPathRestore(job)"
-                                    class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                                    class="text-xs text-cyan-400 transition-colors hover:text-cyan-300"
                                 >Restore Path</button>
                                 <button
                                     @click="remove(job.id)"
-                                    class="text-xs text-red-500 hover:text-red-400 transition-colors"
+                                    class="text-xs text-red-500 transition-colors hover:text-red-400"
                                 >Delete</button>
                             </td>
                         </tr>
                         <tr v-if="jobs.length === 0">
-                            <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-500">
-                                No backups yet. Click <strong>Run Backup</strong> to create one.
+                            <td colspan="6" class="px-5 py-8">
+                                <EmptyState
+                                    title="No backups yet"
+                                    description="Run a full, files-only, or database-only backup to create your first restore point."
+                                />
                             </td>
                         </tr>
                     </tbody>
@@ -104,7 +111,7 @@
                                 Restore one path from <span class="font-mono text-gray-300">{{ pathRestore.job.filename }}</span>.
                             </p>
                         </div>
-                        <button @click="closePathRestore" class="text-gray-500 hover:text-gray-300">×</button>
+                        <button @click="closePathRestore" class="text-gray-500 hover:text-gray-300">x</button>
                     </div>
 
                     <div class="mt-5 space-y-4">
@@ -128,7 +135,7 @@
                         <button
                             @click="restorePath"
                             :disabled="pathRestore.submitting || !pathRestore.source_path"
-                            class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
+                            class="btn-primary"
                         >
                             {{ pathRestore.submitting ? 'Restoring...' : 'Restore Path' }}
                         </button>
@@ -140,14 +147,21 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
+import EmptyState from '@/Components/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
+import StatCard from '@/Components/StatCard.vue';
 
-defineProps({ jobs: { type: Array, default: () => [] } });
+const props = defineProps({ jobs: { type: Array, default: () => [] } });
+
+const completeCount = computed(() => props.jobs.filter((job) => job.status === 'complete').length);
+const failedCount = computed(() => props.jobs.filter((job) => job.status === 'failed').length);
+const latestStatus = computed(() => props.jobs[0]?.status ?? 'None');
 
 const backupType = ref('full');
-const creating   = ref(false);
+const creating = ref(false);
 const pathRestore = ref({
     job: null,
     source_path: '',
@@ -211,8 +225,8 @@ function remove(id) {
 
 function typeClass(type) {
     return {
-        full:      'bg-indigo-900/40 text-indigo-300',
-        files:     'bg-blue-900/40 text-blue-300',
+        full: 'bg-indigo-900/40 text-indigo-300',
+        files: 'bg-blue-900/40 text-blue-300',
         databases: 'bg-purple-900/40 text-purple-300',
     }[type] ?? 'bg-gray-800 text-gray-400';
 }
@@ -220,14 +234,9 @@ function typeClass(type) {
 function statusClass(status) {
     return {
         complete: 'bg-green-900/40 text-green-400',
-        running:  'bg-yellow-900/40 text-yellow-400',
-        pending:  'bg-gray-800 text-gray-400',
-        failed:   'bg-red-900/40 text-red-400',
+        running: 'bg-yellow-900/40 text-yellow-400',
+        pending: 'bg-gray-800 text-gray-400',
+        failed: 'bg-red-900/40 text-red-400',
     }[status] ?? 'bg-gray-800 text-gray-400';
 }
 </script>
-
-<style scoped>
-@reference "tailwindcss";
-.field { @apply block rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500; }
-</style>

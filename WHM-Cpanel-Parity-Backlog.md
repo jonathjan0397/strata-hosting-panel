@@ -169,6 +169,7 @@ Implemented on `main`:
 - task-oriented reseller dashboard with package and client shortcuts
 - website/domain index and create screens converted to shared page structure
 - per-domain email workspace converted to shared page structure with diagnostics shortcuts
+- backup, database, and FTP workspaces converted to shared page structure with usage summaries and empty states
 
 ### 10. Platform and API Expansion
 Status: `planned`
