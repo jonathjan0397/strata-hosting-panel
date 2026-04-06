@@ -129,6 +129,9 @@ func RemovePHPPool(username, phpVersion string) {
 func createUser(username, homeDir string) error {
 	// Create user only if they don't already exist.
 	if _, err := exec.Command("id", username).Output(); err != nil {
+		// Remove any stale passwd lock left by a previously interrupted useradd.
+		os.Remove("/etc/.pwd.lock")
+
 		cmd := exec.Command("useradd",
 			"--home-dir", homeDir,
 			"--create-home",
