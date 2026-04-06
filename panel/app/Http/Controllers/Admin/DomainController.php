@@ -72,15 +72,16 @@ class DomainController extends Controller
 
         [$success, $error] = app(DomainProvisioner::class)->provision($domain);
 
+        if (! $success) {
+            $domain->delete();
+            return back()->with('error', "Domain saved but vhost creation failed: {$error}");
+        }
+
         AuditLog::record('domain.created', $domain, [
             'domain'      => $domain->domain,
             'account'     => $account->username,
-            'provisioned' => $success,
+            'provisioned' => true,
         ]);
-
-        if (! $success) {
-            return back()->with('error', "Domain saved but vhost creation failed: {$error}");
-        }
 
         return redirect()->route('admin.domains.show', $domain)
             ->with('success', "Domain {$domain->domain} created.");
@@ -99,14 +100,14 @@ class DomainController extends Controller
     {
         [$success, $error] = app(DomainProvisioner::class)->issueSSL($domain);
 
-        AuditLog::record('domain.ssl_issued', $domain, [
-            'domain'  => $domain->domain,
-            'success' => $success,
-        ]);
-
         if (! $success) {
             return back()->with('error', "SSL issuance failed: {$error}");
         }
+
+        AuditLog::record('domain.ssl_issued', $domain, [
+            'domain'  => $domain->domain,
+            'success' => true,
+        ]);
 
         return back()->with('success', "SSL certificate issued for {$domain->domain}.");
     }
@@ -116,15 +117,15 @@ class DomainController extends Controller
         $accountId = $domain->account_id;
         [$success, $error] = app(DomainProvisioner::class)->deprovision($domain);
 
-        AuditLog::record('domain.deleted', $domain, [
-            'domain'        => $domain->domain,
-            'deprovisioned' => $success,
-        ]);
-
         if (! $success) {
             return redirect()->route('admin.accounts.show', $accountId)
                 ->with('error', "Server cleanup failed, domain was kept in the panel: {$error}");
         }
+
+        AuditLog::record('domain.deleted', $domain, [
+            'domain'        => $domain->domain,
+            'deprovisioned' => true,
+        ]);
 
         $domain->delete();
 

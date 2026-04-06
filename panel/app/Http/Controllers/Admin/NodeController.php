@@ -109,13 +109,13 @@ class NodeController extends Controller
             return back()->with('error', 'Remove or migrate all resources from this node before deleting it.');
         }
 
-        AuditLog::record('node.deleted', $node);
-
         try {
             $node->delete();
         } catch (QueryException) {
             return back()->with('error', 'Node deletion is blocked by existing related records.');
         }
+
+        AuditLog::record('node.deleted', $node);
 
         return redirect()->route('admin.nodes.index')
             ->with('success', 'Node removed.');

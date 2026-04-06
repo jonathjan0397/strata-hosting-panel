@@ -226,3 +226,20 @@ Validation performed for this audit pass:
   - `panel/app/Http/Controllers/Admin/DatabaseController.php`
   - `panel/app/Http/Controllers/Admin/DnsController.php`
   - `panel/app/Http/Controllers/Admin/StandaloneDnsController.php`
+
+## Current Audit Pass 9
+
+This audit pass closed the remaining reseller, API, and admin false-success paths found in the final sweep:
+
+- Rolled back newly created reseller `user` and `account` rows when provisioning fails and delayed reseller account create/delete audit logs until success in `panel/app/Http/Controllers/Reseller/AccountController.php`.
+- Delayed API account termination audit logs until remote deprovision succeeds in `panel/app/Http/Controllers/Api/V1/AccountController.php`.
+- Rolled back locally created admin domains when provisioning fails and delayed admin domain create/SSL/delete audit logs until success in `panel/app/Http/Controllers/Admin/DomainController.php`.
+- Delayed node deletion audit logging until the delete actually completes in `panel/app/Http/Controllers/Admin/NodeController.php`.
+
+Validation performed for this audit pass:
+
+- PHP lint intended on:
+  - `panel/app/Http/Controllers/Reseller/AccountController.php`
+  - `panel/app/Http/Controllers/Api/V1/AccountController.php`
+  - `panel/app/Http/Controllers/Admin/DomainController.php`
+  - `panel/app/Http/Controllers/Admin/NodeController.php`

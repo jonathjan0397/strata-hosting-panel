@@ -117,11 +117,11 @@ class AccountController extends Controller
     {
         [$success, $error] = app(AccountProvisioner::class)->deprovision($account);
 
-        AuditLog::record('api.account_terminated', $account, ['username' => $account->username, 'by' => 'api']);
-
         if (! $success) {
             return response()->json(['error' => 'Server cleanup failed, account was kept in the panel: ' . $error], 502);
         }
+
+        AuditLog::record('api.account_terminated', $account, ['username' => $account->username, 'by' => 'api']);
 
         $account->user?->delete();
         $account->delete();
