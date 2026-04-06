@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -21,6 +22,10 @@ var reUsername = regexp.MustCompile(`^[a-z][a-z0-9_]{1,31}$`)
 func CreateAccount(username, password, homeDir string, uid, gid int) error {
 	if !reUsername.MatchString(username) {
 		return fmt.Errorf("invalid FTP username: %s", username)
+	}
+	homeDir = filepath.Clean(homeDir)
+	if !strings.HasPrefix(homeDir, "/var/www/") || homeDir == "/var/www" {
+		return fmt.Errorf("invalid FTP home directory: %s", homeDir)
 	}
 	if err := os.MkdirAll(homeDir, 0755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", homeDir, err)

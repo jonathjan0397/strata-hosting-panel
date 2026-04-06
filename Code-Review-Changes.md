@@ -234,6 +234,7 @@ This audit pass closed the remaining reseller, API, and admin false-success path
 - Rolled back newly created reseller `user` and `account` rows when provisioning fails and delayed reseller account create/delete audit logs until success in `panel/app/Http/Controllers/Reseller/AccountController.php`.
 - Delayed API account termination audit logs until remote deprovision succeeds in `panel/app/Http/Controllers/Api/V1/AccountController.php`.
 - Rolled back locally created admin domains when provisioning fails and delayed admin domain create/SSL/delete audit logs until success in `panel/app/Http/Controllers/Admin/DomainController.php`.
+- Delayed admin mail enable, mailbox, and forwarder audit logs until the underlying mail action succeeds in `panel/app/Http/Controllers/Admin/EmailController.php`.
 - Delayed node deletion audit logging until the delete actually completes in `panel/app/Http/Controllers/Admin/NodeController.php`.
 
 Validation performed for this audit pass:
@@ -242,4 +243,16 @@ Validation performed for this audit pass:
   - `panel/app/Http/Controllers/Reseller/AccountController.php`
   - `panel/app/Http/Controllers/Api/V1/AccountController.php`
   - `panel/app/Http/Controllers/Admin/DomainController.php`
+  - `panel/app/Http/Controllers/Admin/EmailController.php`
   - `panel/app/Http/Controllers/Admin/NodeController.php`
+
+## Current Audit Pass 10
+
+This audit pass added the last agent-side hardening change from the repo sweep:
+
+- Constrained FTP account home directories to `/var/www/...` before creating the jailed Pure-FTPd account in `agent/internal/ftp/pureftpd.go`.
+
+Validation performed for this audit pass:
+
+- `gofmt` on:
+  - `agent/internal/ftp/pureftpd.go`
