@@ -111,6 +111,59 @@ class SecurityController extends Controller
         return response()->json($response->json(), 201);
     }
 
+    public function firewallBlockIp(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'node_id' => ['required', 'exists:nodes,id'],
+            'ip' => [
+                'required',
+                'string',
+                'max:64',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $this->isIpOrCidr((string) $value)) {
+                        $fail('Enter a valid IP address or CIDR range.');
+                    }
+                },
+            ],
+        ]);
+
+        $node = Node::findOrFail($data['node_id']);
+        $response = AgentClient::for($node)->firewallBlockIp($data['ip']);
+
+        if (! $response->successful()) {
+            return response()->json(['message' => 'IP block failed: ' . $response->body()], 502);
+        }
+
+        AuditLog::record('firewall.ip_blocked', null, [
+            'node' => $node->name,
+            'ip' => $data['ip'],
+        ]);
+
+        return response()->json($response->json(), 201);
+    }
+
+    private function isIpOrCidr(string $value): bool
+    {
+        if (filter_var($value, FILTER_VALIDATE_IP)) {
+            return true;
+        }
+
+        if (! str_contains($value, '/')) {
+            return false;
+        }
+
+        [$address, $prefix] = explode('/', $value, 2);
+
+        if (! ctype_digit($prefix) || ! filter_var($address, FILTER_VALIDATE_IP)) {
+            return false;
+        }
+
+        $prefix = (int) $prefix;
+        $isIpv6 = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+
+        return $prefix >= 0 && $prefix <= ($isIpv6 ? 128 : 32);
+    }
+
     public function firewallDelete(Request $request): JsonResponse
     {
         $data = $request->validate([

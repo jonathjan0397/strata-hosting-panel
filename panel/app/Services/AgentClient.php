@@ -419,6 +419,16 @@ class AgentClient
         ]);
     }
 
+    public function firewallBlockIp(string $ip): Response
+    {
+        return $this->post('/firewall/rules', [
+            'type' => 'deny',
+            'port' => '',
+            'proto' => '',
+            'from' => $ip,
+        ]);
+    }
+
     public function firewallDeleteRule(int $number): Response
     {
         return $this->delete("/firewall/rules/{$number}");

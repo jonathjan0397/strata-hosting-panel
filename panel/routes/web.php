@@ -300,6 +300,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('security/firewall', [SecurityController::class, 'firewallIndex'])->name('security.firewall');
         Route::get('security/firewall/rules', [SecurityController::class, 'firewallRules'])->name('security.firewall.rules');
         Route::post('security/firewall/rules', [SecurityController::class, 'firewallAdd'])->name('security.firewall.add');
+        Route::post('security/firewall/block-ip', [SecurityController::class, 'firewallBlockIp'])->name('security.firewall.block-ip');
         Route::delete('security/firewall/rules', [SecurityController::class, 'firewallDelete'])->name('security.firewall.delete');
 
         // OS updates

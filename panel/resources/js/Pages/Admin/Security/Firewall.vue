@@ -34,6 +34,26 @@
                 <!-- Error -->
                 <div v-if="error" class="rounded-xl border border-red-700/40 bg-red-900/20 px-4 py-2.5 text-sm text-red-300">{{ error }}</div>
 
+                <!-- IP blocker -->
+                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                    <div class="mb-4">
+                        <h2 class="text-sm font-semibold text-gray-300">IP Blocker</h2>
+                        <p class="mt-1 text-xs text-gray-500">Deny all inbound traffic from an IP address or CIDR range on this node.</p>
+                    </div>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">IP address or CIDR</label>
+                            <input v-model="blockForm.ip" type="text" placeholder="203.0.113.10 or 203.0.113.0/24" class="field w-72" @keyup.enter="blockIp" />
+                        </div>
+                        <button
+                            @click="blockIp"
+                            :disabled="blocking || !blockForm.ip"
+                            class="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60 transition-colors"
+                        >{{ blocking ? 'Blocking...' : 'Block IP' }}</button>
+                    </div>
+                    <p v-if="blockError" class="mt-2 text-xs text-red-400">{{ blockError }}</p>
+                </div>
+
                 <!-- Add rule form -->
                 <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                     <h2 class="text-sm font-semibold text-gray-300 mb-4">Add Rule</h2>
@@ -185,8 +205,11 @@ const loading  = ref(false);
 const error    = ref('');
 const adding   = ref(false);
 const addError = ref('');
+const blocking = ref(false);
+const blockError = ref('');
 
 const form = ref({ type: 'allow', port: '', proto: '', from: '' });
+const blockForm = ref({ ip: '' });
 
 // Fail2ban state
 const f2bJails   = ref([]);
@@ -225,6 +248,29 @@ async function addRule() {
         addError.value = 'Request failed.';
     } finally {
         adding.value = false;
+    }
+}
+
+async function blockIp() {
+    blockError.value = '';
+    blocking.value = true;
+    try {
+        const res = await fetch(route('admin.security.firewall.block-ip'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
+            body: JSON.stringify({ node_id: selectedNode.value, ip: blockForm.value.ip }),
+        });
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            blockError.value = d.message ?? 'Error blocking IP.';
+        } else {
+            blockForm.value.ip = '';
+            await loadRules();
+        }
+    } catch (e) {
+        blockError.value = 'Request failed.';
+    } finally {
+        blocking.value = false;
     }
 }
 

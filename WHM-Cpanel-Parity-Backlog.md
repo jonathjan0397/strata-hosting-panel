@@ -148,6 +148,7 @@ Status: `in progress`
 Implemented on `main`:
 
 - package-gated domain hotlink protection with nginx/apache vhost rules
+- admin IP blocker backed by UFW deny-from rules
 
 ### 9. UX and Navigation
 Status: `planned`

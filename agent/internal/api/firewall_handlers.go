@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net"
 	"net/http"
 	"os/exec"
 	"regexp"
@@ -69,12 +70,6 @@ func handleFirewallAddRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	portRe := regexp.MustCompile(`^\d{1,5}(:\d{1,5})?$`)
-	if !portRe.MatchString(req.Port) {
-		http.Error(w, "invalid port", http.StatusBadRequest)
-		return
-	}
-
 	if req.Proto != "" && req.Proto != "tcp" && req.Proto != "udp" {
 		http.Error(w, "proto must be tcp, udp, or empty", http.StatusBadRequest)
 		return
@@ -82,16 +77,28 @@ func handleFirewallAddRule(w http.ResponseWriter, r *http.Request) {
 
 	var args []string
 	if req.From != "" {
-		fromRe := regexp.MustCompile(`^[\d.:a-fA-F/]+$`)
-		if !fromRe.MatchString(req.From) {
+		if !validFirewallAddress(req.From) {
 			http.Error(w, "invalid from address", http.StatusBadRequest)
 			return
 		}
-		args = []string{req.Type, "from", req.From, "to", "any", "port", req.Port}
-		if req.Proto != "" {
-			args = append(args, "proto", req.Proto)
+
+		if req.Port == "" {
+			args = []string{req.Type, "from", req.From}
+		} else {
+			if !validFirewallPort(req.Port) {
+				http.Error(w, "invalid port", http.StatusBadRequest)
+				return
+			}
+			args = []string{req.Type, "from", req.From, "to", "any", "port", req.Port}
+			if req.Proto != "" {
+				args = append(args, "proto", req.Proto)
+			}
 		}
 	} else {
+		if req.Port == "" || !validFirewallPort(req.Port) {
+			http.Error(w, "invalid port", http.StatusBadRequest)
+			return
+		}
 		rule := req.Port
 		if req.Proto != "" {
 			rule = req.Port + "/" + req.Proto
@@ -131,6 +138,19 @@ func handleFirewallDeleteRule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func validFirewallAddress(value string) bool {
+	if net.ParseIP(value) != nil {
+		return true
+	}
+
+	_, _, err := net.ParseCIDR(value)
+	return err == nil
+}
+
+func validFirewallPort(value string) bool {
+	return regexp.MustCompile(`^\d{1,5}(:\d{1,5})?$`).MatchString(value)
 }
 
 var ufwRuleRe = regexp.MustCompile(`\[\s*(\d+)\]\s+(.+?)\s{2,}(ALLOW IN|DENY IN|REJECT IN|ALLOW OUT|DENY OUT|LIMIT IN|ALLOW|DENY|REJECT)\s+(.+)`)
