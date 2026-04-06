@@ -18,7 +18,7 @@ class AdminWebsiteController extends Controller
     public function index(Request $request): Response
     {
         $account = $request->user()
-            ->accounts()
+            ->account()
             ->with(['node', 'domains'])
             ->first();
 
@@ -43,7 +43,7 @@ class AdminWebsiteController extends Controller
 
     public function provision(Request $request): RedirectResponse
     {
-        if ($request->user()->accounts()->exists()) {
+        if ($request->user()->account()->exists()) {
             return back()->with('error', 'A website is already provisioned for your account.');
         }
 
@@ -101,7 +101,7 @@ class AdminWebsiteController extends Controller
 
     public function deprovision(Request $request): RedirectResponse
     {
-        $account = $request->user()->accounts()->with(['node', 'domains'])->first();
+        $account = $request->user()->account()->with(['node', 'domains'])->first();
 
         if (! $account) {
             return back()->with('error', 'No website is currently provisioned.');
