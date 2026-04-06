@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jonathjan0397/strata-panel/agent/internal/php"
 )
@@ -107,9 +108,12 @@ func Deprovision(username string) error {
 		return fmt.Errorf("remove www: %w", err)
 	}
 
-	// userdel -r removes home directory too
+	// userdel -r removes home directory too.
+	// Clear lock before and after — Debian shadow-utils leaves it behind.
+	clearPasswdLock()
 	cmd := exec.Command("userdel", "-r", username)
 	out, err := cmd.CombinedOutput()
+	clearPasswdLock()
 	if err != nil && !strings.Contains(string(out), "does not exist") {
 		return fmt.Errorf("userdel: %w — %s", err, string(out))
 	}
@@ -126,29 +130,52 @@ func RemovePHPPool(username, phpVersion string) {
 	php.RemovePool(username, phpVersion) //nolint:errcheck
 }
 
+// clearPasswdLock removes /etc/.pwd.lock if present. This Debian shadow-utils
+// version has a bug where useradd/usermod/userdel leave the lock file behind
+// after successful exit, causing subsequent callers to fail.
+func clearPasswdLock() { os.Remove("/etc/.pwd.lock") } //nolint:errcheck
+
 func createUser(username, homeDir string) error {
+	// Always clear any stale lock before touching the user database.
+	clearPasswdLock()
+
 	// Create user only if they don't already exist.
 	if _, err := exec.Command("id", username).Output(); err != nil {
-		// Remove any stale passwd lock left by a previously interrupted useradd.
-		os.Remove("/etc/.pwd.lock")
-
-		cmd := exec.Command("useradd",
+		out, err2 := exec.Command("useradd",
 			"--home-dir", homeDir,
 			"--create-home",
 			"--shell", "/sbin/nologin",
 			"--user-group",
 			username,
-		)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("%w: %s", err, string(out))
+		).CombinedOutput()
+		if err2 != nil {
+			// Retry once: some Debian shadow-utils versions leave a stale lock
+			// even after the previous caller exited cleanly.
+			if strings.Contains(string(out), "cannot lock") {
+				clearPasswdLock()
+				time.Sleep(150 * time.Millisecond)
+				out, err2 = exec.Command("useradd",
+					"--home-dir", homeDir,
+					"--create-home",
+					"--shell", "/sbin/nologin",
+					"--user-group",
+					username,
+				).CombinedOutput()
+			}
+			if err2 != nil {
+				return fmt.Errorf("%w: %s", err2, strings.TrimSpace(string(out)))
+			}
 		}
+		// useradd on this Debian version leaves the lock file — clear it.
+		clearPasswdLock()
 	}
 
-	// Always ensure www-data is in the user's group so Nginx can read their files.
+	// Always ensure www-data is in the user's group so the web server can read files.
+	clearPasswdLock()
 	if out, err := exec.Command("usermod", "-aG", username, "www-data").CombinedOutput(); err != nil {
-		return fmt.Errorf("usermod www-data: %w: %s", err, string(out))
+		return fmt.Errorf("usermod www-data: %w: %s", err, strings.TrimSpace(string(out)))
 	}
+	clearPasswdLock()
 	return nil
 }
 
