@@ -1,61 +1,77 @@
 <template>
     <AppLayout title="Add Domain">
-        <div class="mb-5 flex items-center gap-3">
-            <Link :href="route('my.domains.index')" class="text-gray-500 hover:text-gray-300 transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                </svg>
-            </Link>
-            <h2 class="text-base font-semibold text-gray-100">Add Domain</h2>
-        </div>
+        <PageHeader
+            eyebrow="Websites"
+            title="Add Domain"
+            description="Create a hosted domain, choose the site type, and assign the PHP runtime used by the vhost."
+        >
+            <template #actions>
+                <Link :href="route('my.domains.index')" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800">
+                    Back to Domains
+                </Link>
+            </template>
+        </PageHeader>
 
-        <div class="max-w-lg rounded-xl border border-gray-800 bg-gray-900 p-6">
-            <form @submit.prevent="submit" class="space-y-5">
-                <FormField label="Domain name" :error="form.errors.domain">
-                    <input
-                        v-model="form.domain"
-                        type="text"
-                        placeholder="example.com"
-                        class="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
-                    />
-                </FormField>
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,32rem)_1fr]">
+            <div class="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <form @submit.prevent="submit" class="space-y-5">
+                    <FormField label="Domain name" :error="form.errors.domain">
+                        <input
+                            v-model="form.domain"
+                            type="text"
+                            placeholder="example.com"
+                            class="field w-full"
+                        />
+                    </FormField>
 
-                <FormField label="Type" :error="form.errors.type">
-                    <select
-                        v-model="form.type"
-                        class="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
-                    >
-                        <option value="addon">Addon domain</option>
-                        <option value="subdomain">Subdomain</option>
-                        <option value="parked">Parked (alias)</option>
-                    </select>
-                </FormField>
+                    <FormField label="Type" :error="form.errors.type">
+                        <select v-model="form.type" class="field w-full">
+                            <option value="addon">Addon domain</option>
+                            <option value="subdomain">Subdomain</option>
+                            <option value="parked">Parked (alias)</option>
+                        </select>
+                    </FormField>
 
-                <FormField label="PHP version" :error="form.errors.php_version">
-                    <select
-                        v-model="form.php_version"
-                        class="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
-                    >
-                        <option v-for="v in phpVersions" :key="v" :value="v">PHP {{ v }}</option>
-                    </select>
-                </FormField>
+                    <FormField label="PHP version" :error="form.errors.php_version">
+                        <select v-model="form.php_version" class="field w-full">
+                            <option v-for="v in phpVersions" :key="v" :value="v">PHP {{ v }}</option>
+                        </select>
+                    </FormField>
 
-                <div class="flex justify-end gap-3 pt-2">
-                    <Link
-                        :href="route('my.domains.index')"
-                        class="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
-                    >
-                        Cancel
-                    </Link>
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
-                    >
-                        Add Domain
-                    </button>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <Link
+                            :href="route('my.domains.index')"
+                            class="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+                        >
+                            Cancel
+                        </Link>
+                        <button type="submit" :disabled="form.processing" class="btn-primary">
+                            {{ form.processing ? 'Adding...' : 'Add Domain' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <h3 class="text-sm font-semibold text-gray-200">Domain Types</h3>
+                <div class="mt-4 space-y-4 text-sm text-gray-400">
+                    <div>
+                        <p class="font-semibold text-gray-200">Addon domain</p>
+                        <p class="mt-1">Hosts a separate website under this account.</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-200">Subdomain</p>
+                        <p class="mt-1">Creates a child host like <span class="font-mono">blog.example.com</span>.</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-200">Parked alias</p>
+                        <p class="mt-1">Points another domain name at an existing site.</p>
+                    </div>
                 </div>
-            </form>
+                <div class="mt-5 rounded-lg border border-indigo-800/50 bg-indigo-900/20 p-4 text-sm text-indigo-200">
+                    After creation, manage SSL, redirects, directory privacy, and hotlink protection from the domain detail page.
+                </div>
+            </div>
         </div>
     </AppLayout>
 </template>
@@ -65,6 +81,7 @@ import { Link } from '@inertiajs/vue3';
 import { useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import FormField from '@/Components/FormField.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({
     phpVersions: Array,

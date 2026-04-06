@@ -1,17 +1,23 @@
 <template>
     <AppLayout title="My Domains">
-        <div class="mb-5 flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-gray-300">Domains ({{ domains.length }})</h2>
-            <Link
-                :href="route('my.domains.create')"
-                class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
-            >
-                + Add Domain
-            </Link>
+        <PageHeader
+            eyebrow="Websites"
+            title="Domains"
+            description="Manage hosted domains, SSL, PHP versions, redirects, directory privacy, and hotlink protection from one place."
+        >
+            <template #actions>
+                <Link :href="route('my.domains.create')" class="btn-primary">Add Domain</Link>
+            </template>
+        </PageHeader>
+
+        <div class="mb-5 grid gap-4 sm:grid-cols-3">
+            <StatCard label="Total Domains" :value="domains.length" color="indigo" />
+            <StatCard label="SSL Active" :value="sslActiveCount" color="emerald" />
+            <StatCard label="Default PHP" :value="account.php_version" color="gray" />
         </div>
 
         <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
-            <table class="min-w-full divide-y divide-gray-800">
+            <table v-if="domains.length" class="min-w-full divide-y divide-gray-800">
                 <thead>
                     <tr>
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Domain</th>
@@ -38,24 +44,33 @@
                             </Link>
                         </td>
                     </tr>
-                    <tr v-if="domains.length === 0">
-                        <td colspan="5" class="px-5 py-10 text-center text-sm text-gray-500">
-                            No domains yet.
-                            <Link :href="route('my.domains.create')" class="text-indigo-400 hover:underline ml-1">Add one</Link>
-                        </td>
-                    </tr>
                 </tbody>
             </table>
+            <EmptyState
+                v-else
+                title="No domains yet"
+                description="Add your first domain to begin configuring SSL, email, DNS, redirects, and website security."
+            >
+                <template #actions>
+                    <Link :href="route('my.domains.create')" class="btn-primary">Add Domain</Link>
+                </template>
+            </EmptyState>
         </div>
     </AppLayout>
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
+import PageHeader from '@/Components/PageHeader.vue';
+import StatCard from '@/Components/StatCard.vue';
 
-defineProps({
+const props = defineProps({
     account: Object,
     domains: Array,
 });
+
+const sslActiveCount = computed(() => props.domains.filter((domain) => domain.ssl_enabled).length);
 </script>

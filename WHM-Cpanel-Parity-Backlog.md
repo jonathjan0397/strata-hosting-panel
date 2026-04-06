@@ -167,6 +167,7 @@ Implemented on `main`:
 - task-oriented user hosting dashboard with common workflow shortcuts
 - task-oriented admin dashboard with WHM-style operational shortcuts
 - task-oriented reseller dashboard with package and client shortcuts
+- website/domain index and create screens converted to shared page structure
 
 ### 10. Platform and API Expansion
 Status: `planned`
