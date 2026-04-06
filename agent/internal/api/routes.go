@@ -128,6 +128,7 @@ func Routes() chi.Router {
 
 	// File manager (jailed to /var/www/{username}/)
 	r.Get("/files/{username}", handleFileList)
+	r.Get("/files/{username}/disk-usage", handleFileDiskUsage)
 	r.Get("/files/{username}/read", handleFileRead)
 	r.Get("/files/{username}/tail", handleFileTail)
 	r.Get("/files/{username}/download", handleFileDownload)

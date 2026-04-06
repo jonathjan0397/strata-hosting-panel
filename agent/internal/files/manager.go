@@ -63,6 +63,24 @@ type Entry struct {
 	ModTime time.Time `json:"mod_time"`
 }
 
+type UsageEntry struct {
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	IsDir bool   `json:"is_dir"`
+	Size  int64  `json:"size"`
+	Files int    `json:"files"`
+	Dirs  int    `json:"dirs"`
+}
+
+type UsageSummary struct {
+	Path       string       `json:"path"`
+	Size      int64        `json:"size"`
+	Files     int          `json:"files"`
+	Dirs      int          `json:"dirs"`
+	Truncated bool         `json:"truncated"`
+	Entries   []UsageEntry `json:"entries"`
+}
+
 // List returns the contents of a directory (non-recursive).
 func List(username, relPath string) ([]Entry, error) {
 	abs, err := Resolve(username, relPath)
@@ -104,6 +122,124 @@ func List(username, relPath string) ([]Entry, error) {
 	})
 
 	return result, nil
+}
+
+func DiskUsage(username, relPath string, maxWalkEntries int) (UsageSummary, error) {
+	abs, err := Resolve(username, relPath)
+	if err != nil {
+		return UsageSummary{}, err
+	}
+
+	info, err := os.Stat(abs)
+	if err != nil {
+		return UsageSummary{}, err
+	}
+	if !info.IsDir() {
+		return UsageSummary{}, fmt.Errorf("path is not a directory")
+	}
+
+	if maxWalkEntries <= 0 {
+		maxWalkEntries = 100000
+	}
+
+	root := JailRoot(username)
+	rel, _ := filepath.Rel(root, abs)
+	displayPath := "/"
+	if rel != "." {
+		displayPath = "/" + filepath.ToSlash(rel)
+	}
+
+	summary := UsageSummary{
+		Path:    displayPath,
+		Entries: make([]UsageEntry, 0),
+	}
+
+	children, err := os.ReadDir(abs)
+	if err != nil {
+		return UsageSummary{}, err
+	}
+
+	walked := 0
+	for _, child := range children {
+		childAbs := filepath.Join(abs, child.Name())
+		childRel, _ := filepath.Rel(root, childAbs)
+		entry := UsageEntry{
+			Name:  child.Name(),
+			Path:  "/" + filepath.ToSlash(childRel),
+			IsDir: child.IsDir(),
+		}
+
+		usage, truncated, err := measureUsage(childAbs, maxWalkEntries-walked)
+		if err != nil {
+			continue
+		}
+		walked += usage.Files + usage.Dirs + 1
+		if truncated || walked >= maxWalkEntries {
+			summary.Truncated = true
+		}
+
+		entry.Size = usage.Size
+		entry.Files = usage.Files
+		entry.Dirs = usage.Dirs
+		summary.Size += usage.Size
+		summary.Files += usage.Files
+		summary.Dirs += usage.Dirs
+		summary.Entries = append(summary.Entries, entry)
+
+		if summary.Truncated {
+			break
+		}
+	}
+
+	sort.Slice(summary.Entries, func(i, j int) bool {
+		return summary.Entries[i].Size > summary.Entries[j].Size
+	})
+
+	return summary, nil
+}
+
+func measureUsage(abs string, remaining int) (UsageEntry, bool, error) {
+	if remaining <= 0 {
+		return UsageEntry{}, true, nil
+	}
+
+	usage := UsageEntry{}
+	walked := 0
+	truncated := false
+
+	err := filepath.WalkDir(abs, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if walked >= remaining {
+			truncated = true
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		walked++
+
+		info, err := entry.Info()
+		if err != nil {
+			return nil
+		}
+
+		usage.Size += info.Size()
+		if entry.IsDir() {
+			usage.Dirs++
+		} else {
+			usage.Files++
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return UsageEntry{}, truncated, err
+	}
+
+	return usage, truncated, nil
 }
 
 // ReadFile returns the content of a text file (capped at 2 MB).

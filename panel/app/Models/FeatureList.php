@@ -32,6 +32,7 @@ class FeatureList extends Model
             'file_manager' => 'File Manager',
             'git' => 'Git Version Control',
             'directory_privacy' => 'Directory Privacy',
+            'disk_usage' => 'Disk Usage',
             'backups' => 'Backups',
             'metrics' => 'Metrics and Logs',
             'ssh_keys' => 'SSH Keys',

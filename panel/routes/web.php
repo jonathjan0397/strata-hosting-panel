@@ -32,6 +32,7 @@ use App\Http\Controllers\User\AutoresponderController;
 use App\Http\Controllers\User\AppInstallerController;
 use App\Http\Controllers\User\EmailFilterController;
 use App\Http\Controllers\User\DeliveryController;
+use App\Http\Controllers\User\DiskUsageController;
 use App\Http\Controllers\User\GitController;
 use App\Http\Controllers\User\MetricsController;
 use App\Http\Controllers\User\SpamController as UserSpamController;
@@ -152,6 +153,11 @@ Route::middleware(['auth'])->group(function () {
             Route::post('files/compress', [User\FileManagerController::class, 'compress'])->name('files.compress');
             Route::post('files/extract', [User\FileManagerController::class, 'extract'])->name('files.extract');
             Route::post('files/upload', [User\FileManagerController::class, 'upload'])->name('files.upload');
+        });
+
+        Route::middleware('account.feature:disk_usage')->group(function () {
+            Route::get('disk-usage', [DiskUsageController::class, 'index'])->name('disk-usage.index');
+            Route::get('disk-usage/show', [DiskUsageController::class, 'show'])->name('disk-usage.show');
         });
 
         Route::middleware('account.feature:git')->group(function () {

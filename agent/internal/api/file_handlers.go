@@ -34,6 +34,24 @@ func handleFileList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ── Disk usage ────────────────────────────────────────────────────────────────
+
+func handleFileDiskUsage(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		path = "/"
+	}
+
+	usage, err := files.DiskUsage(username, path, 100000)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	respond(w, http.StatusOK, usage)
+}
+
 // ── Read file ─────────────────────────────────────────────────────────────────
 
 func handleFileRead(w http.ResponseWriter, r *http.Request) {

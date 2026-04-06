@@ -260,6 +260,11 @@ class AgentClient
         return $this->get("/files/{$username}?path=" . urlencode($path));
     }
 
+    public function fileDiskUsage(string $username, string $path = '/'): Response
+    {
+        return $this->get("/files/{$username}/disk-usage?path=" . urlencode($path));
+    }
+
     public function fileRead(string $username, string $path): Response
     {
         return $this->get("/files/{$username}/read?path=" . urlencode($path));

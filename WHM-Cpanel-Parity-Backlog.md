@@ -124,6 +124,7 @@ Implemented on `code-review-fixes`:
 - jailed repository init, HTTPS clone, and fast-forward pull operations
 - domain-aware path suggestions for hosted document roots
 - domain-level directory privacy with hashed credentials and reprovision-backed auth rules
+- package-gated disk-usage explorer with bounded account-jail scanning
 
 ### 7. Database Breadth
 Status: `planned`
