@@ -5,8 +5,8 @@
 ### Added — Agent hardening
 
 **Agent**
-- Auto-install UFW if not present: `ensureUFW()` runs `apt-get install -y ufw`, applies safe default rules (deny incoming, allow 22/80/443/8743), and enables on first firewall API call
-- Auto-install fail2ban if not present: `ensureFail2ban()` runs `apt-get install -y fail2ban` and enables the service on first fail2ban API call
+- Firewall APIs now require `ufw` to already be installed on the node instead of auto-installing and enabling it during status reads
+- Fail2ban APIs now require `fail2ban-client` to already be installed on the node instead of auto-installing and enabling fail2ban during status reads
 - OS update handler now runs `apt-get update -q` before `apt-get upgrade` to refresh the package index and prevent stale-metadata failures
 
 ### Added — Admin features

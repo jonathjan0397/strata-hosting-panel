@@ -142,3 +142,23 @@ Validation performed for this audit pass:
   - `panel/app/Http/Controllers/User/DnsController.php`
   - `panel/app/Http/Controllers/User/DomainController.php`
   - `panel/app/Http/Controllers/Admin/AdminWebsiteController.php`
+
+## Current Audit Pass 4
+
+This audit pass addressed security mutation-on-read behavior, backup transport hardening, and the remaining app-installer route mismatches:
+
+- Removed UFW auto-install and auto-enable behavior from the agent and changed firewall reads and writes to return a service-unavailable error when `ufw` is not installed in `agent/internal/api/firewall_handlers.go`.
+- Removed fail2ban auto-install and auto-enable behavior from the agent and changed status and unban requests to return a service-unavailable error when `fail2ban-client` is not installed in `agent/internal/api/fail2ban_handlers.go`.
+- Added `currently_failed` parsing to the fail2ban jail payload in `agent/internal/api/fail2ban_handlers.go` so the admin firewall UI receives the field it already expects.
+- Removed `StrictHostKeyChecking=no` from SFTP backup pushes in `agent/internal/api/remote_backup_handlers.go` so remote backup transfers require normal SSH host-key verification.
+- Corrected the remaining app installer route names from `user.apps.*` to `my.apps.*` in:
+  - `panel/resources/js/Layouts/AppLayout.vue`
+  - `panel/resources/js/Pages/User/Apps/Catalog.vue`
+  - `panel/resources/js/Pages/User/Apps/MyApps.vue`
+
+Validation performed for this audit pass:
+
+- `gofmt` on:
+  - `agent/internal/api/firewall_handlers.go`
+  - `agent/internal/api/fail2ban_handlers.go`
+  - `agent/internal/api/remote_backup_handlers.go`

@@ -162,7 +162,7 @@ function openInstall(slug, app) {
 }
 
 function submitInstall() {
-    form.post(route('user.apps.install'), {
+    form.post(route('my.apps.install'), {
         onSuccess: () => { installing.value = null; },
     });
 }

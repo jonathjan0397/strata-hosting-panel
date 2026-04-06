@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"os/exec"
 	"regexp"
@@ -18,32 +17,17 @@ type firewallRule struct {
 	From   string `json:"from"`
 }
 
-// ensureUFW installs and enables UFW if not present. Returns an error string on failure.
-func ensureUFW() error {
-	if _, err := exec.LookPath("ufw"); err == nil {
-		return nil
-	}
+// requireUFW returns an error when ufw is unavailable on the node.
+func requireUFW() error {
+	_, err := exec.LookPath("ufw")
 	// Not found — try to install
-	out, err := exec.Command("apt-get", "install", "-y", "ufw").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("ufw not installed and auto-install failed: %s", strings.TrimSpace(string(out)))
-	}
-	// Enable with default-deny incoming, allow outgoing
-	exec.Command("ufw", "default", "deny", "incoming").Run()
-	exec.Command("ufw", "default", "allow", "outgoing").Run()
-	// Always allow SSH before enabling so we don't lock ourselves out
-	exec.Command("ufw", "allow", "22/tcp").Run()
-	exec.Command("ufw", "allow", "80/tcp").Run()
-	exec.Command("ufw", "allow", "443/tcp").Run()
-	exec.Command("ufw", "allow", "8743/tcp").Run()
-	exec.Command("ufw", "--force", "enable").Run()
-	return nil
+	return err
 }
 
 // GET /v1/firewall/rules
 func handleFirewallRules(w http.ResponseWriter, r *http.Request) {
-	if err := ensureUFW(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := requireUFW(); err != nil {
+		http.Error(w, "ufw is not installed", http.StatusServiceUnavailable)
 		return
 	}
 	out, err := exec.Command("ufw", "status", "numbered").Output()
@@ -66,8 +50,8 @@ func handleFirewallRules(w http.ResponseWriter, r *http.Request) {
 
 // POST /v1/firewall/rules
 func handleFirewallAddRule(w http.ResponseWriter, r *http.Request) {
-	if err := ensureUFW(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := requireUFW(); err != nil {
+		http.Error(w, "ufw is not installed", http.StatusServiceUnavailable)
 		return
 	}
 	var req struct {
@@ -129,8 +113,8 @@ func handleFirewallAddRule(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /v1/firewall/rules/{number}
 func handleFirewallDeleteRule(w http.ResponseWriter, r *http.Request) {
-	if err := ensureUFW(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := requireUFW(); err != nil {
+		http.Error(w, "ufw is not installed", http.StatusServiceUnavailable)
 		return
 	}
 	numStr := chi.URLParam(r, "number")

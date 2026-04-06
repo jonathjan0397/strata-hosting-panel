@@ -2,35 +2,29 @@ package api
 
 import (
 	"bufio"
-	"fmt"
 	"net/http"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
 type fail2banJail struct {
-	Name        string   `json:"name"`
-	TotalBanned int      `json:"total_banned"`
-	BannedIPs   []string `json:"banned_ips"`
+	Name            string   `json:"name"`
+	CurrentlyFailed int      `json:"currently_failed"`
+	TotalBanned     int      `json:"total_banned"`
+	BannedIPs       []string `json:"banned_ips"`
 }
 
-func ensureFail2ban() error {
-	if _, err := exec.LookPath("fail2ban-client"); err == nil {
-		return nil
-	}
-	out, err := exec.Command("apt-get", "install", "-y", "fail2ban").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("fail2ban not installed and auto-install failed: %s", strings.TrimSpace(string(out)))
-	}
-	exec.Command("systemctl", "enable", "--now", "fail2ban").Run()
-	return nil
+func requireFail2ban() error {
+	_, err := exec.LookPath("fail2ban-client")
+	return err
 }
 
 // GET /fail2ban/status — returns all jails and their banned IPs.
 func handleFail2BanStatus(w http.ResponseWriter, r *http.Request) {
-	if err := ensureFail2ban(); err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+	if err := requireFail2ban(); err != nil {
+		http.Error(w, "fail2ban is not installed", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -51,8 +45,8 @@ func handleFail2BanStatus(w http.ResponseWriter, r *http.Request) {
 
 // POST /fail2ban/unban — body: {"jail":"sshd","ip":"1.2.3.4"}
 func handleFail2BanUnban(w http.ResponseWriter, r *http.Request) {
-	if err := ensureFail2ban(); err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+	if err := requireFail2ban(); err != nil {
+		http.Error(w, "fail2ban is not installed", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -106,6 +100,11 @@ func getFail2BanJailStatus(jail string) fail2banJail {
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
+		if strings.Contains(line, "Currently failed:") {
+			if value, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "Currently failed:"))); err == nil {
+				result.CurrentlyFailed = value
+			}
+		}
 		if strings.Contains(line, "Banned IP list:") {
 			idx := strings.Index(line, ":") + 1
 			for _, ip := range strings.Fields(line[idx:]) {

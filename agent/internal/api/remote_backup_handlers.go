@@ -81,7 +81,6 @@ func pushSFTP(localPath, host, port, user, remotePath, privateKey, filename stri
 	cmd := exec.Command("scp",
 		"-P", port,
 		"-i", keyFile.Name(),
-		"-o", "StrictHostKeyChecking=no",
 		"-o", "BatchMode=yes",
 		localPath,
 		dest,

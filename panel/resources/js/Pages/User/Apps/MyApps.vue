@@ -5,7 +5,7 @@
                 <h2 class="text-lg font-semibold text-gray-100">My Installed Apps</h2>
                 <p class="text-sm text-gray-400 mt-0.5">Manage your installed applications.</p>
             </div>
-            <Link :href="route('user.apps.catalog')" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
+            <Link :href="route('my.apps.catalog')" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
                 + Install App
             </Link>
         </div>
@@ -13,7 +13,7 @@
         <div v-if="installations.length === 0"
             class="rounded-xl border border-gray-800 bg-gray-900 px-6 py-16 text-center">
             <p class="text-sm text-gray-500">No apps installed yet.</p>
-            <Link :href="route('user.apps.catalog')" class="mt-3 inline-block text-sm text-indigo-400 hover:text-indigo-300">
+            <Link :href="route('my.apps.catalog')" class="mt-3 inline-block text-sm text-indigo-400 hover:text-indigo-300">
                 Browse the app catalog →
             </Link>
         </div>
@@ -88,7 +88,7 @@
 
                         <!-- Delete -->
                         <ConfirmButton
-                            :href="route('user.apps.destroy', inst.id)"
+                            :href="route('my.apps.destroy', inst.id)"
                             method="delete"
                             label="Remove"
                             :confirm-message="`Remove ${inst.app_name} from ${inst.site_url}? App files and database will be deleted.`"
@@ -131,11 +131,11 @@ function borderClass(status) {
 }
 
 function toggleAutoUpdate(inst) {
-    router.patch(route('user.apps.auto-update', inst.id));
+    router.patch(route('my.apps.auto-update', inst.id));
 }
 
 function updateApp(inst) {
-    router.post(route('user.apps.update', inst.id));
+    router.post(route('my.apps.update', inst.id));
 }
 
 // Status badge component inline
