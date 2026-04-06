@@ -521,14 +521,14 @@ class AgentClient
 
     // ── Database Grants ───────────────────────────────────────────────────────
 
-    public function databaseGrant(string $dbName, string $dbUser, string $password): Response
+    public function databaseGrant(string $dbName, string $dbUser, string $password, string $host = 'localhost'): Response
     {
-        return $this->post('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'password' => $password]);
+        return $this->post('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'password' => $password, 'host' => $host]);
     }
 
-    public function databaseRevoke(string $dbName, string $dbUser, bool $deleteUser = false): Response
+    public function databaseRevoke(string $dbName, string $dbUser, bool $deleteUser = false, string $host = 'localhost'): Response
     {
-        return $this->delete_with_body('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'delete_user' => $deleteUser]);
+        return $this->delete_with_body('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'delete_user' => $deleteUser, 'host' => $host]);
     }
 
     // ── App Installer ─────────────────────────────────────────────────────────

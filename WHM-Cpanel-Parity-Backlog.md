@@ -133,11 +133,16 @@ Implemented on `main`:
 - file/directory path restore from completed files/full backups
 
 ### 7. Database Breadth
-Status: `planned`
+Status: `in progress`
 
 - PostgreSQL support
 - remote database access management
 - phpMyAdmin/phpPgAdmin integration
+
+Implemented on `main`:
+
+- host-scoped MariaDB grants for localhost or remote hosts
+- user-facing remote database access management in the Databases workspace
 
 ## Phase 3: Advanced Platform Parity
 

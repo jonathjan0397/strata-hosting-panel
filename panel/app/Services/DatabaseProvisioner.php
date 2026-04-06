@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Account;
+use App\Models\DatabaseGrant;
 use App\Models\HostingDatabase;
 use Throwable;
 
@@ -42,10 +43,25 @@ class DatabaseProvisioner
     public function delete(HostingDatabase $db): array
     {
         try {
+            $grants = DatabaseGrant::where('db_name', $db->db_name)
+                ->where('account_id', $db->account_id)
+                ->get();
+
+            foreach ($grants as $grant) {
+                $revoke = $this->client->databaseRevoke($db->db_name, $grant->db_user, true, $grant->host ?? 'localhost');
+                if (! $revoke->successful()) {
+                    return [false, "revoke {$grant->db_user}@{$grant->host}: {$revoke->body()}"];
+                }
+            }
+
             $response = $this->client->deleteDatabase($db->db_name, $db->db_user);
             if (! $response->successful()) {
                 return [false, $response->body()];
             }
+
+            DatabaseGrant::where('db_name', $db->db_name)
+                ->where('account_id', $db->account_id)
+                ->delete();
 
             $db->delete();
 

@@ -17,6 +17,8 @@ var (
 	reName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,47}$`)
 	// reUser permits MariaDB usernames up to 16 chars (MariaDB limit).
 	reUser = regexp.MustCompile(`^[a-z][a-z0-9_]{0,15}$`)
+	// reHost permits common MariaDB host forms without SQL metacharacters.
+	reHost = regexp.MustCompile(`^(localhost|%|[A-Za-z0-9][A-Za-z0-9._%-]{0,252})$`)
 )
 
 func envOrDefault(key, def string) string {
@@ -66,33 +68,57 @@ func DeleteDatabase(dbName string) error {
 
 // CreateUser creates a localhost-restricted MariaDB user.
 func CreateUser(username, password string) error {
+	return CreateUserAtHost(username, password, "localhost")
+}
+
+// CreateUserAtHost creates a MariaDB user for a specific allowed host.
+func CreateUserAtHost(username, password, host string) error {
 	if !reUser.MatchString(username) {
 		return fmt.Errorf("invalid username: %s", username)
+	}
+	if !reHost.MatchString(host) {
+		return fmt.Errorf("invalid host: %s", host)
 	}
 	// Use parameterised-style escaping: password goes in via single-quoted escaped literal.
 	escaped := strings.ReplaceAll(password, "'", "\\'")
 	return mysql(fmt.Sprintf(
-		"CREATE USER IF NOT EXISTS '%s'@'localhost' IDENTIFIED BY '%s';",
-		username, escaped,
+		"CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s';",
+		username, host, escaped,
 	))
 }
 
 // DeleteUser drops a MariaDB user.
 func DeleteUser(username string) error {
+	return DeleteUserAtHost(username, "localhost")
+}
+
+// DeleteUserAtHost drops a MariaDB user for a specific host.
+func DeleteUserAtHost(username, host string) error {
 	if !reUser.MatchString(username) {
 		return fmt.Errorf("invalid username: %s", username)
 	}
-	return mysql(fmt.Sprintf("DROP USER IF EXISTS '%s'@'localhost';", username))
+	if !reHost.MatchString(host) {
+		return fmt.Errorf("invalid host: %s", host)
+	}
+	return mysql(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%s';", username, host))
 }
 
 // GrantPrivileges grants a user full privileges on a database.
 func GrantPrivileges(dbName, username string) error {
+	return GrantPrivilegesAtHost(dbName, username, "localhost")
+}
+
+// GrantPrivilegesAtHost grants a user full privileges on a database from a host.
+func GrantPrivilegesAtHost(dbName, username, host string) error {
 	if !reName.MatchString(dbName) || !reUser.MatchString(username) {
 		return fmt.Errorf("invalid db name or username")
 	}
+	if !reHost.MatchString(host) {
+		return fmt.Errorf("invalid host: %s", host)
+	}
 	if err := mysql(fmt.Sprintf(
-		"GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'localhost';",
-		dbName, username,
+		"GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%s';",
+		dbName, username, host,
 	)); err != nil {
 		return err
 	}
@@ -101,12 +127,20 @@ func GrantPrivileges(dbName, username string) error {
 
 // RevokePrivileges revokes all privileges of a user on a database.
 func RevokePrivileges(dbName, username string) error {
+	return RevokePrivilegesAtHost(dbName, username, "localhost")
+}
+
+// RevokePrivilegesAtHost revokes all privileges of a user on a database from a host.
+func RevokePrivilegesAtHost(dbName, username, host string) error {
 	if !reName.MatchString(dbName) || !reUser.MatchString(username) {
 		return fmt.Errorf("invalid db name or username")
 	}
+	if !reHost.MatchString(host) {
+		return fmt.Errorf("invalid host: %s", host)
+	}
 	if err := mysql(fmt.Sprintf(
-		"REVOKE ALL PRIVILEGES ON `%s`.* FROM '%s'@'localhost';",
-		dbName, username,
+		"REVOKE ALL PRIVILEGES ON `%s`.* FROM '%s'@'%s';",
+		dbName, username, host,
 	)); err != nil {
 		// Ignore if user/db doesn't exist.
 		if strings.Contains(err.Error(), "1141") || strings.Contains(err.Error(), "1410") {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\DatabaseGrant;
 use App\Models\HostingDatabase;
 use App\Services\AgentClient;
 use App\Services\DatabaseProvisioner;
@@ -26,6 +27,9 @@ class DatabaseController extends Controller
         return Inertia::render('User/Database/Index', [
             'account'   => $account,
             'databases' => $databases,
+            'grants' => DatabaseGrant::where('account_id', $account->id)
+                ->latest()
+                ->get(['id', 'db_name', 'db_user', 'host', 'password_hint', 'created_at']),
         ]);
     }
 
@@ -104,21 +108,23 @@ class DatabaseController extends Controller
         $data = $request->validate([
             'db_user'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,15}$/'],
             'password' => ['required', 'string', 'min:8'],
+            'host'     => ['nullable', 'regex:/^(localhost|%|[A-Za-z0-9][A-Za-z0-9._%-]{0,252})$/'],
         ]);
+        $host = $data['host'] ?: 'localhost';
 
         $client   = AgentClient::for($account->node);
-        $response = $client->databaseGrant($database->db_name, $data['db_user'], $data['password']);
+        $response = $client->databaseGrant($database->db_name, $data['db_user'], $data['password'], $host);
 
         if (! $response->successful()) {
             return back()->with('error', 'Grant failed: ' . $response->body());
         }
 
-        \App\Models\DatabaseGrant::updateOrCreate(
-            ['db_name' => $database->db_name, 'db_user' => $data['db_user']],
+        DatabaseGrant::updateOrCreate(
+            ['db_name' => $database->db_name, 'db_user' => $data['db_user'], 'host' => $host],
             ['account_id' => $account->id, 'node_id' => $account->node_id, 'password_hint' => substr($data['password'], 0, 3) . '***'],
         );
 
-        return back()->with('success', "User {$data['db_user']} granted access.");
+        return back()->with('success', "User {$data['db_user']} granted access from {$host}.");
     }
 
     public function revokeUser(Request $request, HostingDatabase $database): RedirectResponse
@@ -128,19 +134,22 @@ class DatabaseController extends Controller
 
         $data = $request->validate([
             'db_user' => ['required', 'string'],
+            'host' => ['nullable', 'regex:/^(localhost|%|[A-Za-z0-9][A-Za-z0-9._%-]{0,252})$/'],
         ]);
+        $host = $data['host'] ?: 'localhost';
 
         $client = AgentClient::for($account->node);
-        $response = $client->databaseRevoke($database->db_name, $data['db_user'], true);
+        $response = $client->databaseRevoke($database->db_name, $data['db_user'], true, $host);
 
         if (! $response->successful()) {
             return back()->with('error', 'Revoke failed: ' . $response->body());
         }
 
-        \App\Models\DatabaseGrant::where('db_name', $database->db_name)
+        DatabaseGrant::where('db_name', $database->db_name)
             ->where('db_user', $data['db_user'])
+            ->where('host', $host)
             ->delete();
 
-        return back()->with('success', "Access revoked for {$data['db_user']}.");
+        return back()->with('success', "Access revoked for {$data['db_user']} from {$host}.");
     }
 }
