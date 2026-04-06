@@ -242,6 +242,11 @@ class DomainProvisioner
             }
         }
 
+        $forceHttpsDirective = $this->buildForceHttpsDirective($domain, $webServer);
+        if ($forceHttpsDirective) {
+            $parts[] = $forceHttpsDirective;
+        }
+
         foreach ($domain->directory_privacy ?? [] as $index => $rule) {
             $directive = $this->buildDirectoryPrivacyDirective($domain, $rule, $index, $webServer);
             if ($directive) {
@@ -255,6 +260,27 @@ class DomainProvisioner
         }
 
         return implode("\n\n", array_filter($parts));
+    }
+
+    private function buildForceHttpsDirective(Domain $domain, string $webServer): ?string
+    {
+        if (! $domain->force_https || ! $domain->ssl_enabled) {
+            return null;
+        }
+
+        if ($webServer === 'apache') {
+            return implode("\n", [
+                'RewriteEngine On',
+                'RewriteCond %{HTTPS} !=on',
+                'RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]',
+            ]);
+        }
+
+        return implode("\n", [
+            'if ($scheme = http) {',
+            '    return 301 https://$host$request_uri;',
+            '}',
+        ]);
     }
 
     private function buildHotlinkProtectionDirective(Domain $domain, string $webServer): ?string

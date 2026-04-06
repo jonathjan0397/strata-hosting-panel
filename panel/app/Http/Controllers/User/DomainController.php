@@ -126,6 +126,34 @@ class DomainController extends Controller
             : back()->with('error', "Certificate upload failed: {$error}");
     }
 
+    public function updateForceHttps(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $data = $request->validate([
+            'force_https' => ['required', 'boolean'],
+        ]);
+
+        if ($data['force_https'] && ! $domain->ssl_enabled) {
+            return back()->with('error', 'Force HTTPS requires an active SSL certificate first.');
+        }
+
+        $previous = $domain->force_https;
+        $domain->update(['force_https' => $data['force_https']]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        if (! $success) {
+            $domain->update(['force_https' => $previous]);
+            app(DomainProvisioner::class)->reprovision($domain->fresh());
+        }
+
+        return $success
+            ? back()->with('success', $data['force_https'] ? 'Force HTTPS enabled.' : 'Force HTTPS disabled.')
+            : back()->with('error', "Force HTTPS update failed and was rolled back: {$error}");
+    }
+
     public function changePhp(Request $request, Domain $domain): RedirectResponse
     {
         $account = $this->account();

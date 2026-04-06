@@ -75,6 +75,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('domains/{domain}', [User\DomainController::class, 'show'])->name('domains.show');
             Route::post('domains/{domain}/ssl', [User\DomainController::class, 'issueSSL'])->name('domains.ssl');
             Route::post('domains/{domain}/ssl/custom', [User\DomainController::class, 'uploadCert'])->name('domains.ssl.custom');
+            Route::put('domains/{domain}/force-https', [User\DomainController::class, 'updateForceHttps'])->name('domains.force-https');
             Route::put('domains/{domain}/php', [User\DomainController::class, 'changePhp'])->name('domains.php');
             Route::put('domains/{domain}/directives', [User\DomainController::class, 'updateDirectives'])->name('domains.directives');
             Route::post('domains/{domain}/redirects', [User\DomainController::class, 'storeRedirect'])->name('domains.redirects.store');

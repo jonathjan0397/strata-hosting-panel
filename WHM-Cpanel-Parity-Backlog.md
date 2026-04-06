@@ -159,6 +159,7 @@ Status: `in progress`
 Implemented on `main`:
 
 - package-gated domain hotlink protection with nginx/apache vhost rules
+- domain-level Force HTTPS redirects for SSL-enabled sites
 - admin IP blocker backed by UFW deny-from rules
 
 ### 9. UX and Navigation

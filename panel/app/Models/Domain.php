@@ -13,13 +13,14 @@ class Domain extends Model
 
     protected $fillable = [
         'account_id', 'node_id', 'domain', 'type', 'document_root',
-        'web_server', 'php_version', 'ssl_enabled', 'ssl_provider', 'ssl_expires_at',
+        'web_server', 'php_version', 'ssl_enabled', 'force_https', 'ssl_provider', 'ssl_expires_at',
         'dkim_enabled', 'dkim_public_key', 'spf_enabled', 'dmarc_enabled',
         'custom_directives', 'redirects', 'directory_privacy', 'hotlink_protection',
     ];
 
     protected $casts = [
         'ssl_enabled'       => 'boolean',
+        'force_https'       => 'boolean',
         'dkim_enabled'      => 'boolean',
         'spf_enabled'       => 'boolean',
         'dmarc_enabled'     => 'boolean',
