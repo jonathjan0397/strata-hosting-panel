@@ -16,41 +16,58 @@
 
 
         <div class="grid gap-6 xl:grid-cols-[24rem,1fr]">
-            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                <h3 class="mb-4 text-sm font-semibold text-gray-300">New Filter</h3>
-                <form @submit.prevent="createFilter" class="space-y-4">
-                    <FormField label="Name" :error="createForm.errors.name">
-                        <input v-model="createForm.name" type="text" class="field" placeholder="Catch invoice mail" />
-                    </FormField>
-                    <FormField label="Match Field" :error="createForm.errors.match_field">
-                        <select v-model="createForm.match_field" class="field">
-                            <option v-for="option in fieldOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                        </select>
-                    </FormField>
-                    <FormField label="Operator" :error="createForm.errors.match_operator">
-                        <select v-model="createForm.match_operator" class="field">
-                            <option v-for="option in operatorOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                        </select>
-                    </FormField>
-                    <FormField label="Value" :error="createForm.errors.match_value">
-                        <input v-model="createForm.match_value" type="text" class="field" placeholder="invoice" />
-                    </FormField>
-                    <FormField label="Action" :error="createForm.errors.action">
-                        <select v-model="createForm.action" class="field">
-                            <option v-for="option in actionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                        </select>
-                    </FormField>
-                    <FormField v-if="createForm.action === 'redirect'" label="Redirect To" :error="createForm.errors.action_value">
-                        <input v-model="createForm.action_value" type="email" class="field" placeholder="ops@example.com" />
-                    </FormField>
-                    <label class="flex items-center gap-2 text-sm text-gray-300">
-                        <input v-model="createForm.active" type="checkbox" class="rounded border-gray-600 bg-gray-800 text-indigo-600" />
-                        Enabled
-                    </label>
-                    <button type="submit" :disabled="createForm.processing" class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60">
-                        Create Filter
-                    </button>
-                </form>
+            <div class="space-y-6">
+                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                    <h3 class="mb-2 text-sm font-semibold text-gray-300">Spam Policy</h3>
+                    <p class="mb-4 text-sm text-gray-400">Choose what happens when Rspamd marks mail as spam for this mailbox.</p>
+                    <form @submit.prevent="updateSpamPolicy" class="space-y-4">
+                        <FormField label="Action" :error="spamPolicyForm.errors.spam_action">
+                            <select v-model="spamPolicyForm.spam_action" class="field">
+                                <option v-for="option in spamActionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                            </select>
+                        </FormField>
+                        <button type="submit" :disabled="spamPolicyForm.processing" class="btn-primary w-full">
+                            {{ spamPolicyForm.processing ? 'Updating...' : 'Update Spam Policy' }}
+                        </button>
+                    </form>
+                </div>
+
+                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                    <h3 class="mb-4 text-sm font-semibold text-gray-300">New Filter</h3>
+                    <form @submit.prevent="createFilter" class="space-y-4">
+                        <FormField label="Name" :error="createForm.errors.name">
+                            <input v-model="createForm.name" type="text" class="field" placeholder="Catch invoice mail" />
+                        </FormField>
+                        <FormField label="Match Field" :error="createForm.errors.match_field">
+                            <select v-model="createForm.match_field" class="field">
+                                <option v-for="option in fieldOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                            </select>
+                        </FormField>
+                        <FormField label="Operator" :error="createForm.errors.match_operator">
+                            <select v-model="createForm.match_operator" class="field">
+                                <option v-for="option in operatorOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                            </select>
+                        </FormField>
+                        <FormField label="Value" :error="createForm.errors.match_value">
+                            <input v-model="createForm.match_value" type="text" class="field" placeholder="invoice" />
+                        </FormField>
+                        <FormField label="Action" :error="createForm.errors.action">
+                            <select v-model="createForm.action" class="field">
+                                <option v-for="option in actionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                            </select>
+                        </FormField>
+                        <FormField v-if="createForm.action === 'redirect'" label="Redirect To" :error="createForm.errors.action_value">
+                            <input v-model="createForm.action_value" type="email" class="field" placeholder="ops@example.com" />
+                        </FormField>
+                        <label class="flex items-center gap-2 text-sm text-gray-300">
+                            <input v-model="createForm.active" type="checkbox" class="rounded border-gray-600 bg-gray-800 text-indigo-600" />
+                            Enabled
+                        </label>
+                        <button type="submit" :disabled="createForm.processing" class="btn-primary w-full">
+                            Create Filter
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <div class="space-y-4">
@@ -139,9 +156,13 @@ const props = defineProps({
     fieldOptions: Array,
     operatorOptions: Array,
     actionOptions: Array,
+    spamActionOptions: Array,
 });
 
 const editingId = ref(null);
+const spamPolicyForm = useForm({
+    spam_action: props.mailbox.spam_action ?? 'inbox',
+});
 const createForm = useForm({
     name: '',
     match_field: 'subject',
@@ -168,6 +189,12 @@ for (const filter of props.filters) {
 function createFilter() {
     createForm.post(route('my.email.filters.store', props.mailbox.id), {
         onSuccess: () => createForm.reset('name', 'match_value', 'action_value'),
+    });
+}
+
+function updateSpamPolicy() {
+    spamPolicyForm.put(route('my.email.spam-policy.update', props.mailbox.id), {
+        preserveScroll: true,
     });
 }
 

@@ -14,7 +14,7 @@ class EmailAccount extends Model
 
     protected $fillable = [
         'domain_id', 'account_id', 'node_id',
-        'email', 'local_part', 'quota_mb', 'used_mb', 'active',
+        'email', 'local_part', 'quota_mb', 'used_mb', 'active', 'spam_action',
     ];
 
     protected $casts = [

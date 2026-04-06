@@ -25,6 +25,20 @@ class MailSieveProvisioner
         $requires = [];
         $rules = [];
 
+        if ($emailAccount->spam_action && $emailAccount->spam_action !== 'inbox') {
+            $rule = "if anyof (header :contains \"X-Spam-Flag\" \"YES\", header :contains \"X-Spam\" \"Yes\") {\n";
+
+            if ($emailAccount->spam_action === 'junk') {
+                $requires['fileinto'] = true;
+                $rule .= "  fileinto \"Junk\";\n";
+            } elseif ($emailAccount->spam_action === 'discard') {
+                $rule .= "  discard;\n";
+            }
+
+            $rule .= "  stop;\n}";
+            $rules[] = $rule;
+        }
+
         foreach ($emailAccount->filters->where('active', true)->sortBy('sort_order') as $filter) {
             $matchField = match ($filter->match_field) {
                 'subject' => 'Subject',

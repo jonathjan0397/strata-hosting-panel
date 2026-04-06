@@ -110,6 +110,7 @@ Implemented on `main`:
 - shared Sieve compilation for filters plus autoresponders
 - user filter management UI inside the existing email workflow
 - user spam activity dashboard backed by Rspamd node stats
+- mailbox-level spam policy controls backed by Sieve rules
 - user delivery tracking against bounded postfix and dovecot log views
 - bulk mailbox and forwarder CSV import from the per-domain email workspace
 

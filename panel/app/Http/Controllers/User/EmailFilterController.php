@@ -24,6 +24,7 @@ class EmailFilterController extends Controller
             'mailbox' => [
                 'id' => $emailAccount->id,
                 'email' => $emailAccount->email,
+                'spam_action' => $emailAccount->spam_action ?? 'inbox',
                 'domain' => $emailAccount->domain?->only(['id', 'domain']),
             ],
             'filters' => $emailAccount->filters->map(fn (EmailFilter $filter) => [
@@ -50,7 +51,33 @@ class EmailFilterController extends Controller
                 ['value' => 'discard', 'label' => 'Discard message'],
                 ['value' => 'redirect', 'label' => 'Redirect message'],
             ],
+            'spamActionOptions' => [
+                ['value' => 'inbox', 'label' => 'Leave in inbox'],
+                ['value' => 'junk', 'label' => 'Move to Junk'],
+                ['value' => 'discard', 'label' => 'Discard spam'],
+            ],
         ]);
+    }
+
+    public function updateSpamPolicy(Request $request, EmailAccount $emailAccount): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($emailAccount->account_id === $account->id, 403);
+
+        $data = $request->validate([
+            'spam_action' => ['required', 'in:inbox,junk,discard'],
+        ]);
+
+        $previous = $emailAccount->spam_action;
+        $emailAccount->update(['spam_action' => $data['spam_action']]);
+
+        [$success, $error] = app(MailSieveProvisioner::class)->sync($emailAccount);
+        if (! $success) {
+            $emailAccount->update(['spam_action' => $previous]);
+            return back()->with('error', 'Failed to update spam policy: ' . $error);
+        }
+
+        return back()->with('success', 'Spam policy updated.');
     }
 
     public function store(Request $request, EmailAccount $emailAccount): RedirectResponse

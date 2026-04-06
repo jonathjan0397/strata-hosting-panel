@@ -106,6 +106,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('domains/{domain}/email/forwarders/import', [User\EmailController::class, 'importForwarders'])->name('email.forwarder.import');
             Route::delete('email/forwarders/{forwarder}', [User\EmailController::class, 'deleteForwarder'])->name('email.forwarder.destroy');
             Route::get('email/mailboxes/{emailAccount}/filters', [EmailFilterController::class, 'index'])->name('email.filters.index');
+            Route::put('email/mailboxes/{emailAccount}/spam-policy', [EmailFilterController::class, 'updateSpamPolicy'])->name('email.spam-policy.update');
             Route::post('email/mailboxes/{emailAccount}/filters', [EmailFilterController::class, 'store'])->name('email.filters.store');
             Route::put('email/filters/{filter}', [EmailFilterController::class, 'update'])->name('email.filters.update');
             Route::delete('email/filters/{filter}', [EmailFilterController::class, 'destroy'])->name('email.filters.destroy');
