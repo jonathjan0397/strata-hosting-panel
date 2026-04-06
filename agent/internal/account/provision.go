@@ -137,6 +137,9 @@ func createUser(username, homeDir string) error {
 
 	// Create user only if they don't already exist.
 	if _, err := exec.Command("id", username).Output(); err != nil {
+		// Remove any stale group left by a prior interrupted useradd.
+		exec.Command("groupdel", username).Run() //nolint:errcheck
+
 		out, err2 := exec.Command("useradd",
 			"--home-dir", homeDir,
 			"--create-home",
