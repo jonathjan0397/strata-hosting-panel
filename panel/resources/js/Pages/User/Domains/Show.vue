@@ -219,6 +219,68 @@
             </form>
         </div>
 
+        <div v-if="canManageHotlinkProtection" class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <div class="mb-4 flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-300 mb-1">Hotlink Protection</h3>
+                    <p class="text-xs text-gray-500">
+                        Block other sites from embedding your image and static asset files while allowing trusted referrers.
+                    </p>
+                </div>
+                <span
+                    :class="domain.hotlink_protection?.enabled ? 'border-emerald-700 bg-emerald-900/30 text-emerald-300' : 'border-gray-700 bg-gray-800 text-gray-400'"
+                    class="rounded-full border px-2.5 py-1 text-xs font-semibold"
+                >
+                    {{ domain.hotlink_protection?.enabled ? 'Enabled' : 'Disabled' }}
+                </span>
+            </div>
+
+            <form @submit.prevent="hotlinkForm.post(route('my.domains.hotlink.update', domain.id))" class="grid gap-4 lg:grid-cols-3">
+                <label class="flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300 lg:col-span-3">
+                    <input v-model="hotlinkForm.allow_direct" type="checkbox" class="rounded border-gray-700 bg-gray-800 text-indigo-600" />
+                    Allow direct browser access when no referrer is sent
+                </label>
+
+                <div class="lg:col-span-2">
+                    <label class="mb-1 block text-xs text-gray-400">Additional allowed domains</label>
+                    <textarea
+                        v-model="hotlinkForm.allowed_domains"
+                        rows="4"
+                        placeholder="cdn.example.com&#10;partner.example.net"
+                        class="field w-full font-mono text-xs"
+                    />
+                    <p class="mt-1 text-xs text-gray-500">The current domain is always allowed. Use one domain per line or comma-separated values.</p>
+                    <p v-if="hotlinkForm.errors.allowed_domains" class="mt-0.5 text-xs text-red-400">{{ hotlinkForm.errors.allowed_domains }}</p>
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-xs text-gray-400">Protected extensions</label>
+                    <textarea
+                        v-model="hotlinkForm.extensions"
+                        rows="4"
+                        placeholder="jpg, jpeg, png, gif, webp, svg, ico"
+                        class="field w-full font-mono text-xs"
+                    />
+                    <p class="mt-1 text-xs text-gray-500">Leave blank for the default image/static set.</p>
+                    <p v-if="hotlinkForm.errors.extensions" class="mt-0.5 text-xs text-red-400">{{ hotlinkForm.errors.extensions }}</p>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-end gap-3 lg:col-span-3">
+                    <button
+                        v-if="domain.hotlink_protection?.enabled"
+                        type="button"
+                        @click="disableHotlink"
+                        class="rounded-lg border border-red-800 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-950/50"
+                    >
+                        Disable
+                    </button>
+                    <button type="submit" :disabled="hotlinkForm.processing" class="btn-primary">
+                        {{ hotlinkForm.processing ? 'Saving...' : 'Save & Apply' }}
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <!-- Custom Nginx/Apache Directives -->
         <div class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <h3 class="text-sm font-semibold text-gray-300 mb-1">Custom Directives</h3>
@@ -252,6 +314,7 @@ const props = defineProps({
     domain:      Object,
     phpVersions: Array,
     canManagePrivacy: Boolean,
+    canManageHotlinkProtection: Boolean,
 });
 
 const showCertUpload = ref(false);
@@ -277,6 +340,13 @@ const privacyForm = useForm({
     password: '',
 });
 
+const hotlinkConfig = props.domain.hotlink_protection ?? {};
+const hotlinkForm = useForm({
+    allow_direct: hotlinkConfig.allow_direct ?? true,
+    allowed_domains: (hotlinkConfig.allowed_domains ?? []).join('\n'),
+    extensions: (hotlinkConfig.extensions ?? ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico']).join(', '),
+});
+
 const directivesForm = useForm({
     custom_directives: props.domain.custom_directives ?? '',
 });
@@ -293,6 +363,11 @@ function deleteRedirect(index) {
 function deletePrivacy(index) {
     if (!confirm('Remove directory privacy from this path?')) return;
     router.delete(route('my.domains.privacy.destroy', [props.domain.id, index]));
+}
+
+function disableHotlink() {
+    if (!confirm('Disable hotlink protection for this domain?')) return;
+    router.delete(route('my.domains.hotlink.destroy', props.domain.id));
 }
 </script>
 

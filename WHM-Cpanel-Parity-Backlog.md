@@ -137,13 +137,17 @@ Status: `planned`
 ## Phase 3: Advanced Platform Parity
 
 ### 8. Security Depth
-Status: `planned`
+Status: `in progress`
 
 - ModSecurity controls
 - IP blocker
 - hotlink protection
 - leech protection
 - malware scan integration
+
+Implemented on `main`:
+
+- package-gated domain hotlink protection with nginx/apache vhost rules
 
 ### 9. UX and Navigation
 Status: `planned`

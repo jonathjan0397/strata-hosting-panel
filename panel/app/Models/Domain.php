@@ -15,7 +15,7 @@ class Domain extends Model
         'account_id', 'node_id', 'domain', 'type', 'document_root',
         'web_server', 'php_version', 'ssl_enabled', 'ssl_provider', 'ssl_expires_at',
         'dkim_enabled', 'dkim_public_key', 'spf_enabled', 'dmarc_enabled',
-        'custom_directives', 'redirects', 'directory_privacy',
+        'custom_directives', 'redirects', 'directory_privacy', 'hotlink_protection',
     ];
 
     protected $casts = [
@@ -27,6 +27,7 @@ class Domain extends Model
         'custom_directives' => 'string',
         'redirects'         => 'array',
         'directory_privacy' => 'array',
+        'hotlink_protection' => 'array',
     ];
 
     public function account(): BelongsTo

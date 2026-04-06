@@ -32,6 +32,7 @@ class FeatureList extends Model
             'file_manager' => 'File Manager',
             'git' => 'Git Version Control',
             'directory_privacy' => 'Directory Privacy',
+            'hotlink_protection' => 'Hotlink Protection',
             'disk_usage' => 'Disk Usage',
             'backups' => 'Backups',
             'metrics' => 'Metrics and Logs',

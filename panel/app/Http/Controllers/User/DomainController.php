@@ -93,6 +93,7 @@ class DomainController extends Controller
             'domain'      => $domain,
             'phpVersions' => ['8.1', '8.2', '8.3'],
             'canManagePrivacy' => $account->hasFeature('directory_privacy'),
+            'canManageHotlinkProtection' => $account->hasFeature('hotlink_protection'),
         ]);
     }
 
@@ -293,5 +294,86 @@ class DomainController extends Controller
         return $success
             ? back()->with('success', 'Directory privacy removed.')
             : back()->with('error', "Directory privacy removal failed and was rolled back: {$error}");
+    }
+
+    public function updateHotlinkProtection(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+        abort_unless($account->hasFeature('hotlink_protection'), 403);
+
+        $data = $request->validate([
+            'allow_direct' => ['nullable', 'boolean'],
+            'allowed_domains' => ['nullable', 'string', 'max:2048'],
+            'extensions' => ['nullable', 'string', 'max:512'],
+        ]);
+
+        $allowedDomains = $this->parseDomainList($data['allowed_domains'] ?? '');
+        $extensions = $this->parseExtensionList($data['extensions'] ?? '');
+
+        if ($extensions === []) {
+            $extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico'];
+        }
+
+        $previousConfig = $domain->hotlink_protection;
+        $domain->update([
+            'hotlink_protection' => [
+                'enabled' => true,
+                'allow_direct' => (bool) ($data['allow_direct'] ?? true),
+                'allowed_domains' => $allowedDomains,
+                'extensions' => $extensions,
+            ],
+        ]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        if (! $success) {
+            $domain->update(['hotlink_protection' => $previousConfig]);
+            app(DomainProvisioner::class)->reprovision($domain->fresh());
+        }
+
+        return $success
+            ? back()->with('success', 'Hotlink protection enabled.')
+            : back()->with('error', "Hotlink protection update failed and was rolled back: {$error}");
+    }
+
+    public function disableHotlinkProtection(Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+        abort_unless($account->hasFeature('hotlink_protection'), 403);
+
+        $previousConfig = $domain->hotlink_protection;
+        $domain->update(['hotlink_protection' => null]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        if (! $success) {
+            $domain->update(['hotlink_protection' => $previousConfig]);
+            app(DomainProvisioner::class)->reprovision($domain->fresh());
+        }
+
+        return $success
+            ? back()->with('success', 'Hotlink protection disabled.')
+            : back()->with('error', "Hotlink protection removal failed and was rolled back: {$error}");
+    }
+
+    private function parseDomainList(string $value): array
+    {
+        $domains = preg_split('/[\s,]+/', strtolower($value), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_unique(array_filter($domains, fn ($domain) =>
+            preg_match('/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/', $domain)
+        )));
+    }
+
+    private function parseExtensionList(string $value): array
+    {
+        $extensions = preg_split('/[\s,]+/', strtolower($value), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_unique(array_filter(array_map(
+            fn ($extension) => trim($extension, '.'),
+            $extensions
+        ), fn ($extension) => preg_match('/^[a-z0-9]+$/', $extension))));
     }
 }

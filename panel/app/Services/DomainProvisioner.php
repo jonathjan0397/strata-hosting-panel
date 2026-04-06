@@ -249,7 +249,68 @@ class DomainProvisioner
             }
         }
 
+        $hotlinkDirective = $this->buildHotlinkProtectionDirective($domain, $webServer);
+        if ($hotlinkDirective) {
+            $parts[] = $hotlinkDirective;
+        }
+
         return implode("\n\n", array_filter($parts));
+    }
+
+    private function buildHotlinkProtectionDirective(Domain $domain, string $webServer): ?string
+    {
+        $config = $domain->hotlink_protection ?? [];
+        if (! ($config['enabled'] ?? false)) {
+            return null;
+        }
+
+        $extensions = array_values(array_unique(array_filter(
+            array_map(fn ($ext) => strtolower(trim((string) $ext, " .\t\n\r\0\x0B")), (array) ($config['extensions'] ?? [])),
+            fn ($ext) => preg_match('/^[a-z0-9]+$/', $ext)
+        )));
+
+        if ($extensions === []) {
+            $extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico'];
+        }
+
+        $allowedDomains = array_values(array_unique(array_filter(array_map(
+            fn ($host) => strtolower(trim((string) $host)),
+            array_merge([$domain->domain], (array) ($config['allowed_domains'] ?? []))
+        ), fn ($host) => $this->isValidHost($host))));
+
+        $allowDirect = (bool) ($config['allow_direct'] ?? true);
+        $pattern = implode('|', array_map('preg_quote', $extensions));
+
+        if ($webServer === 'apache') {
+            $rules = [];
+            if ($allowDirect) {
+                $rules[] = 'SetEnvIfNoCase Referer "^$" strata_hotlink_allowed';
+            }
+
+            foreach ($allowedDomains as $host) {
+                $quoted = preg_quote($host, '/');
+                $rules[] = 'SetEnvIfNoCase Referer "^https?://([^/]+\.)?' . $quoted . '(/|$)" strata_hotlink_allowed';
+            }
+
+            $rules[] = '<FilesMatch "\.(' . $pattern . ')$">';
+            $rules[] = '    Require env strata_hotlink_allowed';
+            $rules[] = '</FilesMatch>';
+
+            return implode("\n", $rules);
+        }
+
+        $referers = array_map(fn ($host) => $host . ' *.' . $host, $allowedDomains);
+        $referers = implode(' ', $referers);
+        $direct = $allowDirect ? 'none ' : '';
+
+        return implode("\n", [
+            'location ~* \.(' . $pattern . ')$ {',
+            '    valid_referers ' . $direct . 'blocked server_names ' . $referers . ';',
+            '    if ($invalid_referer) {',
+            '        return 403;',
+            '    }',
+            '}',
+        ]);
     }
 
     private function buildDirectoryPrivacyDirective(Domain $domain, array $rule, int $index, string $webServer): ?string
@@ -384,5 +445,14 @@ class DomainProvisioner
         }
 
         return rtrim($path, '/') ?: '/';
+    }
+
+    private function isValidHost(string $host): bool
+    {
+        $host = strtolower(trim($host));
+
+        return $host !== ''
+            && strlen($host) <= 253
+            && preg_match('/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/', $host);
     }
 }
