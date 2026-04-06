@@ -207,3 +207,22 @@ Validation performed for this audit pass:
   - `panel/app/Http/Controllers/Admin/BackupController.php`
   - `panel/app/Http/Controllers/Admin/UpdateController.php`
   - `panel/app/Http/Controllers/Admin/FtpController.php`
+
+## Current Audit Pass 8
+
+This audit pass addressed remaining admin control-plane integrity and audit-trail issues:
+
+- Rolled back newly created `users` and `accounts` rows when admin account provisioning fails in `panel/app/Http/Controllers/Admin/AccountController.php`.
+- Delayed admin account create/delete audit logs until the underlying provisioning or deprovisioning action succeeds in `panel/app/Http/Controllers/Admin/AccountController.php`.
+- Delayed admin database create/delete audit logs until the underlying agent action succeeds in `panel/app/Http/Controllers/Admin/DatabaseController.php`.
+- Delayed hosted and standalone DNS audit logs until record or zone changes actually succeed in:
+  - `panel/app/Http/Controllers/Admin/DnsController.php`
+  - `panel/app/Http/Controllers/Admin/StandaloneDnsController.php`
+
+Validation performed for this audit pass:
+
+- PHP lint intended on:
+  - `panel/app/Http/Controllers/Admin/AccountController.php`
+  - `panel/app/Http/Controllers/Admin/DatabaseController.php`
+  - `panel/app/Http/Controllers/Admin/DnsController.php`
+  - `panel/app/Http/Controllers/Admin/StandaloneDnsController.php`

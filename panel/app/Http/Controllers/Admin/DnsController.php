@@ -67,7 +67,9 @@ class DnsController extends Controller
 
         [$success, $error] = $provisioner->createZone($domain);
 
-        AuditLog::record('dns.zone_created', $domain, ['domain' => $domain->domain, 'success' => $success]);
+        if ($success) {
+            AuditLog::record('dns.zone_created', $domain, ['domain' => $domain->domain, 'success' => true]);
+        }
 
         return $success
             ? redirect()->route('admin.dns.show', $domain)
@@ -139,9 +141,11 @@ class DnsController extends Controller
             $data['priority'] ?? null,
         );
 
-        AuditLog::record('dns.record_added', $domain, [
-            'name' => $data['name'], 'type' => $data['type'],
-        ]);
+        if ($success) {
+            AuditLog::record('dns.record_added', $domain, [
+                'name' => $data['name'], 'type' => $data['type'],
+            ]);
+        }
 
         return $success
             ? back()->with('success', "{$data['type']} record added.")
@@ -159,9 +163,11 @@ class DnsController extends Controller
 
         [$success, $error] = $provisioner->deleteRecord($zone, $record->name, $record->type);
 
-        AuditLog::record('dns.record_deleted', $zone->domain, [
-            'name' => $record->name, 'type' => $record->type,
-        ]);
+        if ($success) {
+            AuditLog::record('dns.record_deleted', $zone->domain, [
+                'name' => $record->name, 'type' => $record->type,
+            ]);
+        }
 
         return $success
             ? back()->with('success', 'Record deleted.')

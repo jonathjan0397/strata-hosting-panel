@@ -60,9 +60,11 @@ class DatabaseController extends Controller
             $data['note'] ?? null,
         );
 
-        AuditLog::record('database.created', $account, [
-            'db_name' => $data['db_name'], 'db_user' => $data['db_user'],
-        ]);
+        if ($success) {
+            AuditLog::record('database.created', $account, [
+                'db_name' => $data['db_name'], 'db_user' => $data['db_user'],
+            ]);
+        }
 
         return $success
             ? back()->with('success', "{$data['db_name']} created.")
@@ -78,11 +80,13 @@ class DatabaseController extends Controller
         $client  = AgentClient::for($database->node);
         $provisioner = new DatabaseProvisioner($client);
 
-        AuditLog::record('database.deleted', $account, [
-            'db_name' => $database->db_name, 'db_user' => $database->db_user,
-        ]);
-
         [$success, $error] = $provisioner->delete($database);
+
+        if ($success) {
+            AuditLog::record('database.deleted', $account, [
+                'db_name' => $database->db_name, 'db_user' => $database->db_user,
+            ]);
+        }
 
         return $success
             ? redirect()->route('admin.accounts.databases', $account->id)

@@ -84,15 +84,17 @@ class AccountController extends Controller
         // Provision on server
         [$success, $error] = app(AccountProvisioner::class)->provision($account);
 
+        if (! $success) {
+            $account->delete();
+            $user->delete();
+            return back()->with('error', "Account created but server provisioning failed: {$error}");
+        }
+
         AuditLog::record('account.created', $account, [
             'username' => $data['username'],
             'node'     => $data['node_id'],
-            'provisioned' => $success,
+            'provisioned' => true,
         ]);
-
-        if (! $success) {
-            return back()->with('error', "Account created but server provisioning failed: {$error}");
-        }
 
         return redirect()->route('admin.accounts.show', $account)
             ->with('success', "Account {$data['username']} created and provisioned.");
@@ -127,15 +129,15 @@ class AccountController extends Controller
     {
         [$success, $error] = app(AccountProvisioner::class)->deprovision($account);
 
-        AuditLog::record('account.deleted', $account, [
-            'username'      => $account->username,
-            'deprovisioned' => $success,
-        ]);
-
         if (! $success) {
             return redirect()->route('admin.accounts.index')
                 ->with('error', "Server cleanup failed, account was kept in the panel: {$error}");
         }
+
+        AuditLog::record('account.deleted', $account, [
+            'username'      => $account->username,
+            'deprovisioned' => true,
+        ]);
 
         $account->user->delete();
         $account->delete();

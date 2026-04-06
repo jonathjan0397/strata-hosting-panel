@@ -164,9 +164,11 @@ class StandaloneDnsController extends Controller
             $zone, $data['name'], $data['type'], $data['ttl'], [$data['value']]
         );
 
-        AuditLog::record('dns.standalone_record_added', null, [
-            'zone' => $zone->zone_name, 'name' => $data['name'], 'type' => $data['type'],
-        ]);
+        if ($success) {
+            AuditLog::record('dns.standalone_record_added', null, [
+                'zone' => $zone->zone_name, 'name' => $data['name'], 'type' => $data['type'],
+            ]);
+        }
 
         return $success
             ? back()->with('success', "{$data['type']} record added.")
@@ -184,9 +186,11 @@ class StandaloneDnsController extends Controller
         $provisioner = new DnsProvisioner(AgentClient::for($zone->node));
         [$success, $error] = $provisioner->deleteRecord($zone, $record->name, $record->type);
 
-        AuditLog::record('dns.standalone_record_deleted', null, [
-            'zone' => $zone->zone_name, 'name' => $record->name, 'type' => $record->type,
-        ]);
+        if ($success) {
+            AuditLog::record('dns.standalone_record_deleted', null, [
+                'zone' => $zone->zone_name, 'name' => $record->name, 'type' => $record->type,
+            ]);
+        }
 
         return $success
             ? back()->with('success', 'Record deleted.')
