@@ -12,18 +12,21 @@ import (
 // allowedLogs maps a friendly service name to its log path.
 // Only these paths are ever readable — no traversal possible.
 var allowedLogs = map[string]string{
-	"nginx":        "/var/log/nginx/error.log",
-	"nginx-access": "/var/log/nginx/access.log",
-	"php8.1-fpm":   "/var/log/php8.1-fpm.log",
-	"php8.2-fpm":   "/var/log/php8.2-fpm.log",
-	"php8.3-fpm":   "/var/log/php8.3-fpm.log",
-	"postfix":      "/var/log/mail.log",
-	"dovecot":      "/var/log/dovecot.log",
-	"rspamd":       "/var/log/rspamd/rspamd.log",
-	"mysql":        "/var/log/mysql/error.log",
-	"syslog":       "/var/log/syslog",
-	"auth":         "/var/log/auth.log",
-	"fail2ban":     "/var/log/fail2ban.log",
+	"nginx":          "/var/log/nginx/error.log",
+	"nginx-access":   "/var/log/nginx/access.log",
+	"apache2":        "/var/log/apache2/error.log",
+	"apache2-access": "/var/log/apache2/access.log",
+	"php8.1-fpm":     "/var/log/php8.1-fpm.log",
+	"php8.2-fpm":     "/var/log/php8.2-fpm.log",
+	"php8.3-fpm":     "/var/log/php8.3-fpm.log",
+	"php8.4-fpm":     "/var/log/php8.4-fpm.log",
+	"postfix":        "/var/log/mail.log",
+	"dovecot":        "/var/log/dovecot.log",
+	"rspamd":         "/var/log/rspamd/rspamd.log",
+	"mysql":          "/var/log/mysql/error.log",
+	"syslog":         "/var/log/syslog",
+	"auth":           "/var/log/auth.log",
+	"fail2ban":       "/var/log/fail2ban.log",
 }
 
 const maxLines = 500
