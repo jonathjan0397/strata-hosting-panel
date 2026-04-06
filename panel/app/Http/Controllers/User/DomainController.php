@@ -74,6 +74,7 @@ class DomainController extends Controller
         [$success, $error] = app(DomainProvisioner::class)->provision($domain);
 
         if (! $success) {
+            $domain->delete();
             return back()->with('error', "Domain saved but vhost creation failed: {$error}");
         }
 
@@ -152,13 +153,18 @@ class DomainController extends Controller
             'custom_directives' => ['nullable', 'string', 'max:4096'],
         ]);
 
+        $previousDirectives = $domain->custom_directives;
         $domain->update(['custom_directives' => $data['custom_directives'] ?? null]);
 
         [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
 
+        if (! $success) {
+            $domain->update(['custom_directives' => $previousDirectives]);
+        }
+
         return $success
             ? back()->with('success', 'Custom directives saved and vhost updated.')
-            : back()->with('error', "Directives saved but vhost update failed: {$error}");
+            : back()->with('error', "Vhost update failed and directives were rolled back: {$error}");
     }
 
     public function storeRedirect(Request $request, Domain $domain): RedirectResponse
@@ -179,13 +185,18 @@ class DomainController extends Controller
             'type'        => (int) $data['type'],
         ];
 
+        $previousRedirects = $domain->redirects;
         $domain->update(['redirects' => $redirects]);
 
         [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
 
+        if (! $success) {
+            $domain->update(['redirects' => $previousRedirects]);
+        }
+
         return $success
             ? back()->with('success', 'Redirect added.')
-            : back()->with('error', "Redirect saved but vhost update failed: {$error}");
+            : back()->with('error', "Vhost update failed and the redirect change was rolled back: {$error}");
     }
 
     public function destroyRedirect(Request $request, Domain $domain, int $index): RedirectResponse
@@ -196,12 +207,17 @@ class DomainController extends Controller
         $redirects = $domain->redirects ?? [];
         array_splice($redirects, $index, 1);
 
+        $previousRedirects = $domain->redirects;
         $domain->update(['redirects' => $redirects ?: null]);
 
         [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
 
+        if (! $success) {
+            $domain->update(['redirects' => $previousRedirects]);
+        }
+
         return $success
             ? back()->with('success', 'Redirect removed.')
-            : back()->with('error', "Redirect removed but vhost update failed: {$error}");
+            : back()->with('error', "Vhost update failed and the redirect change was rolled back: {$error}");
     }
 }

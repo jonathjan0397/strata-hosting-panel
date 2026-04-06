@@ -124,12 +124,27 @@ class AdminWebsiteController extends Controller
             return back()->with('error', 'No website is currently provisioned.');
         }
 
+        $errors = [];
+
         foreach ($account->domains as $domain) {
-            app(DomainProvisioner::class)->deprovision($domain);
+            [$domainRemoved, $domainError] = app(DomainProvisioner::class)->deprovision($domain);
+            if (! $domainRemoved) {
+                $errors[] = "Domain {$domain->domain}: {$domainError}";
+                continue;
+            }
+
             $domain->delete();
         }
 
-        app(AccountProvisioner::class)->deprovision($account);
+        if ($errors !== []) {
+            return back()->with('error', 'Website cleanup failed. ' . implode('; ', $errors));
+        }
+
+        [$accountRemoved, $accountError] = app(AccountProvisioner::class)->deprovision($account);
+        if (! $accountRemoved) {
+            return back()->with('error', "Account cleanup failed and was rolled back in the panel: {$accountError}");
+        }
+
         $account->delete();
 
         return redirect()->route('admin.my-website.index')

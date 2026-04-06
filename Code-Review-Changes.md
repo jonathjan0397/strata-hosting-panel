@@ -121,3 +121,24 @@ Validation performed for this audit pass:
   - `panel/app/Http/Controllers/User/FileManagerController.php`
   - `panel/app/Http/Controllers/Api/V1/AccountController.php`
   - `panel/app/Services/DomainProvisioner.php`
+
+## Current Audit Pass 3
+
+This audit pass addressed domain rollback behavior and DNS priority persistence:
+
+- Changed user domain creation to remove the local `domains` row when vhost provisioning fails in `panel/app/Http/Controllers/User/DomainController.php`.
+- Added rollback behavior for user domain directive and redirect edits so panel state is reverted if the live vhost reprovision step fails in `panel/app/Http/Controllers/User/DomainController.php`.
+- Changed the admin "My Website" deprovision flow to keep panel state when remote domain or account cleanup fails in `panel/app/Http/Controllers/Admin/AdminWebsiteController.php`.
+- Added DNS priority persistence to the provisioning layer in `panel/app/Services/DnsProvisioner.php`.
+- Updated admin and user DNS record create/import flows to pass priority through and to parse MX priorities correctly from imported zone text in:
+  - `panel/app/Http/Controllers/Admin/DnsController.php`
+  - `panel/app/Http/Controllers/User/DnsController.php`
+
+Validation performed for this audit pass:
+
+- PHP syntax lint on:
+  - `panel/app/Services/DnsProvisioner.php`
+  - `panel/app/Http/Controllers/Admin/DnsController.php`
+  - `panel/app/Http/Controllers/User/DnsController.php`
+  - `panel/app/Http/Controllers/User/DomainController.php`
+  - `panel/app/Http/Controllers/Admin/AdminWebsiteController.php`

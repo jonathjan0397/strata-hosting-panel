@@ -104,6 +104,8 @@ class DnsController extends Controller
             $data['type'],
             $data['ttl'],
             [$data['value']],
+            false,
+            $data['priority'] ?? null,
         );
 
         return $success
@@ -145,7 +147,7 @@ class DnsController extends Controller
         $provisioner = new DnsProvisioner(AgentClient::for($zone->node));
         $imported = 0;
         foreach ($records as $rec) {
-            [$ok] = $provisioner->addRecord($zone, $rec['name'], $rec['type'], $rec['ttl'], [$rec['value']]);
+            [$ok] = $provisioner->addRecord($zone, $rec['name'], $rec['type'], $rec['ttl'], [$rec['value']], false, $rec['priority'] ?? null);
             if ($ok) $imported++;
         }
 
@@ -183,15 +185,18 @@ class DnsController extends Controller
             }
 
             $value = trim($value, '"');
+            $priority = null;
             if ($type === 'MX' && preg_match('/^(\d+)\s+(.+)$/', $value, $mx)) {
-                $value = $mx[1] . ' ' . rtrim($mx[2], '.');
+                $priority = (int) $mx[1];
+                $value = rtrim($mx[2], '.');
             }
 
             $records[] = [
-                'name'  => $name,
-                'type'  => $type,
-                'ttl'   => $ttl ? (int) $ttl : $defaultTtl,
-                'value' => $value,
+                'name'     => $name,
+                'type'     => $type,
+                'ttl'      => $ttl ? (int) $ttl : $defaultTtl,
+                'value'    => $value,
+                'priority' => $priority,
             ];
         }
 

@@ -65,21 +65,24 @@ class DnsProvisioner
     /**
      * Add or replace a DNS record in both PowerDNS and the local DB.
      */
-    public function addRecord(DnsZone $zone, string $name, string $type, int $ttl, array $contents, bool $managed = false): array
+    public function addRecord(DnsZone $zone, string $name, string $type, int $ttl, array $contents, bool $managed = false, ?int $priority = null): array
     {
         try {
-            $response = $this->client->upsertDnsRecord($zone->zone_name, $name, $type, $ttl, $contents);
+            $value = implode("\n", $contents);
+            $agentContents = $contents;
+            if (in_array($type, ['MX', 'SRV'], true) && $priority !== null) {
+                $agentContents = array_map(fn ($content) => "{$priority} {$content}", $contents);
+            }
+
+            $response = $this->client->upsertDnsRecord($zone->zone_name, $name, $type, $ttl, $agentContents);
             if (! $response->successful()) {
                 return [false, $response->body()];
             }
 
-            // For multi-value records (e.g. TXT with one value) store joined.
-            $value = implode("\n", $contents);
-
             // Upsert into DB (replace existing same name+type).
             DnsRecord::updateOrCreate(
                 ['dns_zone_id' => $zone->id, 'name' => $name, 'type' => $type],
-                ['ttl' => $ttl, 'value' => $value, 'managed' => $managed]
+                ['ttl' => $ttl, 'value' => $value, 'priority' => $priority ?? 0, 'managed' => $managed]
             );
 
             return [true, null];
@@ -130,7 +133,7 @@ class DnsProvisioner
             $this->addRecord($zone, '_dmarc', 'TXT', 300, [$domain->dmarc_dns_record], true);
         }
         if ($nodeHostname = $domain->node?->hostname) {
-            $this->addRecord($zone, '@', 'MX', 300, ["10 {$nodeHostname}."], true);
+            $this->addRecord($zone, '@', 'MX', 300, [$nodeHostname . '.'], true, 10);
         }
     }
 }
