@@ -1,14 +1,11 @@
 <template>
     <AppLayout title="Branding">
         <div class="max-w-lg space-y-6 p-6">
-
-            <div>
-                <h1 class="text-lg font-semibold text-gray-100">White-Label Branding</h1>
-                <p class="mt-1 text-sm text-gray-400">
-                    Customise the panel name and accent colour shown to your clients.
-                    Leave blank to show the default Strata Hosting Panel branding.
-                </p>
-            </div>
+            <PageHeader
+                eyebrow="Reseller"
+                title="White-Label Branding"
+                description="Customize the panel name and accent color shown to your clients. Leave blank to show the default Strata Hosting Panel branding."
+            />
 
             <!-- Live preview -->
             <div
@@ -59,7 +56,7 @@
                     <button
                         type="submit"
                         :disabled="form.processing"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 transition-colors"
+                        class="btn-primary"
                     >
                         Save Branding
                     </button>
@@ -81,6 +78,7 @@
 import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({
     brand_name:  { type: String, default: '' },

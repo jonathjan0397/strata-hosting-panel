@@ -1,17 +1,15 @@
 <template>
     <AppLayout title="Available Packages">
-        <div class="space-y-6">
-            <div class="flex items-start justify-between gap-4 rounded-xl border border-gray-800 bg-gray-900 p-5">
-                <div>
-                    <h2 class="text-sm font-semibold text-gray-200">Packages You Can Assign</h2>
-                    <p class="mt-1 text-sm text-gray-400">
-                        These plans are available to your reseller account for new and existing clients.
-                    </p>
-                </div>
-                <Link :href="route('reseller.accounts.create')" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500">
-                    New Client Account
-                </Link>
-            </div>
+        <div class="space-y-6 p-6">
+            <PageHeader
+                eyebrow="Reseller"
+                title="Packages You Can Assign"
+                description="These plans are available to your reseller account for new and existing clients."
+            >
+                <template #actions>
+                    <Link :href="route('reseller.accounts.create')" class="btn-primary">New Client Account</Link>
+                </template>
+            </PageHeader>
 
             <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
                 <table class="min-w-full divide-y divide-gray-800">
@@ -55,6 +53,7 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import { Link } from '@inertiajs/vue3';
 
 defineProps({
