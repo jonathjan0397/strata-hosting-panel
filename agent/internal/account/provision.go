@@ -118,7 +118,9 @@ func Deprovision(username string) error {
 }
 
 func restartPHPFPM(version string) error {
-	return exec.Command("systemctl", "reload-or-restart", fmt.Sprintf("php%s-fpm", version)).Run()
+	// Use reload (SIGUSR2) rather than restart — PHP-FPM handles new pool
+	// configs gracefully without dropping in-flight requests.
+	return exec.Command("systemctl", "reload", fmt.Sprintf("php%s-fpm", version)).Run()
 }
 
 // RemovePHPPool is a convenience wrapper used during deprovisioning.

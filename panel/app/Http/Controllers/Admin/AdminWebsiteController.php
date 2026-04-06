@@ -86,7 +86,7 @@ class AdminWebsiteController extends Controller
         $domain = $account->domains()->create([
             'node_id'       => $node->id,
             'domain'        => $data['domain'],
-            'document_root' => "/home/{$username}/public_html",
+            'document_root' => "/var/www/{$username}/public_html",
             'php_version'   => $data['php_version'],
         ]);
 
