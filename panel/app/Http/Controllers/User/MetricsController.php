@@ -79,6 +79,33 @@ class MetricsController extends Controller
         ]);
     }
 
+    public function traffic(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'domain_id' => ['required', 'exists:domains,id'],
+            'lines' => ['nullable', 'integer', 'min:50', 'max:300'],
+        ]);
+
+        $account = $this->account($request);
+        $client = AgentClient::for($account->node);
+        $lines = $data['lines'] ?? 300;
+        $path = $this->resolveLogPath($account, 'access', (int) $data['domain_id']);
+
+        $response = $client->fileTail($account->username, $path, $lines);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'error' => $response->body(),
+            ], $response->status());
+        }
+
+        return response()->json([
+            'path' => $path,
+            'lines' => $lines,
+            ...$this->summarizeAccessLog($response->json('content') ?? ''),
+        ]);
+    }
+
     private function account(Request $request): Account
     {
         return $request->user()
@@ -108,5 +135,88 @@ class MetricsController extends Controller
             ['value' => 'error', 'label' => 'Error Log'],
             ['value' => 'php', 'label' => 'PHP Error Log'],
         ];
+    }
+
+    private function summarizeAccessLog(string $content): array
+    {
+        $requests = 0;
+        $bandwidthBytes = 0;
+        $statusCounts = [];
+        $methodCounts = [];
+        $pathCounts = [];
+
+        foreach (preg_split('/\R/', trim($content)) as $line) {
+            if ($line === '') {
+                continue;
+            }
+
+            if (! preg_match('/^\S+ \S+ \S+ \[[^\]]+\] "([A-Z]+)\s+([^"]+?)\s+HTTP\/[0-9.]+" (\d{3}) (\d+|-)/', $line, $matches)) {
+                continue;
+            }
+
+            $requests++;
+            $method = $matches[1];
+            $path = $this->normalizeRequestPath($matches[2]);
+            $status = $matches[3];
+            $bytes = $matches[4] === '-' ? 0 : (int) $matches[4];
+
+            $bandwidthBytes += $bytes;
+            $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
+            $methodCounts[$method] = ($methodCounts[$method] ?? 0) + 1;
+            $pathCounts[$path] = ($pathCounts[$path] ?? 0) + 1;
+        }
+
+        ksort($statusCounts);
+        ksort($methodCounts);
+
+        return [
+            'requests' => $requests,
+            'bandwidth_bytes' => $bandwidthBytes,
+            'bandwidth_human' => $this->formatBytes($bandwidthBytes),
+            'status_counts' => $statusCounts,
+            'method_counts' => $methodCounts,
+            'top_paths' => $this->topCounts($pathCounts, 8),
+        ];
+    }
+
+    private function normalizeRequestPath(string $requestPath): string
+    {
+        $path = parse_url($requestPath, PHP_URL_PATH);
+
+        return $path ?: $requestPath;
+    }
+
+    private function topCounts(array $counts, int $limit): array
+    {
+        arsort($counts);
+
+        return collect($counts)
+            ->take($limit)
+            ->map(fn (int $count, string $value) => [
+                'value' => $value,
+                'count' => $count,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        }
+
+        $units = ['KB', 'MB', 'GB', 'TB'];
+        $value = $bytes / 1024;
+
+        foreach ($units as $unit) {
+            if ($value < 1024 || $unit === 'TB') {
+                return number_format($value, 2) . ' ' . $unit;
+            }
+
+            $value /= 1024;
+        }
+
+        return $bytes . ' B';
     }
 }

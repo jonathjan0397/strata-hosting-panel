@@ -92,6 +92,7 @@ Implemented on `main`:
 - user metrics dashboard with resource summaries
 - bounded domain access/error log tailing
 - bounded PHP error log tailing
+- recent access-log traffic summaries with request, bandwidth, status-code, method, and top-path breakdowns
 
 ## Phase 2: cPanel Daily-Use Parity
 

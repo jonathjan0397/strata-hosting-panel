@@ -196,6 +196,7 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('account.feature:metrics')->group(function () {
             Route::get('metrics', [MetricsController::class, 'index'])->name('metrics.index');
             Route::get('metrics/logs', [MetricsController::class, 'logs'])->name('metrics.logs');
+            Route::get('metrics/traffic', [MetricsController::class, 'traffic'])->name('metrics.traffic');
         });
 
         // PHP settings

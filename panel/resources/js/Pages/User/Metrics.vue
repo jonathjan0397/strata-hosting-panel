@@ -34,6 +34,72 @@
                 </div>
 
                 <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-300">Recent Traffic</h3>
+                            <p class="mt-1 text-xs text-gray-500">Summarized from the latest access-log lines for the selected domain.</p>
+                        </div>
+                        <button type="button" class="btn-primary" :disabled="trafficLoading || !selectedDomainId" @click="loadTraffic">
+                            <span v-if="trafficLoading">Loading...</span>
+                            <span v-else>Refresh Traffic</span>
+                        </button>
+                    </div>
+
+                    <div v-if="trafficError" class="mt-4 rounded-lg border border-rose-800 bg-rose-900/20 px-3 py-2 text-sm text-rose-300">
+                        {{ trafficError }}
+                    </div>
+
+                    <div v-if="traffic" class="mt-5 space-y-5">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="rounded-lg border border-gray-800 bg-gray-950 p-4">
+                                <p class="text-xs uppercase tracking-wide text-gray-500">Requests</p>
+                                <p class="mt-2 text-2xl font-semibold text-gray-100">{{ traffic.requests }}</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-800 bg-gray-950 p-4">
+                                <p class="text-xs uppercase tracking-wide text-gray-500">Bandwidth</p>
+                                <p class="mt-2 text-2xl font-semibold text-gray-100">{{ traffic.bandwidth_human }}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            <div>
+                                <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Status Codes</h4>
+                                <div class="flex flex-wrap gap-2">
+                                    <span v-for="(count, status) in traffic.status_counts" :key="status" class="rounded-full border border-gray-700 px-3 py-1 text-xs text-gray-300">
+                                        {{ status }}: {{ count }}
+                                    </span>
+                                    <span v-if="Object.keys(traffic.status_counts ?? {}).length === 0" class="text-sm text-gray-500">No parsable status data yet.</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Methods</h4>
+                                <div class="flex flex-wrap gap-2">
+                                    <span v-for="(count, method) in traffic.method_counts" :key="method" class="rounded-full border border-gray-700 px-3 py-1 text-xs text-gray-300">
+                                        {{ method }}: {{ count }}
+                                    </span>
+                                    <span v-if="Object.keys(traffic.method_counts ?? {}).length === 0" class="text-sm text-gray-500">No parsable method data yet.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Top Paths</h4>
+                            <div class="space-y-2">
+                                <div v-for="path in traffic.top_paths" :key="path.value" class="flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2">
+                                    <span class="truncate font-mono text-xs text-gray-300">{{ path.value }}</span>
+                                    <span class="text-xs font-semibold text-gray-500">{{ path.count }}</span>
+                                </div>
+                                <p v-if="traffic.top_paths.length === 0" class="text-sm text-gray-500">No top-path data available yet.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else-if="!trafficLoading" class="mt-5 rounded-lg border border-dashed border-gray-700 px-4 py-6 text-sm text-gray-500">
+                        Select a domain and refresh traffic to summarize recent requests.
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                     <h3 class="mb-4 text-sm font-semibold text-gray-300">Log Viewer</h3>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
@@ -118,6 +184,9 @@ const logContent = ref('');
 const logPath = ref('');
 const error = ref('');
 const loading = ref(false);
+const traffic = ref(null);
+const trafficError = ref('');
+const trafficLoading = ref(false);
 
 async function loadLog() {
     loading.value = true;
@@ -143,9 +212,39 @@ async function loadLog() {
     }
 }
 
+async function loadTraffic() {
+    if (!selectedDomainId.value) {
+        traffic.value = null;
+        trafficError.value = 'Select a domain to load traffic summaries.';
+        return;
+    }
+
+    trafficLoading.value = true;
+    trafficError.value = '';
+
+    try {
+        const response = await axios.get(route('my.metrics.traffic'), {
+            params: {
+                domain_id: selectedDomainId.value,
+                lines: 300,
+            },
+        });
+
+        traffic.value = response.data;
+    } catch (err) {
+        trafficError.value = err?.response?.data?.error ?? 'Unable to load traffic summary.';
+        traffic.value = null;
+    } finally {
+        trafficLoading.value = false;
+    }
+}
+
 onMounted(() => {
     if (selectedType.value === 'php' || selectedDomainId.value) {
         loadLog();
+    }
+    if (selectedDomainId.value) {
+        loadTraffic();
     }
 });
 </script>
