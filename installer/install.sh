@@ -487,7 +487,8 @@ log-dns-queries=no
 loglevel=4
 EOF
 
-systemctl enable --now pdns
+systemctl enable pdns
+systemctl restart pdns
 success "PowerDNS ready (API on 127.0.0.1:8053)."
 
 # ── Step 3c. Pure-FTPd ────────────────────────────────────────────────────────
