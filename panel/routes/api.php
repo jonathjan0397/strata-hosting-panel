@@ -16,9 +16,17 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
 
     // ── Accounts ──────────────────────────────────────────────────────────────
+    Route::get('accounts', [AccountController::class, 'index'])
+        ->middleware('ability:accounts:usage')
+        ->name('api.v1.accounts.index');
+
     Route::post('accounts', [AccountController::class, 'store'])
         ->middleware('ability:accounts:create')
         ->name('api.v1.accounts.store');
+
+    Route::get('accounts/{account}', [AccountController::class, 'show'])
+        ->middleware('ability:accounts:usage')
+        ->name('api.v1.accounts.show');
 
     Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])
         ->middleware('ability:accounts:suspend')

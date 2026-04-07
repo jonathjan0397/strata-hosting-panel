@@ -55,6 +55,21 @@ class Account extends Model
         return $this->hasMany(Domain::class);
     }
 
+    public function emailAccounts(): HasMany
+    {
+        return $this->hasMany(EmailAccount::class);
+    }
+
+    public function databases(): HasMany
+    {
+        return $this->hasMany(HostingDatabase::class);
+    }
+
+    public function ftpAccounts(): HasMany
+    {
+        return $this->hasMany(FtpAccount::class);
+    }
+
     public function isSuspended(): bool
     {
         return $this->status === 'suspended';

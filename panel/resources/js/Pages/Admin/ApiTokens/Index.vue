@@ -72,6 +72,8 @@
                 <p class="text-xs font-semibold text-gray-400">API Endpoint Reference</p>
                 <div class="space-y-1 font-mono text-xs text-gray-500">
                     <p><span class="text-emerald-400">POST</span>   /api/v1/accounts — provision account</p>
+                    <p><span class="text-indigo-400">GET</span>    /api/v1/accounts — list accounts</p>
+                    <p><span class="text-indigo-400">GET</span>    /api/v1/accounts/{id} — account details</p>
                     <p><span class="text-yellow-400">POST</span>   /api/v1/accounts/{id}/suspend</p>
                     <p><span class="text-emerald-400">POST</span>   /api/v1/accounts/{id}/unsuspend</p>
                     <p><span class="text-red-400">DELETE</span> /api/v1/accounts/{id} — terminate</p>

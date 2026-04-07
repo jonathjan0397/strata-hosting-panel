@@ -210,6 +210,7 @@ Status: `in progress`
 Implemented on `main`:
 
 - API package and feature-list catalog endpoints for provisioning integrations
+- API account list and detail endpoints for provisioning inventory integrations
 
 ## Implementation Order
 

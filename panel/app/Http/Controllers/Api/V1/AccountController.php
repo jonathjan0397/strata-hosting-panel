@@ -17,6 +17,52 @@ use Illuminate\Support\Str;
 class AccountController extends Controller
 {
     /**
+     * GET /api/v1/accounts
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'in:active,suspended'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $accounts = Account::query()
+            ->with(['user:id,name,email', 'node:id,name,hostname,status', 'hostingPackage:id,name,slug'])
+            ->withCount(['domains', 'emailAccounts', 'databases'])
+            ->when($data['search'] ?? null, fn ($query, string $search) =>
+                $query->where(fn ($searchQuery) =>
+                    $searchQuery->where('username', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn ($userQuery) => $userQuery->where('email', 'like', "%{$search}%"))
+                )
+            )
+            ->when($data['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+            ->latest()
+            ->paginate($data['per_page'] ?? 25);
+
+        return response()->json([
+            'data' => $accounts->getCollection()->map(fn (Account $account) => $this->accountPayload($account))->values(),
+            'meta' => [
+                'current_page' => $accounts->currentPage(),
+                'last_page' => $accounts->lastPage(),
+                'per_page' => $accounts->perPage(),
+                'total' => $accounts->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/v1/accounts/{id}
+     */
+    public function show(Account $account): JsonResponse
+    {
+        $account->load(['user:id,name,email', 'node:id,name,hostname,status', 'hostingPackage:id,name,slug'])
+            ->loadCount(['domains', 'emailAccounts', 'databases']);
+
+        return response()->json($this->accountPayload($account));
+    }
+
+    /**
      * POST /api/v1/accounts
      * Provision a new hosting account.
      */
@@ -147,7 +193,7 @@ class AccountController extends Controller
      */
     public function usage(Account $account): JsonResponse
     {
-        $account->loadCount(['domains', 'databases' => fn ($q) => $q->getModel()::query()]);
+        $account->loadCount(['domains', 'emailAccounts', 'databases']);
 
         return response()->json([
             'id'                 => $account->id,
@@ -164,5 +210,48 @@ class AccountController extends Controller
             'databases'          => $account->databases()->count(),
             'max_databases'      => $account->max_databases,
         ]);
+    }
+
+    private function accountPayload(Account $account): array
+    {
+        return [
+            'id' => $account->id,
+            'username' => $account->username,
+            'status' => $account->status,
+            'php_version' => $account->php_version,
+            'user' => $account->user ? [
+                'id' => $account->user->id,
+                'name' => $account->user->name,
+                'email' => $account->user->email,
+            ] : null,
+            'node' => $account->node ? [
+                'id' => $account->node->id,
+                'name' => $account->node->name,
+                'hostname' => $account->node->hostname,
+                'status' => $account->node->status,
+            ] : null,
+            'hosting_package' => $account->hostingPackage ? [
+                'id' => $account->hostingPackage->id,
+                'name' => $account->hostingPackage->name,
+                'slug' => $account->hostingPackage->slug,
+            ] : null,
+            'limits' => [
+                'disk_mb' => $account->disk_limit_mb,
+                'bandwidth_mb' => $account->bandwidth_limit_mb,
+                'domains' => $account->max_domains,
+                'email_accounts' => $account->max_email_accounts,
+                'databases' => $account->max_databases,
+                'ftp_accounts' => $account->max_ftp_accounts,
+            ],
+            'usage' => [
+                'disk_mb' => $account->disk_used_mb,
+                'bandwidth_mb' => $account->bandwidth_used_mb,
+                'domains' => $account->domains_count ?? $account->domains()->count(),
+                'email_accounts' => $account->email_accounts_count ?? $account->emailAccounts()->count(),
+                'databases' => $account->databases_count ?? $account->databases()->count(),
+            ],
+            'created_at' => $account->created_at?->toISOString(),
+            'updated_at' => $account->updated_at?->toISOString(),
+        ];
     }
 }
