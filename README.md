@@ -156,7 +156,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 
 ## Architecture
 
-A single install gives you a fully functional hosting server. Remote nodes can be added at any time to scale horizontally. See [docs/PLAN.md](docs/PLAN.md) for the full project plan, feature list, and development phases.
+A single install gives you a fully functional hosting server. Remote nodes can be added at any time to scale horizontally. See [docs/PLAN.md](docs/PLAN.md) for the full project plan, feature list, and development phases. Billing and provisioning integrations can use the REST API documented in [docs/API.md](docs/API.md).
 
 ## Contributing & Feedback
 
