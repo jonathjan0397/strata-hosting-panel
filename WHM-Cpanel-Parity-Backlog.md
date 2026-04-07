@@ -121,8 +121,6 @@ Status: `in progress`
 
 - email filters
 - spam controls per domain/account
-- Domain Key Manager for viewing/regenerating DKIM/domain-key records and status
-- SPF Manager for editing, validating, and restoring domain SPF records
 - delivery tracking
 - bulk address/forwarder import
 - mail archive controls
@@ -132,6 +130,8 @@ Implemented on `main`:
 - mailbox-level email filters
 - shared Sieve compilation for filters plus autoresponders
 - automatic DKIM/SPF/DMARC record provisioning and deliverability checks
+- Domain Key Manager for viewing, copying, regenerating, and publishing DKIM/domain-key records
+- SPF Manager for editing, validating, copying, and restoring recommended domain SPF records
 - user filter management UI inside the existing email workflow
 - user spam activity dashboard backed by Rspamd node stats
 - mailbox-level spam policy controls backed by Sieve rules

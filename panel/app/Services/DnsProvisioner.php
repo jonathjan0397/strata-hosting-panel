@@ -127,7 +127,7 @@ class DnsProvisioner
             $this->addRecord($zone, 'default._domainkey', 'TXT', 300, [$domain->dkim_dns_record], true);
         }
         if ($domain->spf_dns_record) {
-            $this->addRecord($zone, '@', 'TXT', 300, [$domain->spf_dns_record], true);
+            $this->updateSpfRecord($domain, $domain->spf_dns_record);
         }
         if ($domain->dmarc_dns_record) {
             $this->addRecord($zone, '_dmarc', 'TXT', 300, [$domain->dmarc_dns_record], true);
@@ -135,5 +135,34 @@ class DnsProvisioner
         if ($nodeHostname = $domain->node?->hostname) {
             $this->addRecord($zone, '@', 'MX', 300, [$nodeHostname . '.'], true, 10);
         }
+    }
+
+    /**
+     * Replace only the SPF value in the root TXT RRSet so other TXT records are preserved.
+     */
+    public function updateSpfRecord(Domain $domain, string $spfRecord): array
+    {
+        $zone = DnsZone::where('domain_id', $domain->id)->first();
+        if (! $zone) {
+            return [false, 'DNS zone has not been provisioned for this domain.'];
+        }
+
+        $existing = DnsRecord::where('dns_zone_id', $zone->id)
+            ->where('name', '@')
+            ->where('type', 'TXT')
+            ->first();
+
+        $contents = $existing
+            ? preg_split('/\R/', (string) $existing->value, -1, PREG_SPLIT_NO_EMPTY)
+            : [];
+
+        $contents = array_values(array_filter(
+            array_map('trim', $contents),
+            fn (string $value) => $value !== '' && ! str_starts_with(strtolower($value), 'v=spf1')
+        ));
+
+        $contents[] = $spfRecord;
+
+        return $this->addRecord($zone, '@', 'TXT', 300, $contents, true);
     }
 }

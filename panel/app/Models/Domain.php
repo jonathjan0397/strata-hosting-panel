@@ -14,7 +14,8 @@ class Domain extends Model
     protected $fillable = [
         'account_id', 'node_id', 'domain', 'type', 'document_root',
         'web_server', 'php_version', 'ssl_enabled', 'force_https', 'ssl_provider', 'ssl_expires_at',
-        'dkim_enabled', 'dkim_public_key', 'spf_enabled', 'dmarc_enabled',
+        'mail_enabled', 'dkim_enabled', 'dkim_public_key', 'dkim_dns_record',
+        'spf_enabled', 'spf_dns_record', 'dmarc_enabled', 'dmarc_dns_record', 'server_ip',
         'custom_directives', 'redirects', 'directory_privacy', 'hotlink_protection', 'modsecurity', 'leech_protection', 'mail_spam_action',
     ];
 

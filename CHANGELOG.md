@@ -51,6 +51,8 @@
 - Autoresponders: Dovecot Sieve vacation scripts, per-mailbox, subject + body + active toggle
 - Spam filter stats UI: Rspamd stats page (scanned / spam / ham / actions), per-node
 - Mailbox archive policy: copy incoming messages to the Archive folder through Sieve
+- Domain Key Manager: user workflow to view/copy/regenerate DKIM domain keys and publish managed DNS records
+- SPF Manager: user workflow to edit, validate, copy, and restore recommended SPF records while preserving other root TXT values
 
 **DNS**
 - Zone import: paste BIND-format zone file, SOA/NS skipped, all other record types supported

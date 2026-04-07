@@ -16,6 +16,71 @@
             Mail is not enabled for this domain. Contact your administrator to enable it.
         </div>
 
+        <div v-if="domain.mail_enabled" class="mb-6 grid gap-6 xl:grid-cols-2">
+            <section class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Domain Key Manager</p>
+                        <h3 class="mt-1 text-sm font-semibold text-gray-200">DKIM signing key</h3>
+                        <p class="mt-1 text-sm text-gray-400">Regenerate the OpenDKIM key and publish the TXT record for this domain.</p>
+                    </div>
+                    <span :class="statusClass(emailDns.dkim.published)">
+                        {{ emailDns.dkim.published ? 'Managed DNS published' : 'Needs DNS publish' }}
+                    </span>
+                </div>
+
+                <DnsValue label="Host" :value="emailDns.dkim.host" />
+                <DnsValue label="Type" :value="emailDns.dkim.type" />
+                <DnsValue label="Value" :value="emailDns.dkim.value || 'No DKIM key stored yet.'" multiline />
+
+                <div class="mt-4 flex flex-wrap gap-3">
+                    <button type="button" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800" @click="copy(emailDns.dkim.value)">
+                        Copy DKIM
+                    </button>
+                    <button type="button" :disabled="domainKeyForm.processing" class="btn-primary" @click="regenerateDomainKey">
+                        {{ domainKeyForm.processing ? 'Regenerating...' : 'Regenerate Domain Key' }}
+                    </button>
+                </div>
+                <p class="mt-3 text-xs text-gray-500">External DNS users should publish this TXT record at <span class="font-mono text-gray-300">{{ emailDns.dkim.fqdn }}</span>.</p>
+            </section>
+
+            <section class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">SPF Manager</p>
+                        <h3 class="mt-1 text-sm font-semibold text-gray-200">Sender policy record</h3>
+                        <p class="mt-1 text-sm text-gray-400">Edit, validate, or restore the recommended SPF TXT record for this domain.</p>
+                    </div>
+                    <span :class="statusClass(emailDns.spf.published)">
+                        {{ emailDns.spf.published ? 'Managed DNS published' : 'Needs DNS publish' }}
+                    </span>
+                </div>
+
+                <form @submit.prevent="updateSpfRecord" class="space-y-3">
+                    <DnsValue label="Host" :value="emailDns.spf.host" />
+                    <DnsValue label="Type" :value="emailDns.spf.type" />
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">SPF Value</span>
+                        <textarea v-model="spfForm.spf_record" rows="4" class="field w-full font-mono text-xs"></textarea>
+                    </label>
+                    <p v-if="spfForm.errors.spf_record" class="text-xs text-red-400">{{ spfForm.errors.spf_record }}</p>
+                    <p class="text-xs text-gray-500">Recommended: <span class="font-mono text-gray-300">{{ emailDns.spf.recommended }}</span></p>
+
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800" @click="copy(spfForm.spf_record)">
+                            Copy SPF
+                        </button>
+                        <button type="button" :disabled="spfRestoreForm.processing" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-60" @click="restoreSpfRecord">
+                            {{ spfRestoreForm.processing ? 'Restoring...' : 'Restore Recommended' }}
+                        </button>
+                        <button type="submit" :disabled="spfForm.processing" class="btn-primary">
+                            {{ spfForm.processing ? 'Saving...' : 'Save SPF' }}
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
         <form v-if="domain.mail_enabled" @submit.prevent="submitDomainSpamPolicy" class="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div class="max-w-2xl">
@@ -221,6 +286,7 @@ const props = defineProps({
     mailboxes: Array,
     forwarders: Array,
     spamActionOptions: Array,
+    emailDns: Object,
 });
 
 const mbForm = useForm({ local_part: '', password: '' });
@@ -231,6 +297,11 @@ const domainSpamPolicyForm = useForm({
     spam_action: props.domain.mail_spam_action ?? 'inbox',
     apply_existing: false,
 });
+const domainKeyForm = useForm({});
+const spfForm = useForm({
+    spf_record: props.emailDns.spf.value ?? props.emailDns.spf.recommended,
+});
+const spfRestoreForm = useForm({});
 
 function submitMailbox() {
     mbForm.post(route('my.email.mailbox.store', props.domain.id), {
@@ -264,4 +335,61 @@ function submitDomainSpamPolicy() {
         },
     });
 }
+
+function regenerateDomainKey() {
+    domainKeyForm.post(route('my.email.domain-key.regenerate', props.domain.id), {
+        preserveScroll: true,
+    });
+}
+
+function updateSpfRecord() {
+    spfForm.put(route('my.email.spf.update', props.domain.id), {
+        preserveScroll: true,
+    });
+}
+
+function restoreSpfRecord() {
+    spfRestoreForm.post(route('my.email.spf.restore', props.domain.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            spfForm.spf_record = props.emailDns.spf.recommended;
+        },
+    });
+}
+
+function statusClass(published) {
+    return [
+        'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
+        published ? 'bg-emerald-900/40 text-emerald-300' : 'bg-amber-900/40 text-amber-300',
+    ];
+}
+
+function copy(value) {
+    if (!value || !navigator.clipboard) {
+        return;
+    }
+
+    navigator.clipboard.writeText(value);
+}
+</script>
+
+<script>
+export default {
+    components: {
+        DnsValue: {
+            props: {
+                label: String,
+                value: String,
+                multiline: Boolean,
+            },
+            template: `
+                <div class="mb-3">
+                    <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ label }}</p>
+                    <pre v-if="multiline" class="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-gray-800 bg-gray-950 p-3 text-xs text-gray-300">{{ value }}</pre>
+                    <p v-else class="font-mono text-sm text-gray-300">{{ value }}</p>
+                </div>
+            `,
+        },
+    },
+};
 </script>

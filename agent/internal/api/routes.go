@@ -57,6 +57,7 @@ func Routes() chi.Router {
 	// Mail domain provisioning
 	r.Post("/mail/domain", handleMailDomainProvision)
 	r.Delete("/mail/domain/{domain}", handleMailDomainDeprovision)
+	r.Post("/mail/domain/{domain}/dkim/regenerate", handleMailDomainDKIMRegenerate)
 
 	// Mailbox management
 	r.Post("/mail/mailbox", handleMailboxCreate)

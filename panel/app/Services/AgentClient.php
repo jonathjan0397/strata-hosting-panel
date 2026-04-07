@@ -150,6 +150,11 @@ class AgentClient
         return $this->delete("/mail/domain/{$domain}");
     }
 
+    public function regenerateDkim(string $domain): Response
+    {
+        return $this->post("/mail/domain/{$domain}/dkim/regenerate");
+    }
+
     public function createMailbox(array $data): Response
     {
         return $this->post('/mail/mailbox', $data);

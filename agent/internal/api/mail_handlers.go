@@ -46,6 +46,27 @@ func handleMailDomainDeprovision(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, map[string]string{"status": "deprovisioned", "domain": domain})
 }
 
+func handleMailDomainDKIMRegenerate(w http.ResponseWriter, r *http.Request) {
+	domain := chi.URLParam(r, "domain")
+	if domain == "" {
+		http.Error(w, "domain required", http.StatusBadRequest)
+		return
+	}
+
+	dkimPubKey, err := mail.GenerateDKIMKey(domain)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	respond(w, http.StatusOK, map[string]string{
+		"status":      "regenerated",
+		"domain":      domain,
+		"selector":    "default",
+		"dkim_pubkey": dkimPubKey,
+	})
+}
+
 func handleMailboxCreate(w http.ResponseWriter, r *http.Request) {
 	var req mail.MailboxRequest
 	if !decodeJSON(w, r, &req) {
