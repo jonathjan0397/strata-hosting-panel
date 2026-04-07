@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessBackupJobAction;
 use App\Models\BackupJob;
-use App\Models\RemoteBackupDestination;
 use App\Services\AgentClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,9 +32,12 @@ class BackupController extends Controller
                 'filename'   => $j->filename,
                 'type'       => $j->type,
                 'status'     => $j->status,
+                'restore_status' => $j->restore_status,
                 'size_human' => $j->size_human,
                 'trigger'    => $j->trigger,
                 'error'      => $j->error,
+                'restore_error' => $j->restore_error,
+                'last_restored_at' => $j->last_restored_at?->toDateTimeString(),
                 'created_at' => $j->created_at?->toDateTimeString(),
             ]);
 
@@ -60,48 +63,9 @@ class BackupController extends Controller
             'trigger'    => 'manual',
         ]);
 
-        try {
-            $client   = new AgentClient($account->node);
-            $response = $client->backupCreate($account->username, $data['type']);
+        ProcessBackupJobAction::dispatch($job->id, 'create', ['push_remote' => true]);
 
-            if ($response->successful()) {
-                $result = $response->json();
-                $job->update([
-                    'status'     => 'complete',
-                    'filename'   => $result['filename'] ?? null,
-                    'size_bytes' => $result['size_bytes'] ?? null,
-                    'error'      => null,
-                ]);
-
-                $pushErrors = [];
-                if ($job->status === 'complete' && $job->filename) {
-                    $destinations = RemoteBackupDestination::where('active', true)->get();
-                    foreach ($destinations as $dest) {
-                        try {
-                            $config = array_merge(['destination_type' => $dest->type], $dest->config);
-                            $pushResponse = $client->backupPush($account->username, $job->filename, $config);
-                            if (! $pushResponse->successful()) {
-                                $pushErrors[] = "{$dest->name}: {$pushResponse->body()}";
-                            }
-                        } catch (\Throwable $e) {
-                            $pushErrors[] = "{$dest->name}: {$e->getMessage()}";
-                        }
-                    }
-                }
-
-                if ($pushErrors !== []) {
-                    $job->update(['error' => implode(' | ', $pushErrors)]);
-
-                    return back()->with('error', 'Backup completed, but remote copy failed for one or more destinations.');
-                }
-            } else {
-                $job->update(['status' => 'failed', 'error' => $response->body()]);
-            }
-        } catch (\Throwable $e) {
-            $job->update(['status' => 'failed', 'error' => $e->getMessage()]);
-        }
-
-        return back();
+        return back()->with('success', 'Backup was queued. Refresh the backups page for progress.');
     }
 
     public function destroy(BackupJob $backup): RedirectResponse
@@ -140,14 +104,10 @@ class BackupController extends Controller
             return back()->with('error', 'Backup file not available for restore.');
         }
 
-        $client   = AgentClient::for($backup->node);
-        $response = $client->backupRestore($account->username, $backup->filename);
+        $backup->update(['restore_status' => 'running', 'restore_error' => null]);
+        ProcessBackupJobAction::dispatch($backup->id, 'restore');
 
-        if (! $response->successful()) {
-            return back()->with('error', 'Restore failed: ' . $response->body());
-        }
-
-        return back()->with('success', "Backup {$backup->filename} restored successfully.");
+        return back()->with('success', "Restore for {$backup->filename} was queued.");
     }
 
     public function restorePath(Request $request, BackupJob $backup): RedirectResponse
@@ -171,19 +131,13 @@ class BackupController extends Controller
             'target_path' => ['nullable', 'string', 'max:500', 'not_regex:/^\//', 'not_regex:/(^|[\/\\\\])\.\.([\/\\\\]|$)/'],
         ]);
 
-        $client = AgentClient::for($backup->node);
-        $response = $client->backupRestorePath(
-            $account->username,
-            $backup->filename,
-            $data['source_path'],
-            $data['target_path'] ?? null,
-        );
+        $backup->update(['restore_status' => 'running', 'restore_error' => null]);
+        ProcessBackupJobAction::dispatch($backup->id, 'restore_path', [
+            'source_path' => $data['source_path'],
+            'target_path' => $data['target_path'] ?? null,
+        ]);
 
-        if (! $response->successful()) {
-            return back()->with('error', 'Path restore failed: ' . $response->body());
-        }
-
-        return back()->with('success', "Restored {$data['source_path']} from {$backup->filename}.");
+        return back()->with('success', "Path restore for {$data['source_path']} was queued.");
     }
 
     public function download(BackupJob $backup): Response|RedirectResponse

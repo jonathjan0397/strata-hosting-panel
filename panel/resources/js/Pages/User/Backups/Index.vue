@@ -67,6 +67,10 @@
                                     {{ job.status }}
                                 </span>
                                 <p v-if="job.error" class="mt-0.5 max-w-xs truncate text-xs text-red-400" :title="job.error">{{ job.error }}</p>
+                                <p v-if="job.restore_status" class="mt-1 text-xs" :class="job.restore_status === 'failed' ? 'text-red-400' : 'text-cyan-300'">
+                                    Restore: {{ job.restore_status }}<span v-if="job.last_restored_at"> at {{ job.last_restored_at }}</span>
+                                </p>
+                                <p v-if="job.restore_error" class="mt-0.5 max-w-xs truncate text-xs text-red-400" :title="job.restore_error">{{ job.restore_error }}</p>
                             </td>
                             <td class="space-x-3 px-5 py-3.5 text-right">
                                 <a
@@ -76,13 +80,15 @@
                                 >Download</a>
                                 <button
                                     v-if="job.status === 'complete'"
+                                    :disabled="job.restore_status === 'running'"
                                     @click="restore(job.id)"
-                                    class="text-xs text-emerald-400 transition-colors hover:text-emerald-300"
+                                    class="text-xs text-emerald-400 transition-colors hover:text-emerald-300 disabled:opacity-50"
                                 >Restore</button>
                                 <button
                                     v-if="job.status === 'complete' && job.type !== 'databases'"
+                                    :disabled="job.restore_status === 'running'"
                                     @click="openPathRestore(job)"
-                                    class="text-xs text-cyan-400 transition-colors hover:text-cyan-300"
+                                    class="text-xs text-cyan-400 transition-colors hover:text-cyan-300 disabled:opacity-50"
                                 >Restore Path</button>
                                 <button
                                     @click="remove(job.id)"
@@ -177,7 +183,7 @@ function create() {
 }
 
 function restore(id) {
-    if (!confirm('Restore this backup? This will overwrite your current files.')) return;
+    if (!confirm('Queue a restore for this backup? This will overwrite your current files when the queue worker runs.')) return;
     router.post(route('my.backups.restore', id));
 }
 

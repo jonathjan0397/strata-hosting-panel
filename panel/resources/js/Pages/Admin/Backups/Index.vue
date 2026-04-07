@@ -106,12 +106,17 @@
                             <td class="px-5 py-3.5">
                                 <span :class="statusClass(job.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold capitalize">{{ job.status }}</span>
                                 <p v-if="job.error" class="mt-0.5 text-xs text-red-400 truncate max-w-xs" :title="job.error">{{ job.error }}</p>
+                                <p v-if="job.restore_status" class="mt-1 text-xs" :class="job.restore_status === 'failed' ? 'text-red-400' : 'text-cyan-300'">
+                                    Restore: {{ job.restore_status }}<span v-if="job.last_restored_at"> at {{ job.last_restored_at }}</span>
+                                </p>
+                                <p v-if="job.restore_error" class="mt-0.5 max-w-xs truncate text-xs text-red-400" :title="job.restore_error">{{ job.restore_error }}</p>
                             </td>
                             <td class="px-5 py-3.5 text-right">
                                 <button
                                     v-if="job.status === 'complete'"
+                                    :disabled="job.restore_status === 'running'"
                                     @click="restore(job.id)"
-                                    class="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                                    class="text-xs text-emerald-400 transition-colors hover:text-emerald-300 disabled:opacity-50"
                                 >Restore</button>
                                 <button
                                     @click="remove(job.id)"
@@ -166,7 +171,7 @@ function filter() {
 }
 
 function restore(id) {
-    if (!confirm('Restore this backup? This will overwrite the account\'s current files.')) return;
+    if (!confirm('Queue a restore for this backup? This will overwrite the account\'s current files when the queue worker runs.')) return;
     router.post(route('admin.backups.restore', id));
 }
 

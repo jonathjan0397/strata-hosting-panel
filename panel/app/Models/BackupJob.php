@@ -9,11 +9,12 @@ class BackupJob extends Model
 {
     protected $fillable = [
         'account_id', 'node_id', 'filename', 'type',
-        'status', 'size_bytes', 'error', 'trigger',
+        'status', 'restore_status', 'size_bytes', 'error', 'restore_error', 'last_restored_at', 'trigger',
     ];
 
     protected $casts = [
         'size_bytes' => 'integer',
+        'last_restored_at' => 'datetime',
     ];
 
     public function account(): BelongsTo

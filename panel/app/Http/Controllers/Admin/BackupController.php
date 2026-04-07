@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessBackupJobAction;
 use App\Models\Account;
 use App\Models\BackupJob;
 use App\Services\AgentClient;
@@ -32,9 +33,12 @@ class BackupController extends Controller
             'filename'   => $j->filename,
             'type'       => $j->type,
             'status'     => $j->status,
+            'restore_status' => $j->restore_status,
             'size_human' => $j->size_human,
             'trigger'    => $j->trigger,
             'error'      => $j->error,
+            'restore_error' => $j->restore_error,
+            'last_restored_at' => $j->last_restored_at?->toDateTimeString(),
             'created_at' => $j->created_at?->toDateTimeString(),
         ]);
 
@@ -69,25 +73,9 @@ class BackupController extends Controller
             'trigger'    => 'manual',
         ]);
 
-        try {
-            $client   = new AgentClient($account->node);
-            $response = $client->backupCreate($account->username, $data['type']);
+        ProcessBackupJobAction::dispatch($job->id, 'create');
 
-            if ($response->successful()) {
-                $result = $response->json();
-                $job->update([
-                    'status'     => 'complete',
-                    'filename'   => $result['filename'] ?? null,
-                    'size_bytes' => $result['size_bytes'] ?? null,
-                ]);
-            } else {
-                $job->update(['status' => 'failed', 'error' => $response->body()]);
-            }
-        } catch (\Throwable $e) {
-            $job->update(['status' => 'failed', 'error' => $e->getMessage()]);
-        }
-
-        return back();
+        return back()->with('success', "Backup for {$account->username} was queued.");
     }
 
     public function importExisting(Request $request): RedirectResponse
@@ -167,13 +155,10 @@ class BackupController extends Controller
         $account = $backup->account()->first();
         abort_if(! $account, 404, 'Backup account no longer exists.');
 
-        $response = AgentClient::for($backup->node)->backupRestore($account->username, $backup->filename);
+        $backup->update(['restore_status' => 'running', 'restore_error' => null]);
+        ProcessBackupJobAction::dispatch($backup->id, 'restore');
 
-        if (! $response->successful()) {
-            return back()->with('error', 'Restore failed: ' . $response->body());
-        }
-
-        return back()->with('success', "Backup {$backup->filename} restored successfully.");
+        return back()->with('success', "Restore for {$backup->filename} was queued.");
     }
 
     public function destroy(BackupJob $backup): RedirectResponse
