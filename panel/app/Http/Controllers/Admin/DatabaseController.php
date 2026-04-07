@@ -83,21 +83,73 @@ class DatabaseController extends Controller
     public function destroy(HostingDatabase $database): RedirectResponse
     {
         $account = $database->account;
+        $error = $this->deleteDatabase($database);
+
+        return $error === null
+            ? redirect()->route('admin.accounts.databases', $account->id)
+                ->with('success', "{$database->db_name} deleted.")
+            : back()->with('error', "Deletion failed: {$error}");
+    }
+
+    public function bulkDestroy(Request $request, Account $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'database_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'database_ids.*' => ['integer', 'exists:hosting_databases,id'],
+        ]);
+
+        $deleted = 0;
+        $errors = [];
+
+        HostingDatabase::with(['account', 'node'])
+            ->where('account_id', $account->id)
+            ->whereIn('id', $data['database_ids'])
+            ->get()
+            ->each(function (HostingDatabase $database) use (&$deleted, &$errors) {
+                $error = $this->deleteDatabase($database);
+
+                if ($error) {
+                    $errors[] = "{$database->db_name}: {$error}";
+                    return;
+                }
+
+                $deleted++;
+            });
+
+        if ($errors !== []) {
+            return back()->with(
+                $deleted > 0 ? 'success' : 'error',
+                $deleted > 0
+                    ? "Deleted {$deleted} database(s). " . count($errors) . ' failed: ' . implode(' ', array_slice($errors, 0, 3))
+                    : 'No databases deleted. ' . implode(' ', array_slice($errors, 0, 3))
+            );
+        }
+
+        return back()->with('success', "Deleted {$deleted} database(s).");
+    }
+
+    private function deleteDatabase(HostingDatabase $database): ?string
+    {
+        $database->loadMissing(['account', 'node']);
+        $account = $database->account;
+        $dbName = $database->db_name;
+        $dbUser = $database->db_user;
+
         $client  = AgentClient::for($database->node);
         $provisioner = new DatabaseProvisioner($client);
 
         [$success, $error] = $provisioner->delete($database);
 
-        if ($success) {
-            AuditLog::record('database.deleted', $account, [
-                'db_name' => $database->db_name, 'db_user' => $database->db_user,
-            ]);
+        if (! $success) {
+            return $error;
         }
 
-        return $success
-            ? redirect()->route('admin.accounts.databases', $account->id)
-                ->with('success', "{$database->db_name} deleted.")
-            : back()->with('error', "Deletion failed: {$error}");
+        AuditLog::record('database.deleted', $account, [
+            'db_name' => $dbName,
+            'db_user' => $dbUser,
+        ]);
+
+        return null;
     }
 
     /**

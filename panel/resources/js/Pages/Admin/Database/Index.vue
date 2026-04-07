@@ -20,9 +20,20 @@
                     Databases
                     <span class="ml-2 text-xs font-normal text-gray-500">{{ databases.length }}</span>
                 </h3>
-                <button @click="showCreate = !showCreate" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-                    + Create
-                </button>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-500">{{ selectedIds.length }} selected</span>
+                    <button
+                        type="button"
+                        :disabled="selectedIds.length === 0"
+                        class="rounded-lg border border-red-700 px-3 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-red-900/20 disabled:opacity-50"
+                        @click="bulkDelete"
+                    >
+                        Delete Selected
+                    </button>
+                    <button @click="showCreate = !showCreate" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                        + Create
+                    </button>
+                </div>
             </div>
 
             <!-- Create form -->
@@ -63,7 +74,14 @@
             <!-- Database list -->
             <div class="divide-y divide-gray-800">
                 <div v-for="db in databases" :key="db.id" class="flex items-center justify-between px-5 py-3">
-                    <div>
+                    <div class="flex items-start gap-3">
+                        <input
+                            v-model="selectedIds"
+                            type="checkbox"
+                            class="mt-1 rounded border-gray-700 bg-gray-800 text-indigo-500 focus:ring-indigo-500"
+                            :value="db.id"
+                        />
+                        <div>
                         <p class="text-sm font-mono text-gray-100">{{ db.db_name }}</p>
                         <p class="text-xs text-gray-500">
                             <span>{{ engineLabel(db.engine) }}</span>
@@ -71,6 +89,7 @@
                             User: <span class="font-mono">{{ db.db_user }}</span>
                             <span v-if="db.note" class="ml-2 text-gray-600">· {{ db.note }}</span>
                         </p>
+                        </div>
                     </div>
                     <div class="flex items-center gap-2">
                         <button
@@ -128,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { computed, ref, reactive } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
@@ -141,6 +160,8 @@ const props = defineProps({
 const showCreate = ref(false);
 const form   = ref({ engine: 'mysql', db_name: '', db_user: '', password: '', note: '' });
 const errors = ref({});
+const selectedIds = ref([]);
+const selectedCount = computed(() => selectedIds.value.length);
 
 function submitCreate() {
     router.post(route('admin.accounts.databases.store', props.account.id), form.value, {
@@ -168,6 +189,19 @@ function submitPassword() {
         password: pwdModal.password,
     }, {
         onFinish: () => { pwdModal.busy = false; pwdModal.show = false; },
+    });
+}
+
+function bulkDelete() {
+    if (selectedCount.value === 0) return;
+    if (!confirm(`Permanently drop ${selectedCount.value} selected database(s) and users? Failed remote deletes will keep their panel records.`)) return;
+
+    router.delete(route('admin.accounts.databases.bulk-destroy', props.account.id), {
+        data: { database_ids: selectedIds.value },
+        preserveScroll: true,
+        onSuccess: () => {
+            selectedIds.value = [];
+        },
     });
 }
 

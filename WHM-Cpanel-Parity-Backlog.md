@@ -219,6 +219,7 @@ Implemented on `main`:
 - admin account bulk package reassignment action
 - admin backup bulk delete action with remote-cleanup failure preservation
 - admin domain bulk delete action with server-cleanup failure preservation
+- admin per-account database bulk delete action with remote-cleanup failure preservation
 - remaining user-facing app installer, file manager, domain detail, DNS detail, deliverability, delivery tracking, filters, PHP settings, and no-account pages converted to shared page structure
 - reseller branding and package catalog pages converted to shared page structure
 

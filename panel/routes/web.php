@@ -278,6 +278,7 @@ Route::middleware(['auth'])->group(function () {
         // Databases (per account)
         Route::get('accounts/{account}/databases', [DatabaseController::class, 'index'])->name('accounts.databases');
         Route::post('accounts/{account}/databases', [DatabaseController::class, 'store'])->name('accounts.databases.store');
+        Route::delete('accounts/{account}/databases/bulk-delete', [DatabaseController::class, 'bulkDestroy'])->name('accounts.databases.bulk-destroy');
         Route::delete('databases/{database}', [DatabaseController::class, 'destroy'])->name('databases.destroy');
         Route::put('databases/{database}/password', [DatabaseController::class, 'changePassword'])->name('databases.password');
         Route::post('accounts/{account}/databases/grant', [DatabaseController::class, 'grantUser'])->name('databases.grant');

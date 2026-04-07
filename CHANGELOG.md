@@ -26,6 +26,9 @@
 **Domains**
 - Admin domain list supports bulk deletion while preserving panel records when server cleanup fails
 
+**Databases**
+- Admin per-account database page supports bulk deletion while preserving panel records when remote cleanup fails
+
 **Backup Schedules**
 - Per-account backup schedule configuration: frequency (disabled / daily / weekly), time (HH:MM), day of week (weekly only)
 - New migration: `backup_schedule`, `backup_time`, `backup_day` columns on `accounts` table
