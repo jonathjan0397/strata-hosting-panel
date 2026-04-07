@@ -196,7 +196,8 @@ Admin
 - [x] Create/delete MariaDB and PostgreSQL databases
 - [x] Create/delete database users
 - [x] Assign user permissions (grant additional users to databases)
-- [ ] phpMyAdmin SSO (deferred — post v1.0)
+- [x] phpMyAdmin/phpPgAdmin launch guide with manual database credential login
+- [ ] phpMyAdmin/phpPgAdmin SSO (deferred — post v1.0; requires a safe credential delegation design)
 
 ### FTP
 - [x] Create/delete FTP accounts
@@ -288,7 +289,8 @@ Admin
 - PowerDNS integration
 - MariaDB and PostgreSQL account management
 - Pure-FTPd
-- phpMyAdmin SSO (pending)
+- phpMyAdmin/phpPgAdmin launch guide
+- phpMyAdmin/phpPgAdmin SSO (deferred)
 
 ### Phase 5 — End User Portal + Agent ✅
 - [x] End user portal (domains, email, databases, FTP, DNS)

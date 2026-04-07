@@ -166,6 +166,7 @@ Implemented on `main`:
 - user-facing remote database access management in the Databases workspace
 - PostgreSQL database/user lifecycle support in the existing Databases workspace
 - PostgreSQL service/log visibility in the admin node tools
+- phpMyAdmin/phpPgAdmin launch and connection guide with manual database credential login
 
 ## Phase 3: Advanced Platform Parity
 

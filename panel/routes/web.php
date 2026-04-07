@@ -136,6 +136,7 @@ Route::middleware(['auth'])->group(function () {
         // Databases
         Route::middleware('account.feature:databases')->group(function () {
             Route::get('databases', [User\DatabaseController::class, 'index'])->name('databases.index');
+            Route::get('databases/tools', [User\DatabaseToolsController::class, 'index'])->name('databases.tools');
             Route::post('databases', [User\DatabaseController::class, 'store'])->name('databases.store');
             Route::delete('databases/{database}', [User\DatabaseController::class, 'destroy'])->name('databases.destroy');
             Route::put('databases/{database}/password', [User\DatabaseController::class, 'changePassword'])->name('databases.password');

@@ -145,7 +145,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | **Domains** | Nginx/Apache vhosts, SSL (Let's Encrypt + custom cert, auto-renew), PHP version per domain, redirects, custom directives |
 | **Email** | Mailboxes, forwarders, autoresponders, DKIM/SPF/DMARC auto-setup, spam filter stats |
 | **DNS** | PowerDNS zone management, full record type support, BIND import/export, server DNS zones |
-| **Databases** | MariaDB/PostgreSQL create/delete/password, user grants, remote MariaDB host grants |
+| **Databases** | MariaDB/PostgreSQL create/delete/password, user grants, remote MariaDB host grants, phpMyAdmin/phpPgAdmin launch guide |
 | **FTP / Web Disk** | Pure-FTPd jailed accounts (FTPS enforced), desktop-client connection guide |
 | **File Manager** | Browser-based, upload/download/edit/chmod/compress/extract |
 | **Backups** | Files + databases, per-account schedules, manual trigger, download, remote SFTP/S3 destinations |

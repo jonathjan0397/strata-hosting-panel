@@ -634,6 +634,7 @@ const navActions = computed(() => {
         addUserAction(items, 'file_manager', 'File Manager', 'Files', route('my.files.index'));
         addUserAction(items, 'web_disk', 'Web Disk', 'Files', route('my.web-disk.index'));
         addUserAction(items, 'databases', 'Databases', 'Data', route('my.databases.index'));
+        addUserAction(items, 'databases', 'Database Tools', 'Data', route('my.databases.tools'));
         addUserAction(items, 'backups', 'Backups', 'Files', route('my.backups.index'));
         addUserAction(items, 'metrics', 'Metrics and Logs', 'Diagnostics', route('my.metrics.index'));
         addUserAction(items, 'git', 'Git Version Control', 'Developer Tools', route('my.git.index'));

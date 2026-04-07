@@ -5,7 +5,11 @@
                 eyebrow="Databases"
                 title="Databases"
                 description="Create MySQL or PostgreSQL databases and users for your applications, then rotate credentials when needed."
-            />
+            >
+                <template #actions>
+                    <Link :href="route('my.databases.tools')" class="btn-primary">Database Tools</Link>
+                </template>
+            </PageHeader>
 
             <div class="grid gap-4 md:grid-cols-3">
                 <StatCard label="Databases" :value="databases.length" color="indigo" />
@@ -197,7 +201,7 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 import EmptyState from '@/Components/EmptyState.vue';
