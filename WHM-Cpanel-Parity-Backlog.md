@@ -84,6 +84,9 @@ Status: `in progress`
 Implemented on `main`:
 
 - admin import workflow that scans an account node for existing backup archives and registers missing completed backup jobs
+- admin migration queue with source/target node tracking
+- migration-prep workflow that creates a full source-node backup and marks the migration `backup_ready`
+- migration audit event for prepared backups
 
 ### 4. Metrics and Logs
 Status: `in progress`

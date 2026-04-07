@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliverabilityController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AccountController;
+use App\Http\Controllers\Admin\AccountMigrationController;
 use App\Http\Controllers\Admin\DatabaseController;
 use App\Http\Controllers\Admin\DnsController;
 use App\Http\Controllers\Admin\DomainController;
@@ -247,6 +248,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('accounts/bulk-status', [AccountController::class, 'bulkStatus'])->name('accounts.bulk-status');
         Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])->name('accounts.suspend');
         Route::post('accounts/{account}/unsuspend', [AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
+        Route::get('migrations', [AccountMigrationController::class, 'index'])->name('migrations.index');
+        Route::post('migrations', [AccountMigrationController::class, 'store'])->name('migrations.store');
         Route::resource('packages', HostingPackageController::class)->except(['show']);
         Route::resource('feature-lists', FeatureListController::class)->except(['show']);
 

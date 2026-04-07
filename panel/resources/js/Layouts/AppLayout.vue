@@ -149,6 +149,14 @@
                             </template>
                             Accounts
                         </NavItem>
+                        <NavItem :href="route('admin.migrations.index')" :active="$page.url.startsWith('/admin/migrations')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5M16.5 3 21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                                </svg>
+                            </template>
+                            Migrations
+                        </NavItem>
                         <NavItem :href="route('admin.packages.index')" :active="$page.url.startsWith('/admin/packages')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -587,6 +595,7 @@ const navActions = computed(() => {
     if (roles.includes('admin')) {
         items.push(
             { label: 'Accounts', group: 'Hosting', href: route('admin.accounts.index') },
+            { label: 'Account Migrations', group: 'Hosting', href: route('admin.migrations.index') },
             { label: 'Packages', group: 'Hosting', href: route('admin.packages.index') },
             { label: 'Feature Lists', group: 'Hosting', href: route('admin.feature-lists.index') },
             { label: 'Domains', group: 'Hosting', href: route('admin.domains.index') },
