@@ -40,6 +40,7 @@ class ApiTokenController extends Controller
         $token = $request->user()->createToken($data['name'], [
             'accounts:create', 'accounts:suspend', 'accounts:unsuspend',
             'accounts:terminate', 'accounts:usage', 'catalog:read',
+            'migrations:read', 'migrations:write',
         ]);
 
         AuditLog::record('api_token.created', null, ['name' => $data['name']]);

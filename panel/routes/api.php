@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\CatalogController;
+use App\Http\Controllers\Api\V1\MigrationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -43,6 +44,34 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     Route::get('accounts/{account}/usage', [AccountController::class, 'usage'])
         ->middleware('ability:accounts:usage')
         ->name('api.v1.accounts.usage');
+
+    Route::get('migrations', [MigrationController::class, 'index'])
+        ->middleware('ability:migrations:read')
+        ->name('api.v1.migrations.index');
+
+    Route::post('migrations', [MigrationController::class, 'store'])
+        ->middleware('ability:migrations:write')
+        ->name('api.v1.migrations.store');
+
+    Route::get('migrations/{migration}', [MigrationController::class, 'show'])
+        ->middleware('ability:migrations:read')
+        ->name('api.v1.migrations.show');
+
+    Route::post('migrations/{migration}/transfer', [MigrationController::class, 'transfer'])
+        ->middleware('ability:migrations:write')
+        ->name('api.v1.migrations.transfer');
+
+    Route::post('migrations/{migration}/restore', [MigrationController::class, 'restore'])
+        ->middleware('ability:migrations:write')
+        ->name('api.v1.migrations.restore');
+
+    Route::post('migrations/{migration}/cutover', [MigrationController::class, 'cutover'])
+        ->middleware('ability:migrations:write')
+        ->name('api.v1.migrations.cutover');
+
+    Route::post('migrations/{migration}/cleanup-source', [MigrationController::class, 'cleanupSource'])
+        ->middleware('ability:migrations:write')
+        ->name('api.v1.migrations.cleanup-source');
 
     // Catalog discovery for billing/provisioning integrations.
     Route::get('packages', [CatalogController::class, 'packages'])

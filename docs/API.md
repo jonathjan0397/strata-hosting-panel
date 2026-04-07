@@ -26,6 +26,8 @@ accounts:unsuspend
 accounts:terminate
 accounts:usage
 catalog:read
+migrations:read
+migrations:write
 ```
 
 ## Webhooks
@@ -157,6 +159,97 @@ GET /api/v1/accounts/{id}/usage
 Ability: `accounts:usage`
 
 Returns disk, bandwidth, domain, mailbox, and database usage/limits.
+
+## Migrations
+
+Migration endpoints expose the same conservative account-transfer workflow as the admin UI. These operations are synchronous today and should be called with long HTTP timeouts.
+
+Automatic cutover remains limited to static/domain-only accounts. If an account has mailboxes, forwarders, FTP users, databases, database grants, or app installs, the API returns cutover blockers instead of forcing an unsafe move.
+
+### List Migrations
+
+```http
+GET /api/v1/migrations
+```
+
+Ability: `migrations:read`
+
+Query parameters:
+
+| Name | Type | Notes |
+|---|---|---|
+| `status` | string | Optional migration status filter. |
+| `account_id` | integer | Optional account filter. |
+| `per_page` | integer | Optional, 1-100. Defaults to 25. |
+
+### Show Migration
+
+```http
+GET /api/v1/migrations/{id}
+```
+
+Ability: `migrations:read`
+
+Returns source/target nodes, source and target backups, status, error, and cutover blockers.
+
+### Prepare Migration Backup
+
+```http
+POST /api/v1/migrations
+```
+
+Ability: `migrations:write`
+
+Request body:
+
+```json
+{
+  "account_id": 42,
+  "target_node_id": 7
+}
+```
+
+Creates a full source-node backup and returns the migration in `backup_ready` status if successful.
+
+### Transfer Backup
+
+```http
+POST /api/v1/migrations/{id}/transfer
+```
+
+Ability: `migrations:write`
+
+Transfers the prepared archive to the target node and returns `transfer_ready` on success.
+
+### Restore Target
+
+```http
+POST /api/v1/migrations/{id}/restore
+```
+
+Ability: `migrations:write`
+
+Provisions the target account, restores the transferred archive, and returns `restored`.
+
+### Cut Over
+
+```http
+POST /api/v1/migrations/{id}/cutover
+```
+
+Ability: `migrations:write`
+
+Moves panel ownership to the target node and reprovisions vhosts. If automatic cutover is unsafe, the response is `409` with a `blockers` array.
+
+### Cleanup Source
+
+```http
+POST /api/v1/migrations/{id}/cleanup-source
+```
+
+Ability: `migrations:write`
+
+Runs source-node cleanup after a completed cutover. Cleanup failures do not undo the completed target cutover.
 
 ## Catalog
 

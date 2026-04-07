@@ -93,6 +93,7 @@ Implemented on `main`:
 - conservative cutover action for static/domain-only accounts with target-node panel ownership update and vhost reprovision rollback
 - explicit post-cutover source-node cleanup action with failure isolation from the completed cutover state
 - migration queue cutover-blocker visibility for accounts that need manual service re-provisioning
+- API migration workflow endpoints for list, detail, prepare, transfer, restore, cutover, and source cleanup
 
 ### 4. Metrics and Logs
 Status: `in progress`
@@ -231,6 +232,7 @@ Implemented on `main`:
 - API account list and detail endpoints for provisioning inventory integrations
 - repo-local API reference for billing and provisioning integrations
 - admin-managed webhook endpoints with HMAC-signed audit-backed lifecycle event delivery
+- API migration workflow endpoints with `migrations:read` and `migrations:write` token abilities
 
 ## Implementation Order
 
