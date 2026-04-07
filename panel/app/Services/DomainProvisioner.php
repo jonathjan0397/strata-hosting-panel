@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Domain;
+use App\Models\DnsZone;
 
 class DomainProvisioner
 {
@@ -23,8 +24,19 @@ class DomainProvisioner
                 $this->buildPayload($domain, ['ssl_enabled' => false])
             );
 
-            return $response->successful() ? [true, null]
-                : [false, $response->json('message') ?? $response->body()];
+            if (! $response->successful()) {
+                return [false, $response->json('message') ?? $response->body()];
+            }
+
+            if (! DnsZone::where('domain_id', $domain->id)->exists()) {
+                [$dnsCreated, $dnsError] = (new DnsProvisioner(AgentClient::for($domain->node)))->createZone($domain);
+                if (! $dnsCreated) {
+                    AgentClient::for($domain->node)->removeDomain($domain->domain);
+                    return [false, 'DNS zone provisioning failed: ' . $dnsError];
+                }
+            }
+
+            return [true, null];
         } catch (\Throwable $e) {
             return [false, $e->getMessage()];
         }

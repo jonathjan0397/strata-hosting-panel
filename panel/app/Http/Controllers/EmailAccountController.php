@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Domain;
 use App\Models\EmailAccount;
+use App\Services\AgentClient;
 use App\Services\DnsProvisioner;
 use App\Services\MailProvisioner;
 use Illuminate\Database\Eloquent\Builder;
@@ -35,6 +36,12 @@ class EmailAccountController extends Controller
                     'owner' => $domain->account?->user?->email,
                     'max_email_accounts' => $domain->account?->max_email_accounts,
                     'email_accounts_count' => $domain->account?->emailAccounts()->count(),
+                ],
+                'dkim' => [
+                    'enabled' => $domain->dkim_enabled,
+                    'host' => 'default._domainkey',
+                    'type' => 'TXT',
+                    'value' => $domain->dkim_dns_record,
                 ],
             ]),
             'mailboxes' => EmailAccount::query()
@@ -91,9 +98,55 @@ class EmailAccountController extends Controller
             return back()->with('error', "Mail setup failed: {$error}");
         }
 
-        app(DnsProvisioner::class)->addMailRecords($domain->refresh());
+        (new DnsProvisioner(AgentClient::for($domain->node)))->addMailRecords($domain->refresh());
 
         return back()->with('success', "Mail enabled for {$domain->domain}. DKIM, SPF, and DMARC records are ready.");
+    }
+
+    public function regenerateDomainKey(Request $request, Domain $domain): RedirectResponse
+    {
+        $domain = $this->domainQuery($request)
+            ->with(['node', 'dnsZone'])
+            ->where('id', $domain->id)
+            ->firstOrFail();
+
+        abort_unless($domain->account?->hasFeature('email'), 403);
+
+        if (! $domain->mail_enabled) {
+            return back()->with('error', 'Mail is not enabled for this domain.');
+        }
+
+        try {
+            $response = AgentClient::for($domain->node)->regenerateDkim($domain->domain);
+        } catch (\Throwable $e) {
+            return back()->with('error', "DKIM regeneration failed: {$e->getMessage()}");
+        }
+
+        if (! $response->successful()) {
+            return back()->with('error', "DKIM regeneration failed: {$response->body()}");
+        }
+
+        $dkimRecord = $response->json('dkim_pubkey');
+        if (! $dkimRecord) {
+            return back()->with('error', 'DKIM regeneration did not return a public key.');
+        }
+
+        $domain->update([
+            'dkim_enabled' => true,
+            'dkim_public_key' => $dkimRecord,
+            'dkim_dns_record' => $dkimRecord,
+        ]);
+
+        if (! $domain->dnsZone) {
+            return back()->with('success', 'Domain key regenerated. Publish the displayed DKIM TXT record with your DNS provider.');
+        }
+
+        [$published, $error] = (new DnsProvisioner(AgentClient::for($domain->node)))
+            ->addRecord($domain->dnsZone, 'default._domainkey', 'TXT', 300, [$dkimRecord], true);
+
+        return $published
+            ? back()->with('success', 'Domain key regenerated and published to the managed DNS zone.')
+            : back()->with('error', "Domain key regenerated, but DNS publishing failed: {$error}");
     }
 
     public function store(Request $request): RedirectResponse

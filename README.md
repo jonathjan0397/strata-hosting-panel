@@ -153,8 +153,8 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | **Accounts** | Create/suspend/terminate, packages, feature lists, resource limits, system user provisioning |
 | **Reseller Portal** | Dashboard with quota meters, create/manage client accounts, package selection, default packages, white-label branding |
 | **Domains** | Nginx/Apache vhosts, default starter index page, SSL, Force HTTPS, PHP version per domain, redirects, custom directives, hotlink protection, directory privacy |
-| **Email** | Shared Email Accounts workspace for admins/resellers/users, scoped mail-domain enablement, mailboxes, password changes, forwarders, secure client port guide, autoresponders, DKIM/SPF/DMARC setup, Domain Key Manager, SPF Manager, filters, spam policies, archive controls, delivery tracking, bulk import |
-| **DNS** | PowerDNS zone management, full record type support, BIND import/export, server DNS zones |
+| **Email** | Shared Email Accounts workspace for admins/resellers/users, scoped mail-domain enablement, mailboxes, password changes, forwarders, secure client port guide, autoresponders, shared OpenDKIM key regeneration, DKIM/SPF/DMARC setup, Domain Key Manager, SPF Manager, filters, spam policies, archive controls, delivery tracking, bulk import |
+| **DNS** | Automatic DNS zone provisioning for hosted domains, PowerDNS zone management, full record type support, BIND import/export, server DNS zones |
 | **Databases** | MariaDB/PostgreSQL create/delete/password, user grants, remote MariaDB host grants, phpMyAdmin/phpPgAdmin launch guide |
 | **FTP / Web Disk** | Pure-FTPd jailed accounts with FTPS enforced, desktop-client connection guide |
 | **File Manager** | Browser-based upload/download/edit/chmod/compress/extract |

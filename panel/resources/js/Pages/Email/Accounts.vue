@@ -59,6 +59,42 @@
                 <p v-if="enabledDomains.length === 0" class="mt-3 text-sm text-amber-300">No mail-enabled domains are available for this account scope.</p>
             </section>
 
+            <section v-if="enabledDomains.length" class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-sky-300">Domain Keys</p>
+                        <h3 class="mt-1 text-base font-semibold text-gray-100">OpenDKIM key management</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-400">
+                            Regenerate a domain's DKIM signing key when rotating mail credentials or replacing a compromised key.
+                            Managed DNS zones are updated automatically.
+                        </p>
+                    </div>
+                </div>
+                <div class="mt-4 grid gap-3 lg:grid-cols-2">
+                    <div v-for="domain in enabledDomains" :key="`dkim-${domain.id}`" class="rounded-xl border border-gray-800 bg-black/20 p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="font-semibold text-gray-100">{{ domain.domain }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ domain.account?.username ?? 'account' }} - {{ domain.dkim?.enabled ? 'DKIM enabled' : 'DKIM not configured' }}</p>
+                            </div>
+                            <button
+                                type="button"
+                                class="rounded-lg border border-sky-700 px-3 py-2 text-xs font-semibold text-sky-200 hover:bg-sky-900/30 disabled:opacity-50"
+                                :disabled="regeneratingDomainId === domain.id"
+                                @click="regenerateDkim(domain)"
+                            >
+                                {{ regeneratingDomainId === domain.id ? 'Regenerating...' : 'Regenerate DKIM' }}
+                            </button>
+                        </div>
+                        <div v-if="domain.dkim?.value" class="mt-3 rounded-lg border border-gray-800 bg-gray-950/50 p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">DNS record</p>
+                            <p class="mt-1 font-mono text-xs text-gray-300">{{ domain.dkim.host }} TXT</p>
+                            <p class="mt-2 break-all font-mono text-xs text-gray-400">{{ domain.dkim.value }}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <section v-if="disabledDomains.length" class="rounded-xl border border-amber-700/50 bg-amber-950/20 p-5">
                 <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -180,6 +216,7 @@ const enabledDomains = computed(() => props.domains.filter((domain) => domain.ma
 const disabledDomains = computed(() => props.domains.filter((domain) => !domain.mail_enabled));
 const primaryMailServer = computed(() => enabledDomains.value[0]?.node?.hostname ?? 'mail.your-domain.example');
 const enablingDomainId = ref(null);
+const regeneratingDomainId = ref(null);
 const mailClientSettings = [
     { title: 'IMAP secure', port: '993', security: 'SSL/TLS', note: 'Recommended for incoming mail' },
     { title: 'POP3 secure', port: '995', security: 'SSL/TLS', note: 'Use only if clients need POP3' },
@@ -221,6 +258,16 @@ function enableMail(domain) {
         preserveScroll: true,
         onFinish: () => {
             enablingDomainId.value = null;
+        },
+    });
+}
+
+function regenerateDkim(domain) {
+    regeneratingDomainId.value = domain.id;
+    router.post(route('email-accounts.domains.dkim.regenerate', domain.id), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            regeneratingDomainId.value = null;
         },
     });
 }

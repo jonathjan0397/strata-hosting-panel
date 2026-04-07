@@ -8,6 +8,7 @@
 - Firewall APIs now require `ufw` to already be installed on the node instead of auto-installing and enabling it during status reads
 - Fail2ban APIs now require `fail2ban-client` to already be installed on the node instead of auto-installing and enabling fail2ban during status reads
 - Fail2Ban administration now has a dedicated admin menu/page under Firewall with jail ban/remove controls and service start/stop/restart actions
+- Fail2Ban jail discovery now handles Debian `fail2ban-client status` tree-formatted output so active jails render in the admin page
 - Installer Fail2Ban defaults now include SSH, Nginx auth, Postfix, Postfix SASL, and Dovecot jails with 10 failed attempts before a ban
 - Installer mail setup now enables authenticated submission services on ports 587 and 465 and keeps unauthenticated relay restricted
 - Installer setup now strongly recommends a dedicated panel subdomain, defaults to `panel.<base-domain>` from the server hostname, and warns if the apex/root domain is used for the panel
@@ -23,6 +24,7 @@
 - Shared Email Accounts sidebar entry is available for admins, resellers, and users
 - Email Accounts password modal now uses a high-contrast field for readability across glass themes
 - Mail client configuration cards now render directly from page data so secure port guidance is always visible
+- Email Accounts now exposes shared DKIM/OpenDKIM key regeneration for admins, resellers, and users within their domain scope
 
 **Accounts**
 - Bulk package reassignment from the admin account list
@@ -39,6 +41,7 @@
 - Admin backup list supports bulk deletion while preserving panel records when node cleanup fails
 
 **Domains**
+- New hosted domains now automatically provision a managed PowerDNS zone with default records during vhost creation
 - Admin domain list supports bulk deletion while preserving panel records when server cleanup fails
 
 **Databases**

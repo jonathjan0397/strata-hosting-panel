@@ -72,6 +72,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware('role:user|admin|reseller')->group(function () {
         Route::get('/email-accounts', [EmailAccountController::class, 'index'])->name('email-accounts.index');
         Route::post('/email-accounts/domains/{domain}/enable', [EmailAccountController::class, 'enableDomain'])->name('email-accounts.domains.enable');
+        Route::post('/email-accounts/domains/{domain}/dkim/regenerate', [EmailAccountController::class, 'regenerateDomainKey'])->name('email-accounts.domains.dkim.regenerate');
         Route::post('/email-accounts', [EmailAccountController::class, 'store'])->name('email-accounts.store');
         Route::put('/email-accounts/{mailbox}/password', [EmailAccountController::class, 'changePassword'])->name('email-accounts.password');
         Route::delete('/email-accounts/{mailbox}', [EmailAccountController::class, 'destroy'])->name('email-accounts.destroy');

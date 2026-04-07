@@ -7,6 +7,8 @@ use App\Models\AuditLog;
 use App\Models\Domain;
 use App\Models\EmailAccount;
 use App\Models\EmailForwarder;
+use App\Services\AgentClient;
+use App\Services\DnsProvisioner;
 use App\Services\MailProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,6 +48,8 @@ class EmailController extends Controller
         if (! $success) {
             return back()->with('error', "Mail provisioning failed: {$error}");
         }
+
+        (new DnsProvisioner(AgentClient::for($domain->node)))->addMailRecords($domain->refresh());
 
         AuditLog::record('domain.mail_enabled', $domain, ['domain' => $domain->domain, 'success' => true]);
 

@@ -109,8 +109,8 @@ func parseFail2BanJailList(output string) []string {
 	scanner := bufio.NewScanner(strings.NewReader(output))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "Jail list:") {
-			raw := strings.TrimPrefix(line, "Jail list:")
+		if strings.Contains(line, "Jail list:") {
+			raw := line[strings.Index(line, "Jail list:")+len("Jail list:"):]
 			for _, name := range strings.Split(raw, ",") {
 				if n := strings.TrimSpace(name); n != "" {
 					names = append(names, n)

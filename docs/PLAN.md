@@ -178,8 +178,9 @@ Admin
 ### Email
 - [x] Create/delete/edit mailboxes
 - [x] Email forwarders
-- [x] DKIM (2048-bit, auto-generated on domain add)
-- [x] SPF auto-generated on domain add
+- [x] Managed DNS zone auto-provisioned when hosted domains are added
+- [x] DKIM (2048-bit, generated when mail is enabled and regeneratable by admins, resellers, and users)
+- [x] SPF generated when mail is enabled
 - [x] DMARC auto-generated on domain add
 - [x] Domain Key Manager UI for viewing/regenerating DKIM/domain-key DNS records
 - [x] SPF Manager UI for editing, validating, and restoring SPF records
