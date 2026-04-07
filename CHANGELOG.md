@@ -10,6 +10,7 @@ Public beta target: `v1.0.0-beta.1`.
 - Firewall APIs now require `ufw` to already be installed on the node instead of auto-installing and enabling it during status reads
 - Fail2ban APIs now require `fail2ban-client` to already be installed on the node instead of auto-installing and enabling fail2ban during status reads
 - New fail-safe upgrade utility supports GitHub tag/branch archives and local drop-in archives with automatic rollback on critical failure
+- Fresh installs and upgrades now install the upgrade utility to `/root/strata-upgrade.sh` and `/usr/sbin/strata-upgrade` so future upgrades include utility fixes
 - GitHub tag/branch upgrades now cascade matching agent upgrade requests to online remote nodes, and agents are built with explicit version labels
 - Fail2Ban administration now has a dedicated admin menu/page under Firewall with jail ban/remove controls and service start/stop/restart actions
 - Fail2Ban jail discovery now handles Debian `fail2ban-client status` tree-formatted output so active jails render in the admin page

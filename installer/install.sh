@@ -834,6 +834,8 @@ else
     cp -r /tmp/strata-hosting-panel-src/agent "$INSTALL_DIR/agent-src"
     cp /tmp/strata-hosting-panel-src/VERSION "$INSTALL_DIR/VERSION" 2>/dev/null || echo "$PANEL_VERSION" > "$INSTALL_DIR/VERSION"
     install -m 755 /tmp/strata-hosting-panel-src/installer/agent-upgrade.sh /usr/sbin/strata-agent-upgrade
+    install -m 755 /tmp/strata-hosting-panel-src/installer/upgrade.sh /root/strata-upgrade.sh
+    install -m 755 /tmp/strata-hosting-panel-src/installer/upgrade.sh /usr/sbin/strata-upgrade
     rm -rf /tmp/strata-hosting-panel-src
 fi
 PANEL_VERSION="${PANEL_VERSION:-$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo 'dev')}"

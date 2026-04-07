@@ -238,6 +238,10 @@ mv "$INSTALL_DIR/VERSION.new" "$INSTALL_DIR/VERSION"
 if [[ -f "$extract_dir/installer/agent-upgrade.sh" ]]; then
     install -m 755 "$extract_dir/installer/agent-upgrade.sh" /usr/sbin/strata-agent-upgrade
 fi
+if [[ -f "$extract_dir/installer/upgrade.sh" ]]; then
+    install -m 755 "$extract_dir/installer/upgrade.sh" /root/strata-upgrade.sh
+    install -m 755 "$extract_dir/installer/upgrade.sh" /usr/sbin/strata-upgrade
+fi
 if grep -q '^STRATA_VERSION=' "$INSTALL_DIR/panel/.env"; then
     sed -i "s|^STRATA_VERSION=.*|STRATA_VERSION=${target_version}|" "$INSTALL_DIR/panel/.env"
 else
