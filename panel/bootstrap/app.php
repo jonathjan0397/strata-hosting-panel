@@ -7,6 +7,7 @@ use App\Console\Commands\MetricsAggregateTraffic;
 use App\Console\Commands\NodeHealthCheck;
 use App\Console\Commands\SslRenew;
 use App\Console\Commands\SyncBackupDnsZones;
+use App\Console\Commands\UpgradeRemoteAgents;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
@@ -20,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        UpgradeRemoteAgents::class,
+    ])
     ->withSchedule(function (Schedule $schedule): void {
         // Sync license / feature flags every 12 hours at 04:15 and 16:15.
         $schedule->command(LicenseSync::class)->twiceDaily(4, 16);

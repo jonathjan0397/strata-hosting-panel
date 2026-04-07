@@ -66,9 +66,14 @@ fi
 # Clone and build
 info "Building strata-agent…"
 git clone --depth=1 https://github.com/jonathjan0397/strata-hosting-panel.git /tmp/strata-src 2>/dev/null
+AGENT_VERSION="$(cat /tmp/strata-src/VERSION 2>/dev/null || echo 'dev')"
 cd /tmp/strata-src/agent
-GOOS=linux GOARCH=amd64 go build -o /usr/sbin/strata-agent ./main.go
+GOOS=linux GOARCH=amd64 go build \
+    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=${AGENT_VERSION}" \
+    -o /usr/sbin/strata-agent \
+    ./main.go
 chmod 755 /usr/sbin/strata-agent
+install -m 755 /tmp/strata-src/installer/agent-upgrade.sh /usr/sbin/strata-agent-upgrade
 rm -rf /tmp/strata-src
 success "Agent binary installed."
 

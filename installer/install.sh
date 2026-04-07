@@ -827,11 +827,15 @@ if [[ -d "$INSTALL_DIR/panel" ]]; then
     git -C "$INSTALL_DIR/panel" pull --ff-only
 else
     git clone --depth=1 https://github.com/jonathjan0397/strata-hosting-panel.git /tmp/strata-hosting-panel-src
+    PANEL_VERSION="$(cat /tmp/strata-hosting-panel-src/VERSION 2>/dev/null || echo 'dev')"
     mkdir -p "$INSTALL_DIR"
     cp -r /tmp/strata-hosting-panel-src/panel "$INSTALL_DIR/panel"
     cp -r /tmp/strata-hosting-panel-src/agent "$INSTALL_DIR/agent-src"
+    cp /tmp/strata-hosting-panel-src/VERSION "$INSTALL_DIR/VERSION" 2>/dev/null || echo "$PANEL_VERSION" > "$INSTALL_DIR/VERSION"
+    install -m 755 /tmp/strata-hosting-panel-src/installer/agent-upgrade.sh /usr/sbin/strata-agent-upgrade
     rm -rf /tmp/strata-hosting-panel-src
 fi
+PANEL_VERSION="${PANEL_VERSION:-$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo 'dev')}"
 success "Panel source ready at $INSTALL_DIR/panel"
 
 # ── Step 12. Panel .env ───────────────────────────────────────────────────────
@@ -875,7 +879,7 @@ STRATA_DB_ROOT_PASSWORD=${DB_PASSWORD}
 STRATA_INSTALL_TOKEN=${INSTALL_TOKEN}
 STRATA_INSTALL_SECRET=${INSTALL_SECRET}
 STRATA_LICENSE_SERVER_URL=
-STRATA_VERSION=1.0.0
+STRATA_VERSION=${PANEL_VERSION}
 
 # Webmail SSO
 STRATA_WEBMAIL_SSO_SECRET=${WEBMAIL_SSO_SECRET}
@@ -916,7 +920,7 @@ info "Building strata-agent…"
 cd "$INSTALL_DIR/agent-src"
 go mod tidy 2>&1 || die "go mod tidy failed — check network and Go installation"
 GOOS=linux GOARCH=amd64 go build \
-    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=$(git -C "$INSTALL_DIR" describe --tags --always 2>/dev/null || echo 'v1.0-beta')" \
+    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=${PANEL_VERSION}" \
     -o /usr/sbin/strata-agent \
     .
 chmod 755 /usr/sbin/strata-agent

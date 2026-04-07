@@ -295,7 +295,10 @@ func handleAgentUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "download_url must be a valid https URL", http.StatusBadRequest)
 		return
 	}
-	if downloadURL.Host != "github.com" || !strings.HasPrefix(downloadURL.Path, "/jonathjan0397/strata-hosting-panel/releases/download/") {
+	allowedPath := strings.HasPrefix(downloadURL.Path, "/jonathjan0397/strata-hosting-panel/releases/download/") ||
+		strings.HasPrefix(downloadURL.Path, "/jonathjan0397/strata-hosting-panel/archive/refs/tags/") ||
+		strings.HasPrefix(downloadURL.Path, "/jonathjan0397/strata-hosting-panel/archive/refs/heads/")
+	if downloadURL.Host != "github.com" || !allowedPath {
 		http.Error(w, "download_url host/path not allowed", http.StatusBadRequest)
 		return
 	}

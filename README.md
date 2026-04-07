@@ -121,6 +121,38 @@ Navigate to `https://panel.example.com` in a browser and log in with the admin e
 
 ---
 
+## Upgrading
+
+Production-style installs should use the fail-safe upgrade utility instead of `git pull`.
+
+Upgrade to a tagged release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /root/strata-upgrade.sh
+chmod +x /root/strata-upgrade.sh
+/root/strata-upgrade.sh --version v1.0.0-beta.1
+```
+
+Public testers can upgrade from the latest `main` branch:
+
+```bash
+/root/strata-upgrade.sh --branch main
+```
+
+Manual archive upgrades are also supported:
+
+```bash
+/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-beta.1.tar.gz
+```
+
+The upgrade utility preserves `.env`, `storage`, service secrets, certificates, hosted files, databases, and mail data. It creates a rollback backup under `/opt/strata-panel-backups/` and automatically restores it if a critical upgrade step fails.
+
+When upgrading from `--version` or `--branch`, the primary server also queues matching agent upgrades for online remote nodes. Local archive upgrades are safe for the primary server but cannot be cascaded automatically unless the same build is available from a trusted GitHub URL.
+
+See [docs/UPGRADING.md](docs/UPGRADING.md) for the full workflow and manual rollback notes.
+
+---
+
 ## Adding a Child Node
 
 After the panel is running, go to **Admin -> Nodes -> Add Node** to get the HMAC secret and Node ID, then on the child server run:
