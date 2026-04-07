@@ -24,14 +24,19 @@
                 </div>
 
                 <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <ConfigCard title="IMAP secure" port="993" security="SSL/TLS" note="Recommended for incoming mail" />
-                    <ConfigCard title="POP3 secure" port="995" security="SSL/TLS" note="Use only if clients need POP3" />
-                    <ConfigCard title="SMTP submission" port="587" security="STARTTLS" note="Recommended for outgoing mail" />
-                    <ConfigCard title="SMTP SSL" port="465" security="SSL/TLS" note="Alternative outgoing mail port" />
-                    <ConfigCard title="IMAP basic" port="143" security="Disabled by default" note="Use secure IMAP 993 instead" muted />
-                    <ConfigCard title="POP3 basic" port="110" security="Disabled by default" note="Use secure POP3 995 instead" muted />
-                    <ConfigCard title="SMTP basic" port="25" security="Server-to-server only" note="Do not use for client submission" muted />
-                    <ConfigCard title="SMTP secure" port="465/587" security="Authenticated only" note="Unauthenticated relaying is rejected" muted />
+                    <div
+                        v-for="setting in mailClientSettings"
+                        :key="setting.title"
+                        :class="[
+                            'rounded-xl border p-4',
+                            setting.muted ? 'border-gray-700 bg-gray-950/40' : 'border-sky-700/60 bg-sky-900/20'
+                        ]"
+                    >
+                        <p :class="['text-xs font-semibold uppercase tracking-wide', setting.muted ? 'text-gray-500' : 'text-sky-300']">{{ setting.title }}</p>
+                        <p class="mt-2 text-2xl font-bold text-gray-100">{{ setting.port }}</p>
+                        <p class="mt-1 text-sm font-semibold text-gray-300">{{ setting.security }}</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ setting.note }}</p>
+                    </div>
                 </div>
             </section>
 
@@ -44,7 +49,7 @@
                             {{ domain.domain }}{{ domain.account?.username ? ` (${domain.account.username})` : '' }}
                         </option>
                     </select>
-                    <input v-model="createForm.local_part" class="field" placeholder="local part" required />
+                    <input v-model="createForm.local_part" class="field" placeholder="name" aria-label="Mailbox name" required />
                     <input v-model="createForm.password" type="password" class="field" placeholder="password" required />
                     <input v-model.number="createForm.quota_mb" type="number" min="0" class="field" placeholder="quota MB" />
                     <button type="submit" class="btn-primary" :disabled="createForm.processing">
@@ -69,7 +74,7 @@
                     <div v-for="domain in disabledDomains" :key="domain.id" class="flex items-center justify-between gap-4 rounded-xl border border-amber-800/60 bg-black/20 p-4">
                         <div>
                             <p class="font-semibold text-gray-100">{{ domain.domain }}</p>
-                            <p class="text-xs text-gray-500">{{ domain.account?.username ?? 'account' }} · {{ mailboxLimitLabel(domain) }}</p>
+                            <p class="text-xs text-gray-500">{{ domain.account?.username ?? 'account' }} - {{ mailboxLimitLabel(domain) }}</p>
                         </div>
                         <button
                             type="button"
@@ -175,6 +180,16 @@ const enabledDomains = computed(() => props.domains.filter((domain) => domain.ma
 const disabledDomains = computed(() => props.domains.filter((domain) => !domain.mail_enabled));
 const primaryMailServer = computed(() => enabledDomains.value[0]?.node?.hostname ?? 'mail.your-domain.example');
 const enablingDomainId = ref(null);
+const mailClientSettings = [
+    { title: 'IMAP secure', port: '993', security: 'SSL/TLS', note: 'Recommended for incoming mail' },
+    { title: 'POP3 secure', port: '995', security: 'SSL/TLS', note: 'Use only if clients need POP3' },
+    { title: 'SMTP submission', port: '587', security: 'STARTTLS', note: 'Recommended for outgoing mail' },
+    { title: 'SMTP SSL', port: '465', security: 'SSL/TLS', note: 'Alternative outgoing mail port' },
+    { title: 'IMAP basic', port: '143', security: 'Disabled by default', note: 'Use secure IMAP 993 instead', muted: true },
+    { title: 'POP3 basic', port: '110', security: 'Disabled by default', note: 'Use secure POP3 995 instead', muted: true },
+    { title: 'SMTP basic', port: '25', security: 'Server-to-server only', note: 'Do not use for client submission', muted: true },
+    { title: 'SMTP secure', port: '465/587', security: 'Authenticated only', note: 'Unauthenticated relaying is rejected', muted: true },
+];
 
 const createForm = useForm({
     domain_id: '',
@@ -238,31 +253,4 @@ function mailboxLimitLabel(domain) {
 
     return limit > 0 ? `${current} / ${limit} mailboxes used` : `${current} mailboxes, unlimited package`;
 }
-</script>
-
-<script>
-export default {
-    components: {
-        ConfigCard: {
-            props: {
-                title: String,
-                port: String,
-                security: String,
-                note: String,
-                muted: Boolean,
-            },
-            template: `
-                <div :class="[
-                    'rounded-xl border p-4',
-                    muted ? 'border-gray-700 bg-gray-950/40' : 'border-sky-700/60 bg-sky-900/20'
-                ]">
-                    <p :class="['text-xs font-semibold uppercase tracking-wide', muted ? 'text-gray-500' : 'text-sky-300']">{{ title }}</p>
-                    <p class="mt-2 text-2xl font-bold text-gray-100">{{ port }}</p>
-                    <p class="mt-1 text-sm font-semibold text-gray-300">{{ security }}</p>
-                    <p class="mt-1 text-xs text-gray-500">{{ note }}</p>
-                </div>
-            `,
-        },
-    },
-};
 </script>

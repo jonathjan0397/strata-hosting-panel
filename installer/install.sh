@@ -652,22 +652,30 @@ postconf -P "smtps/inet/smtpd_relay_restrictions=permit_sasl_authenticated,rejec
 
 # Dovecot
 sed -i 's/^!include auth-system.conf.ext/#!include auth-system.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
-sed -i 's/#!include auth-sql.conf.ext/!include auth-sql.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
+sed -i 's/^!include auth-sql.conf.ext/#!include auth-sql.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
+sed -i 's/^!include auth-passwdfile.conf.ext/#!include auth-passwdfile.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
+grep -q '^!include auth-strata-passwdfile.conf.ext' /etc/dovecot/conf.d/10-auth.conf || echo '!include auth-strata-passwdfile.conf.ext' >> /etc/dovecot/conf.d/10-auth.conf
 sed -i 's/^auth_mechanisms =.*/auth_mechanisms = plain login/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
-sed -i 's|^mail_location =.*|mail_location = maildir:/var/mail/vmail/%d/%n|' /etc/dovecot/conf.d/10-mail.conf 2>/dev/null || true
+sed -i 's|^mail_location =.*|mail_location = maildir:/var/mail/vhosts/%d/%n|' /etc/dovecot/conf.d/10-mail.conf 2>/dev/null || true
 grep -q '^mail_uid' /etc/dovecot/conf.d/10-mail.conf || echo "mail_uid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
 grep -q '^mail_gid' /etc/dovecot/conf.d/10-mail.conf || echo "mail_gid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
 
-cat > /etc/dovecot/dovecot-sql.conf.ext <<EOF
-driver   = mysql
-connect  = host=127.0.0.1 dbname=strata_panel user=strata password=${DB_PASSWORD}
-default_pass_scheme = BLF-CRYPT
+touch /etc/dovecot/virtual_users
+chown root:dovecot /etc/dovecot/virtual_users
+chmod 640 /etc/dovecot/virtual_users
 
-password_query = SELECT password FROM email_accounts WHERE email = '%u'
-user_query     = SELECT 5000 AS uid, 5000 AS gid, '/var/mail/vmail/%d/%n' AS home FROM email_accounts WHERE email = '%u'
+cat > /etc/dovecot/conf.d/auth-strata-passwdfile.conf.ext <<'EOF'
+passdb {
+  driver = passwd-file
+  args = scheme=CRYPT username_format=%u /etc/dovecot/virtual_users
+}
+
+userdb {
+  driver = passwd-file
+  args = username_format=%u /etc/dovecot/virtual_users
+  default_fields = uid=5000 gid=5000 home=/var/mail/vhosts/%d/%n
+}
 EOF
-chmod 640 /etc/dovecot/dovecot-sql.conf.ext
-chown root:dovecot /etc/dovecot/dovecot-sql.conf.ext
 
 cat > /etc/dovecot/conf.d/10-master.conf <<'DOVEOF'
 service imap-login {

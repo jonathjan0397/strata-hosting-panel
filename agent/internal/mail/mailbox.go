@@ -17,8 +17,8 @@ type MailboxRequest struct {
 }
 
 type ForwarderRequest struct {
-	Source      string `json:"source"`       // source@domain.com
-	Destination string `json:"destination"`  // dest@other.com
+	Source      string `json:"source"`      // source@domain.com
+	Destination string `json:"destination"` // dest@other.com
 }
 
 // CreateMailbox provisions a virtual mailbox in Postfix + Dovecot.
@@ -160,7 +160,11 @@ func updateDovecotUser(email, entry string) error {
 		kept = append(kept, line)
 	}
 	kept = append(kept, entry)
-	return os.WriteFile(dovecotUsersF, []byte(strings.Join(kept, "\n")+"\n"), 0640)
+	if err := os.WriteFile(dovecotUsersF, []byte(strings.Join(kept, "\n")+"\n"), 0640); err != nil {
+		return err
+	}
+	_ = exec.Command("chown", "root:dovecot", dovecotUsersF).Run()
+	return nil
 }
 
 func removeDovecotUser(email string) {
@@ -174,5 +178,7 @@ func removeDovecotUser(email string) {
 			kept = append(kept, line)
 		}
 	}
-	os.WriteFile(dovecotUsersF, []byte(strings.Join(kept, "\n")), 0640)
+	if err := os.WriteFile(dovecotUsersF, []byte(strings.Join(kept, "\n")), 0640); err == nil {
+		_ = exec.Command("chown", "root:dovecot", dovecotUsersF).Run()
+	}
 }

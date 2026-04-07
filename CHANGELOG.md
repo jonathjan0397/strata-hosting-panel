@@ -22,6 +22,7 @@
 - Admin sidebar now exposes Firewall and Fail2Ban in a dedicated Security group
 - Shared Email Accounts sidebar entry is available for admins, resellers, and users
 - Email Accounts password modal now uses a high-contrast field for readability across glass themes
+- Mail client configuration cards now render directly from page data so secure port guidance is always visible
 
 **Accounts**
 - Bulk package reassignment from the admin account list
@@ -66,6 +67,8 @@
 - Autoresponders: Dovecot Sieve vacation scripts, per-mailbox, subject + body + active toggle
 - Email Accounts workspace: add/remove mailboxes, change mailbox passwords, and show secure IMAP/POP3/SMTP configuration ports
 - Email Accounts workspace can enable mail for domains in the current admin/reseller/user scope while preserving account/package mailbox limits
+- Create Mailbox form now labels the mailbox local part as "name" for clearer user-facing wording
+- Dovecot authentication now uses the agent-managed `/etc/dovecot/virtual_users` passwd-file backend instead of a removed panel password column, fixing newly created mailbox logins
 - Spam filter stats UI: Rspamd stats page (scanned / spam / ham / actions), per-node
 - Mailbox archive policy: copy incoming messages to the Archive folder through Sieve
 - Domain Key Manager: user workflow to view/copy/regenerate DKIM domain keys and publish managed DNS records
