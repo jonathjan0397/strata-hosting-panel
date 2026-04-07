@@ -46,6 +46,10 @@ class SyncBackupDnsZones extends Command
 
                 foreach ($zone->records as $record) {
                     $contents = preg_split('/\R/', (string) $record->value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                    if ($contents === []) {
+                        continue;
+                    }
+
                     if (in_array($record->type, ['MX', 'SRV'], true) && $record->priority !== null) {
                         $contents = array_map(fn ($content) => "{$record->priority} {$content}", $contents);
                     }

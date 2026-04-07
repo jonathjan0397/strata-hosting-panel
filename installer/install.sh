@@ -795,6 +795,7 @@ success "Composer installed."
 
 info "Installing database web tools..."
 DEBIAN_FRONTEND=noninteractive apt-get install -y phpmyadmin phppgadmin || warn "phpMyAdmin/phpPgAdmin packages were not available; Database Tools page will show them as not installed."
+update-alternatives --set php "/usr/bin/php${PANEL_PHP_VER}" >/dev/null 2>&1 || true
 
 # ── Step 8. Go ────────────────────────────────────────────────────────────────
 info "Installing Go 1.23…"
