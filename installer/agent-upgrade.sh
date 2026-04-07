@@ -65,6 +65,12 @@ if [[ -f /usr/sbin/strata-agent ]]; then
 fi
 
 mv "$NEW_BINARY" /usr/sbin/strata-agent
+if id vmail >/dev/null 2>&1; then
+    mkdir -p /var/mail/vhosts
+    chown vmail:vmail /var/mail/vhosts
+    chmod 0750 /var/mail/vhosts
+    find /var/mail/vhosts -mindepth 1 -maxdepth 1 -type d -exec chown -R vmail:vmail {} \; -exec chmod 0750 {} \; 2>/dev/null || true
+fi
 systemctl restart strata-agent
 sleep 2
 systemctl is-active --quiet strata-agent

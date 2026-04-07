@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const vMailBase = "/var/mail/vmail"
+const vMailBase = "/var/mail/vhosts"
 
 // POST /v1/mail/autoresponder
 func handleAutoresponderSet(w http.ResponseWriter, r *http.Request) {
@@ -95,6 +95,11 @@ func writeMailboxSieve(domain, local, script string) error {
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
+	_ = os.Chown(vMailBase, 5000, 5000)
+	_ = os.Chmod(vMailBase, 0750)
+	_ = os.Chown(filepath.Join(vMailBase, domain), 5000, 5000)
+	_ = os.Chmod(filepath.Join(vMailBase, domain), 0750)
+	_ = os.Chown(dir, 5000, 5000)
 	sieveFile := filepath.Join(dir, ".dovecot.sieve")
 	if strings.TrimSpace(script) == "" {
 		_ = os.Remove(sieveFile)

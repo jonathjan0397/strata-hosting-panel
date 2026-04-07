@@ -18,9 +18,21 @@ const (
 	dovecotUsersF   = "/etc/dovecot/virtual_users"
 )
 
+func ensureMailBase() error {
+	if err := os.MkdirAll(mailBaseDir, 0750); err != nil {
+		return err
+	}
+	_ = exec.Command("chown", "vmail:vmail", mailBaseDir).Run()
+	_ = os.Chmod(mailBaseDir, 0750)
+	return nil
+}
+
 // ProvisionDomain adds a domain to Postfix virtual_mailbox_domains and
 // creates its mail spool directory. Returns DKIM public key for DNS.
 func ProvisionDomain(domain string) (dkimPublicKey string, err error) {
+	if err := ensureMailBase(); err != nil {
+		return "", fmt.Errorf("mail base: %w", err)
+	}
 	if err := os.MkdirAll(filepath.Join(mailBaseDir, domain), 0770); err != nil {
 		return "", fmt.Errorf("mail dir: %w", err)
 	}

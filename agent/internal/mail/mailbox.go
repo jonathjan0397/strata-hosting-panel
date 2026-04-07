@@ -32,6 +32,9 @@ func CreateMailbox(req MailboxRequest) error {
 
 	parts := strings.SplitN(req.Email, "@", 2)
 	user, domain := parts[0], parts[1]
+	if err := ensureMailBase(); err != nil {
+		return fmt.Errorf("mail base: %w", err)
+	}
 
 	// Hash password using doveadm
 	hash, err := hashPassword(req.Password)

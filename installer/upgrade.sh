@@ -107,6 +107,15 @@ set_permissions() {
     chmod -R ug+rwX "$INSTALL_DIR/panel/storage" "$INSTALL_DIR/panel/bootstrap/cache"
 }
 
+repair_mail_permissions() {
+    if id vmail >/dev/null 2>&1; then
+        mkdir -p /var/mail/vhosts
+        chown vmail:vmail /var/mail/vhosts
+        chmod 0750 /var/mail/vhosts
+        find /var/mail/vhosts -mindepth 1 -maxdepth 1 -type d -exec chown -R vmail:vmail {} \; -exec chmod 0750 {} \; 2>/dev/null || true
+    fi
+}
+
 restore_backup() {
     [[ $ROLLBACK_ON_FAIL -eq 1 ]] || return 0
     [[ -n "$BACKUP_DIR" && -d "$BACKUP_DIR/panel" ]] || return 0
@@ -272,6 +281,7 @@ GOOS=linux GOARCH=amd64 go build \
 chmod 755 /usr/sbin/strata-agent
 
 set_permissions
+repair_mail_permissions
 
 info "Restarting services..."
 systemctl daemon-reload

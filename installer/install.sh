@@ -564,8 +564,9 @@ if ! getent passwd vmail > /dev/null 2>&1; then
         || /usr/sbin/useradd -g vmail -d /var/mail/vmail -s /usr/sbin/nologin vmail \
         || die "Failed to create vmail user"
 fi
-mkdir -p /var/mail/vmail
-chown -R vmail:vmail /var/mail/vmail
+mkdir -p /var/mail/vmail /var/mail/vhosts
+chown -R vmail:vmail /var/mail/vmail /var/mail/vhosts
+chmod 0750 /var/mail/vhosts
 
 info "Installing Postfix + Dovecot + OpenDKIM…"
 DEBIAN_FRONTEND=noninteractive apt-get install -y \

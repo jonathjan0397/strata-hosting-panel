@@ -35,7 +35,7 @@ echo -e "    • MariaDB, PowerDNS, Redis, Pure-FTPd, Postfix, Dovecot"
 echo -e "    • Rspamd, OpenDKIM, fail2ban, Nginx/Apache2"
 echo -e "    • PHP 8.1 / 8.2 / 8.3, Node.js, Go, Composer, acme.sh"
 echo -e "    • System users: strata, vmail"
-echo -e "    • All mail data in /var/mail/vmail"
+echo -e "    • All mail data in /var/mail/vmail and /var/mail/vhosts"
 echo ""
 echo -e "  ${RED}There is no undo. Make sure you have a server snapshot first.${NC}"
 echo ""
@@ -119,7 +119,7 @@ ok "Webmail removed."
 
 # ── 6. Remove mail data ───────────────────────────────────────────────────────
 step "Removing mail data…"
-rm -rf /var/mail/vmail
+rm -rf /var/mail/vmail /var/mail/vhosts
 rm -rf /var/spool/postfix/opendkim
 ok "Mail data removed."
 
