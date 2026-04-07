@@ -164,6 +164,12 @@ func EnsureDefaultIndex(username, domain, documentRoot string) error {
 	if err := os.MkdirAll(cleanRoot, 0750); err != nil {
 		return fmt.Errorf("create document root: %w", err)
 	}
+	if out, err := exec.Command("chown", username+":www-data", cleanRoot).CombinedOutput(); err != nil {
+		return fmt.Errorf("chown document root: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if err := os.Chmod(cleanRoot, 0750); err != nil {
+		return fmt.Errorf("chmod document root: %w", err)
+	}
 
 	if fileExists(filepath.Join(cleanRoot, "index.html")) || fileExists(filepath.Join(cleanRoot, "index.php")) {
 		return nil
