@@ -31,8 +31,10 @@
                     class="field"
                 >
                     <option value="">All statuses</option>
+                    <option value="provisioning">Provisioning</option>
                     <option value="active">Active</option>
                     <option value="suspended">Suspended</option>
+                    <option value="failed">Failed</option>
                 </select>
                 <div class="ml-auto flex flex-wrap items-center gap-2">
                     <span class="text-xs text-gray-500">{{ selectedIds.length }} selected</span>

@@ -129,7 +129,9 @@ function accessPanel(a) {
 function statusClass(status) {
     const map = {
         active:     'bg-emerald-900/40 text-emerald-300',
+        provisioning: 'bg-sky-900/40 text-sky-300',
         suspended:  'bg-yellow-900/40 text-yellow-300',
+        failed:     'bg-red-900/40 text-red-300',
         terminated: 'bg-red-900/40 text-red-300',
     };
     return map[status] ?? 'bg-gray-800 text-gray-400';

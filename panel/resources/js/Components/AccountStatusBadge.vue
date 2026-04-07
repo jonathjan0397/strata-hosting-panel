@@ -9,7 +9,9 @@ defineProps({ status: String });
 
 const classes = {
     active:     'bg-emerald-900/40 text-emerald-400',
+    provisioning: 'bg-sky-900/40 text-sky-300',
     suspended:  'bg-amber-900/40 text-amber-400',
+    failed:     'bg-red-900/40 text-red-300',
     terminated: 'bg-red-900/40 text-red-400',
     unknown:    'bg-gray-800 text-gray-400',
 };

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProvisionAccount;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\HostingPackage;
@@ -23,7 +24,7 @@ class AccountController extends Controller
     {
         $data = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'in:active,suspended'],
+            'status' => ['nullable', 'in:provisioning,active,suspended,failed'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -117,26 +118,21 @@ class AccountController extends Controller
         $account = Account::create([
             'user_id'            => $user->id,
             'node_id'            => $node->id,
+            'hosting_package_id' => $package?->id,
             'username'           => $data['username'],
-            'status'             => 'active',
+            'status'             => 'provisioning',
             ...$accountAttributes,
         ]);
 
-        [$success, $error] = app(AccountProvisioner::class)->provision($account);
-        if (! $success) {
-            $account->delete();
-            $user->delete();
+        ProvisionAccount::dispatch($account->id, $request->user()?->id, 'api.account');
 
-            return response()->json(['error' => 'Provisioning failed: ' . $error], 500);
-        }
-
-        AuditLog::record('api.account_created', $account, ['by' => 'api']);
+        AuditLog::record('api.account_provisioning_queued', $account, ['by' => 'api', 'queued' => true]);
 
         return response()->json([
             'id'       => $account->id,
             'username' => $account->username,
             'status'   => $account->status,
-        ], 201);
+        ], 202);
     }
 
     /**
@@ -144,8 +140,8 @@ class AccountController extends Controller
      */
     public function suspend(Request $request, Account $account): JsonResponse
     {
-        if ($account->isSuspended()) {
-            return response()->json(['error' => 'Account already suspended.'], 409);
+        if (! $account->isActive()) {
+            return response()->json(['error' => 'Only active accounts can be suspended.'], 409);
         }
 
         $account->update(['status' => 'suspended', 'suspended_at' => now()]);
@@ -159,8 +155,8 @@ class AccountController extends Controller
      */
     public function unsuspend(Request $request, Account $account): JsonResponse
     {
-        if ($account->isActive()) {
-            return response()->json(['error' => 'Account is already active.'], 409);
+        if (! $account->isSuspended()) {
+            return response()->json(['error' => 'Only suspended accounts can be unsuspended.'], 409);
         }
 
         $account->update(['status' => 'active', 'suspended_at' => null]);
@@ -218,6 +214,7 @@ class AccountController extends Controller
             'id' => $account->id,
             'username' => $account->username,
             'status' => $account->status,
+            'provisioning_error' => $account->provisioning_error,
             'php_version' => $account->php_version,
             'user' => $account->user ? [
                 'id' => $account->user->id,

@@ -24,7 +24,11 @@ class EnsureAccountFeature
             ->with('hostingPackage.featureList')
             ->first();
 
-        if (! $account || ! $account->hasFeature($feature)) {
+        if (! $account || ! $account->isActive()) {
+            abort(403, 'This hosting account is not active yet.');
+        }
+
+        if (! $account->hasFeature($feature)) {
             abort(403, 'This feature is not enabled for the current hosting package.');
         }
 

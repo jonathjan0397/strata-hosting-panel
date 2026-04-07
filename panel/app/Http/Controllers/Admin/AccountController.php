@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProvisionAccount;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\HostingPackage;
@@ -98,28 +99,22 @@ class AccountController extends Controller
         $account = Account::create([
             'user_id'            => $user->id,
             'node_id'            => $data['node_id'],
+            'hosting_package_id' => $package?->id,
             'username'           => $data['username'],
-            'status'             => 'active',
+            'status'             => 'provisioning',
             ...$accountAttributes,
         ]);
 
-        // Provision on server
-        [$success, $error] = app(AccountProvisioner::class)->provision($account);
+        ProvisionAccount::dispatch($account->id, $request->user()->id);
 
-        if (! $success) {
-            $account->delete();
-            $user->delete();
-            return back()->with('error', "Account created but server provisioning failed: {$error}");
-        }
-
-        AuditLog::record('account.created', $account, [
+        AuditLog::record('account.provisioning_queued', $account, [
             'username' => $data['username'],
             'node'     => $data['node_id'],
-            'provisioned' => true,
+            'queued' => true,
         ]);
 
         return redirect()->route('admin.accounts.show', $account)
-            ->with('success', "Account {$data['username']} created and provisioned.");
+            ->with('success', "Account {$data['username']} was created and provisioning was queued.");
     }
 
     public function show(Account $account): Response
@@ -133,6 +128,10 @@ class AccountController extends Controller
 
     public function suspend(Account $account): RedirectResponse
     {
+        if (! $account->isActive()) {
+            return back()->with('error', 'Only active accounts can be suspended.');
+        }
+
         $account->update(['status' => 'suspended', 'suspended_at' => now()]);
         AuditLog::record('account.suspended', $account);
 
@@ -141,6 +140,10 @@ class AccountController extends Controller
 
     public function unsuspend(Account $account): RedirectResponse
     {
+        if (! $account->isSuspended()) {
+            return back()->with('error', 'Only suspended accounts can be unsuspended.');
+        }
+
         $account->update(['status' => 'active', 'suspended_at' => null]);
         AuditLog::record('account.unsuspended', $account);
 
@@ -160,6 +163,12 @@ class AccountController extends Controller
         $updated = 0;
 
         foreach ($accounts as $account) {
+            if ($targetStatus === 'suspended' && ! $account->isActive()) {
+                continue;
+            }
+            if ($targetStatus === 'active' && ! $account->isSuspended()) {
+                continue;
+            }
             if ($account->status === $targetStatus) {
                 continue;
             }

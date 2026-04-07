@@ -124,6 +124,8 @@ Request body:
 
 If `hosting_package_id` is supplied, package defaults are applied over direct limit fields.
 
+Response: `202 Accepted`. Account system provisioning is queued so PHP-FPM reloads and node-side setup do not block the API request. Poll `GET /api/v1/accounts/{id}` until `status` changes from `provisioning` to `active` or `failed`.
+
 ### Suspend Account
 
 ```http

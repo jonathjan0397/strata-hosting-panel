@@ -37,6 +37,7 @@ Public beta target: `v1.0.0-beta.1`.
 - Bulk package reassignment from the admin account list
 - Admins and resellers can access an active sub-client hosting panel through audited support impersonation, with a persistent return banner
 - Fixed reseller client detail loading by using the existing account database relationship
+- Admin/reseller account creation now queues server provisioning so PHP-FPM reloads cannot reset the browser request and cause a false 502 after the account row is created
 
 **API**
 - Account migration workflow endpoints for list/detail/prepare/transfer/restore/cutover/source cleanup

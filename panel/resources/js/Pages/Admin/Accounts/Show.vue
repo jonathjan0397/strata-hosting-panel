@@ -13,12 +13,15 @@
                         <h2 class="text-lg font-semibold font-mono text-gray-100">{{ account.username }}</h2>
                         <AccountStatusBadge :status="account.status" />
                     </div>
+                    <p v-if="account.status === 'provisioning'" class="mt-1 text-xs text-sky-300">Provisioning is running in the background. Refresh this page in a moment.</p>
+                    <p v-if="account.status === 'failed'" class="mt-1 text-xs text-red-300">Provisioning failed: {{ account.provisioning_error ?? 'Unknown error' }}</p>
                     <p class="text-sm text-gray-400">{{ account.user?.email }} · {{ account.node?.name }}</p>
                 </div>
             </div>
             <!-- Actions -->
             <div class="flex items-center gap-2">
                 <Link
+                    v-if="account.status === 'active'"
                     :href="route('admin.domains.create', { account_id: account.id })"
                     class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
                 >

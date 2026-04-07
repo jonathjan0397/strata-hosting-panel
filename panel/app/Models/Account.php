@@ -19,7 +19,7 @@ class Account extends Model
 
     protected $fillable = [
         'user_id', 'node_id', 'reseller_id', 'hosting_package_id', 'username', 'plan',
-        'status', 'php_version',
+        'status', 'provisioning_error', 'php_version',
         'disk_limit_mb', 'bandwidth_limit_mb', 'max_domains',
         'max_subdomains', 'max_email_accounts', 'max_databases', 'max_ftp_accounts',
         'disk_used_mb', 'bandwidth_used_mb', 'suspended_at',
@@ -84,6 +84,16 @@ class Account extends Model
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    public function isProvisioning(): bool
+    {
+        return $this->status === 'provisioning';
+    }
+
+    public function hasProvisioningFailed(): bool
+    {
+        return $this->status === 'failed';
     }
 
     public function enabledFeatures(): array
