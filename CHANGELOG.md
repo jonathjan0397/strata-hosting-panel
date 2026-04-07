@@ -2,6 +2,8 @@
 
 ## [v1.0-Beta] — 2026-04-05
 
+Public beta target: `v1.0.0-beta.1`.
+
 ### Added — Agent hardening
 
 **Agent**

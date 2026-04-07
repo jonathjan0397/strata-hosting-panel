@@ -1,19 +1,19 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.0.0--alpha.2-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/v1.0.0-alpha.2)
+[![Release](https://img.shields.io/badge/Release-v1.0.0--beta.1-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/v1.0.0-beta.1)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** v1.0.0-alpha.2 public testing
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** v1.0.0-beta.1 public testing
 
 ---
 
-> **Pre-release Alpha Software**
+> **Pre-release Beta Software**
 >
-> v1.0.0-alpha.2 is available for public testing and should not be treated as production-ready.
+> v1.0.0-beta.1 is available for public testing and should not be treated as production-ready.
 > **Do not use in production without reviewing the code and hardening the server yourself.**
 >
 > Public testers: please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
@@ -178,7 +178,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | Database | MariaDB + PostgreSQL |
 | Firewall / Malware | UFW + fail2ban + ClamAV |
 
-## Features (v1.0.0-alpha.2)
+## Features (v1.0.0-beta.1)
 
 | Category | Features |
 |---|---|
@@ -204,12 +204,12 @@ A single install gives you a functional hosting server. Remote nodes can be adde
 
 - Project plan and phases: [docs/PLAN.md](docs/PLAN.md)
 - Billing/provisioning API: [docs/API.md](docs/API.md)
-- Alpha validation criteria and known limitations: [ALPHA-RELEASE-CHECKLIST.md](ALPHA-RELEASE-CHECKLIST.md)
+- Beta validation criteria and known limitations: [BETA-RELEASE-CHECKLIST.md](BETA-RELEASE-CHECKLIST.md)
 - Public demo credentials and reset instructions: [docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)
 
 ## Contributing & Feedback
 
-This is an alpha release for public testing. Issues are expected.
+This is a beta release for public testing. Issues are expected.
 
 - **Bugs / broken features:** [Open an issue](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 - **Installer or demo-server problems:** [Open an issue](https://github.com/jonathjan0397/strata-hosting-panel/issues) and include the page, action, expected result, and actual result.
