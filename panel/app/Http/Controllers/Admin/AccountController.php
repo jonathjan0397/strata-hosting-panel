@@ -18,7 +18,7 @@ class AccountController extends Controller
 {
     public function index(Request $request): Response
     {
-        $accounts = Account::with(['user', 'node'])
+        $accounts = Account::with(['user', 'node', 'hostingPackage'])
             ->when($request->input('search'), fn ($q, $s) =>
                 $q->where('username', 'like', "%{$s}%")
                   ->orWhereHas('user', fn ($q) => $q->where('email', 'like', "%{$s}%"))
@@ -32,6 +32,12 @@ class AccountController extends Controller
             'accounts' => $accounts,
             'filters'  => $request->only('search', 'status'),
             'nodes'    => Node::select('id', 'name')->get(),
+            'packages' => HostingPackage::where('is_active', true)
+                ->orderBy('name')
+                ->get([
+                    'id', 'name', 'slug', 'php_version', 'disk_limit_mb', 'bandwidth_limit_mb',
+                    'max_domains', 'max_subdomains', 'max_email_accounts', 'max_databases', 'max_ftp_accounts',
+                ]),
         ]);
     }
 
@@ -175,6 +181,33 @@ class AccountController extends Controller
         $label = $data['action'] === 'suspend' ? 'suspended' : 'unsuspended';
 
         return back()->with('success', "{$updated} account(s) {$label}.");
+    }
+
+    public function bulkPackage(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'account_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'account_ids.*' => ['integer', 'exists:accounts,id'],
+            'hosting_package_id' => ['required', 'exists:hosting_packages,id'],
+        ]);
+
+        $package = HostingPackage::where('is_active', true)->findOrFail($data['hosting_package_id']);
+        $accounts = Account::whereIn('id', $data['account_ids'])->get();
+        $updated = 0;
+
+        foreach ($accounts as $account) {
+            $account->update($package->accountAttributes());
+
+            AuditLog::record('account.package_updated', $account, [
+                'bulk' => true,
+                'package_id' => $package->id,
+                'package' => $package->slug,
+            ]);
+
+            $updated++;
+        }
+
+        return back()->with('success', "{$updated} account(s) moved to package {$package->name}.");
     }
 
     public function destroy(Account $account): RedirectResponse

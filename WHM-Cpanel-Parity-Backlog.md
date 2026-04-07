@@ -58,6 +58,7 @@ Implemented on `main`:
 - package-aware user feature enforcement in routing and navigation
 - reseller-visible package catalog and package reassignment on client edits
 - reseller default package preference for new client account forms
+- admin account bulk package reassignment
 
 ### 2. Reseller Package Management
 Status: `in progress`
@@ -212,6 +213,7 @@ Implemented on `main`:
 - metrics, disk usage, and Git tooling pages converted to shared page structure
 - admin account, domain, and node indexes converted to shared page structure with operational summaries
 - admin account bulk suspend and unsuspend actions
+- admin account bulk package reassignment action
 - remaining user-facing app installer, file manager, domain detail, DNS detail, deliverability, delivery tracking, filters, PHP settings, and no-account pages converted to shared page structure
 - reseller branding and package catalog pages converted to shared page structure
 
