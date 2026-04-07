@@ -88,6 +88,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('domains/create', [User\DomainController::class, 'create'])->name('domains.create');
             Route::post('domains', [User\DomainController::class, 'store'])->name('domains.store');
             Route::get('domains/{domain}', [User\DomainController::class, 'show'])->name('domains.show');
+            Route::delete('domains/{domain}', [User\DomainController::class, 'destroy'])->name('domains.destroy');
             Route::post('domains/{domain}/ssl', [User\DomainController::class, 'issueSSL'])->name('domains.ssl');
             Route::post('domains/{domain}/ssl/custom', [User\DomainController::class, 'uploadCert'])->name('domains.ssl.custom');
             Route::put('domains/{domain}/force-https', [User\DomainController::class, 'updateForceHttps'])->name('domains.force-https');

@@ -99,6 +99,24 @@ class DomainController extends Controller
         ]);
     }
 
+    public function destroy(Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        [$success, $error] = app(DomainProvisioner::class)->deprovision($domain);
+
+        if (! $success) {
+            return back()->with('error', "Domain deletion failed and the domain was kept: {$error}");
+        }
+
+        $domainName = $domain->domain;
+        $domain->delete();
+
+        return redirect()->route('my.domains.index')
+            ->with('success', "{$domainName} and its managed DNS/settings were deleted.");
+    }
+
     public function issueSSL(Domain $domain): RedirectResponse
     {
         $account = $this->account();

@@ -41,7 +41,9 @@
 - Admin backup list supports bulk deletion while preserving panel records when node cleanup fails
 
 **Domains**
-- New hosted domains now automatically provision a managed PowerDNS zone with default records during vhost creation
+- New hosted domains now automatically provision a managed PowerDNS zone with full default web/mail records during vhost creation
+- Default DNS record seeding now refuses loopback/private node addresses such as `127.0.0.1` and falls back to the node hostname's public address when available
+- Users can delete their own domains from the domain detail page after a destructive warning; deletion removes the vhost, managed DNS zone, directory privacy settings, and dedicated addon/subdomain document-root files
 - Admin domain list supports bulk deletion while preserving panel records when server cleanup fails
 
 **Databases**

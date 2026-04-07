@@ -166,6 +166,7 @@ Admin
 
 ### Domain Management
 - [x] Add/remove domains and subdomains
+- [x] User-owned domain deletion with managed DNS/settings cleanup and destructive warning
 - [x] Document root configuration
 - [x] Default hosted-site `index.html` starter page with "Powered by Strata Hosting Panel" GitHub banner
 - [x] Nginx vhost generation
@@ -178,7 +179,7 @@ Admin
 ### Email
 - [x] Create/delete/edit mailboxes
 - [x] Email forwarders
-- [x] Managed DNS zone auto-provisioned when hosted domains are added
+- [x] Managed DNS zone auto-provisioned when hosted domains are added, with public-IP web/mail defaults
 - [x] DKIM (2048-bit, generated when mail is enabled and regeneratable by admins, resellers, and users)
 - [x] SPF generated when mail is enabled
 - [x] DMARC auto-generated on domain add
@@ -192,7 +193,7 @@ Admin
 ### DNS
 - [x] PowerDNS zone management
 - [x] Full record type support (A, AAAA, CNAME, MX, TXT, SRV, CAA)
-- [x] Auto-populate standard records on domain add
+- [x] Auto-populate standard website/email records on domain add without using loopback/private node addresses
 - [x] Import zone files (BIND format paste/upload)
 - [x] Export zone files (BIND format download)
 - [x] Server DNS zones (standalone zones not tied to hosted accounts)

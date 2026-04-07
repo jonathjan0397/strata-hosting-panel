@@ -30,17 +30,90 @@ class DnsProvisioner
                 'zone_name'  => $domain->domain,
             ]);
 
-            // Seed default records: A record pointing to node IP.
-            $nodeIp = $domain->node?->ip_address;
-            if ($nodeIp) {
-                $this->addRecord($zone, '@', 'A', 300, [$nodeIp]);
-                $this->addRecord($zone, 'www', 'CNAME', 300, [$domain->domain . '.']);
+            [$recordsCreated, $recordError] = $this->addDefaultRecords($domain, $zone);
+            if (! $recordsCreated) {
+                $this->deleteZone($domain);
+                return [false, 'Default DNS record provisioning failed: ' . $recordError];
             }
 
             return [true, null];
         } catch (Throwable $e) {
             return [false, $e->getMessage()];
         }
+    }
+
+    private function addDefaultRecords(Domain $domain, DnsZone $zone): array
+    {
+        $domainName = $domain->domain . '.';
+        $mailHost = 'mail.' . $domain->domain . '.';
+        $nodeIp = $this->publicAddressFor($domain);
+        $records = [
+            ['www', 'CNAME', [$domainName], null],
+            ['ftp', 'CNAME', [$domainName], null],
+            ['smtp', 'CNAME', [$mailHost], null],
+            ['imap', 'CNAME', [$mailHost], null],
+            ['pop', 'CNAME', [$mailHost], null],
+            ['webmail', 'CNAME', [$mailHost], null],
+            ['@', 'MX', [$mailHost], 10],
+            ['_dmarc', 'TXT', ["v=DMARC1; p=none; rua=mailto:postmaster@{$domain->domain}"], null],
+            ['@', 'CAA', ['0 issue "letsencrypt.org"'], null],
+        ];
+
+        if ($nodeIp) {
+            $addressType = filter_var($nodeIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A';
+            $ipMechanism = $addressType === 'AAAA' ? "ip6:{$nodeIp}" : "ip4:{$nodeIp}";
+
+            array_unshift(
+                $records,
+                ['@', $addressType, [$nodeIp], null],
+                ['mail', $addressType, [$nodeIp], null],
+                ['@', 'TXT', ["v=spf1 a mx {$ipMechanism} -all"], null],
+            );
+        } else {
+            array_unshift($records, ['@', 'TXT', ['v=spf1 a mx -all'], null]);
+        }
+
+        foreach ($records as [$name, $type, $contents, $priority]) {
+            [$created, $error] = $this->addRecord($zone, $name, $type, 300, $contents, true, $priority);
+            if (! $created) {
+                return [false, "{$type} {$name}: {$error}"];
+            }
+        }
+
+        return [true, null];
+    }
+
+    private function publicAddressFor(Domain $domain): ?string
+    {
+        $candidates = array_filter([
+            $domain->server_ip,
+            $domain->node?->ip_address,
+            $this->resolveHostname($domain->node?->hostname),
+        ]);
+
+        foreach ($candidates as $candidate) {
+            if ($this->isPublicIp($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveHostname(?string $hostname): ?string
+    {
+        if (! $hostname || filter_var($hostname, FILTER_VALIDATE_IP)) {
+            return null;
+        }
+
+        $records = gethostbynamel($hostname);
+
+        return $records[0] ?? null;
+    }
+
+    private function isPublicIp(string $ip): bool
+    {
+        return (bool) filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
     }
 
     /**

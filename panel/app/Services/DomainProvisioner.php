@@ -74,22 +74,34 @@ class DomainProvisioner
     public function deprovision(Domain $domain): array
     {
         $errors = [];
+        $client = AgentClient::for($domain->node);
 
         try {
             if ($domain->ssl_enabled) {
-                AgentClient::for($domain->node)->removeSSL($domain->domain);
+                $client->removeSSL($domain->domain);
             }
         } catch (\Throwable $e) {
             $errors[] = "SSL removal: " . $e->getMessage();
         }
 
         try {
-            $response = AgentClient::for($domain->node)->removeDomain($domain->domain);
+            $response = $client->removeDomain($domain->domain);
             if (! $response->successful()) {
                 $errors[] = $response->body();
             }
         } catch (\Throwable $e) {
             $errors[] = "Vhost removal: " . $e->getMessage();
+        }
+
+        if (DnsZone::where('domain_id', $domain->id)->exists()) {
+            try {
+                [$dnsRemoved, $dnsError] = (new DnsProvisioner($client))->deleteZone($domain);
+                if (! $dnsRemoved) {
+                    $errors[] = 'DNS zone removal: ' . $dnsError;
+                }
+            } catch (\Throwable $e) {
+                $errors[] = "DNS zone removal: " . $e->getMessage();
+            }
         }
 
         try {
@@ -99,6 +111,15 @@ class DomainProvisioner
             }
         } catch (\Throwable $e) {
             $errors[] = "Directory privacy cleanup: " . $e->getMessage();
+        }
+
+        try {
+            [$rootRemoved, $rootError] = $this->deleteDedicatedDocumentRoot($domain, $client);
+            if (! $rootRemoved && $rootError) {
+                $errors[] = $rootError;
+            }
+        } catch (\Throwable $e) {
+            $errors[] = "Document root cleanup: " . $e->getMessage();
         }
 
         return [empty($errors), implode('; ', $errors) ?: null];
@@ -557,6 +578,36 @@ class DomainProvisioner
         return $path === '/'
             ? $documentRoot
             : $documentRoot . $path;
+    }
+
+    private function deleteDedicatedDocumentRoot(Domain $domain, AgentClient $client): array
+    {
+        if (! in_array($domain->type, ['addon', 'subdomain'], true)) {
+            return [true, null];
+        }
+
+        $account = $domain->account;
+        $base = '/var/www/' . $account->username;
+        $documentRoot = rtrim((string) $domain->document_root, '/');
+
+        if ($documentRoot === '' || $documentRoot === $base || $documentRoot === $base . '/public_html') {
+            return [true, null];
+        }
+
+        if (! str_starts_with($documentRoot . '/', $base . '/')) {
+            return [false, 'Document root cleanup refused because the path is outside the account jail.'];
+        }
+
+        $relativePath = substr($documentRoot, strlen($base));
+        if ($relativePath === '' || $relativePath === '/' || str_contains($relativePath, '..')) {
+            return [true, null];
+        }
+
+        $response = $client->fileDelete($account->username, $relativePath);
+
+        return $response->successful()
+            ? [true, null]
+            : [false, 'Document root cleanup: ' . $response->body()];
     }
 
     private function normalizeProtectedPath(?string $path): ?string

@@ -403,6 +403,26 @@
                 </div>
             </form>
         </div>
+
+        <div class="mt-6 rounded-xl border border-red-800/70 bg-red-950/30 p-5">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h3 class="text-sm font-semibold text-red-200">Danger Zone</h3>
+                    <p class="mt-1 max-w-3xl text-sm text-red-100/80">
+                        Deleting this domain permanently removes the domain, managed DNS zone, vhost settings,
+                        security settings, redirects, and any dedicated document-root files for addon/subdomain sites.
+                        This cannot be undone.
+                    </p>
+                </div>
+                <ConfirmButton
+                    :href="route('my.domains.destroy', domain.id)"
+                    method="delete"
+                    label="Delete Domain"
+                    color="red"
+                    :confirm-message="`Permanently delete ${domain.domain}? This will remove the managed DNS zone, vhost settings, and dedicated files/settings for this domain. This cannot be undone.`"
+                />
+            </div>
+        </div>
         </div>
     </AppLayout>
 </template>
