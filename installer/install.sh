@@ -148,8 +148,26 @@ fi
 
 # ── 2. Panel domain & web server ──────────────────────────────────────────────
 echo ""
-read -rp "$(prompt 'Panel domain (e.g. panel.example.com): ')" PANEL_DOMAIN
+IFS='.' read -r -a HOSTNAME_LABELS <<< "$HOSTNAME_FQDN"
+if (( ${#HOSTNAME_LABELS[@]} >= 3 )); then
+    HOSTNAME_PARENT_DOMAIN="${HOSTNAME_FQDN#*.}"
+elif (( ${#HOSTNAME_LABELS[@]} == 2 )); then
+    HOSTNAME_PARENT_DOMAIN="$HOSTNAME_FQDN"
+else
+    HOSTNAME_PARENT_DOMAIN="example.com"
+fi
+PANEL_DOMAIN_DEFAULT="panel.${HOSTNAME_PARENT_DOMAIN}"
+
+echo -e "  ${BOLD}Recommended:${NC} use a dedicated subdomain for the panel, for example ${BOLD}${PANEL_DOMAIN_DEFAULT}${NC}."
+echo -e "  Keep the apex/root domain, for example ${BOLD}${HOSTNAME_PARENT_DOMAIN}${NC}, available for the admin website or hosted content."
+echo -e "  This avoids the control panel occupying the same vhost as your main site."
+echo ""
+read -rp "$(prompt "Panel domain [${PANEL_DOMAIN_DEFAULT}]: ")" PANEL_DOMAIN_INPUT
+PANEL_DOMAIN="${PANEL_DOMAIN_INPUT:-$PANEL_DOMAIN_DEFAULT}"
 [[ -n "$PANEL_DOMAIN" ]] || die "Panel domain is required."
+if [[ "$PANEL_DOMAIN" == "$HOSTNAME_PARENT_DOMAIN" ]]; then
+    warn "Using the apex/root domain for the panel is not recommended. A subdomain such as panel.${HOSTNAME_PARENT_DOMAIN} keeps the main domain free for the admin website."
+fi
 
 echo ""
 echo ""

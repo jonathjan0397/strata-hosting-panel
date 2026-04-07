@@ -49,8 +49,9 @@ Please report public testing issues in **[GitHub Issues](https://github.com/jona
 apt-get update && apt-get install -y curl ca-certificates
 ```
 
-- A **domain name** you control, with the ability to add DNS A records, for example `panel.example.com`.
-- The domain's A record pointing at your server's IP address before running the installer speeds things up. Let's Encrypt needs it to issue a real SSL certificate. If DNS is not ready yet, the installer uses a self-signed certificate and tells you the exact command to re-issue once DNS propagates.
+- A **domain name** you control, with the ability to add DNS A records.
+- **Highly recommended:** install Strata Hosting Panel on a dedicated subdomain such as `panel.example.com`, not the apex/root domain `example.com`. This keeps the main domain available for the admin website or hosted content.
+- The panel subdomain's A record should point at your server's IP address before running the installer. Let's Encrypt needs it to issue a real SSL certificate. If DNS is not ready yet, the installer uses a self-signed certificate and tells you the exact command to re-issue once DNS propagates.
 
 ### Step 1: Log in to your server as root
 
@@ -91,7 +92,7 @@ The installer will ask you a series of questions. You can press **Enter** to acc
 | Prompt | What to enter |
 |--------|---------------|
 | Server hostname | The FQDN for this server, for example `server1.example.com` |
-| Panel domain | The domain for the control panel, for example `panel.example.com` |
+| Panel domain | The dedicated subdomain for the control panel, for example `panel.example.com`. The installer suggests this form by default so the apex/root domain, for example `example.com`, remains available for the admin website. |
 | Web server | `1` for Nginx or `2` for Apache |
 | Admin name | Your full name or display name |
 | Admin email | The email you will log in with |

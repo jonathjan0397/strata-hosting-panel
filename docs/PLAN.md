@@ -323,6 +323,7 @@ Admin
 ### Phase 8 — Hardening + Release ✅
 - [ ] Security audit (post-beta)
 - [x] Installer (one-line bash — `installer/install.sh`)
+- [x] Installer recommends/defaults to a dedicated panel subdomain such as `panel.example.com`, keeping the apex/root domain available for the admin website
 - [x] Documentation (README, CHANGELOG, PLAN updated for v1.0-Beta)
 - [x] v1.0-Beta release tag
 
