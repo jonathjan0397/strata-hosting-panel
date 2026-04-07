@@ -665,15 +665,16 @@ chown root:dovecot /etc/dovecot/virtual_users
 chmod 640 /etc/dovecot/virtual_users
 
 cat > /etc/dovecot/conf.d/auth-strata-passwdfile.conf.ext <<'EOF'
-passdb {
+passdb passwd-file {
   driver = passwd-file
-  args = scheme=CRYPT username_format=%u /etc/dovecot/virtual_users
+  auth_username_format = %{user}
+  passwd_file_path = /etc/dovecot/virtual_users
 }
 
-userdb {
+userdb passwd-file {
   driver = passwd-file
-  args = username_format=%u /etc/dovecot/virtual_users
-  default_fields = uid=5000 gid=5000 home=/var/mail/vhosts/%d/%n
+  auth_username_format = %{user}
+  passwd_file_path = /etc/dovecot/virtual_users
 }
 EOF
 
