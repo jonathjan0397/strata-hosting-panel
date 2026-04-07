@@ -18,8 +18,10 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('Auth/Login', [
             'demoMode' => $demo,
             'demoCredentials' => $demo ? [
-                ['role' => 'Admin',    'email' => 'demo-admin@example.com', 'password' => 'DemoAdmin2026'],
-                ['role' => 'End User', 'email' => 'demo-user@example.com',  'password' => 'DemoUser2026!'],
+                ['role' => 'Admin', 'email' => 'demo-admin@stratadevplatform.net', 'password' => 'DemoAdmin2026!'],
+                ['role' => 'Reseller', 'email' => 'demo-reseller@stratadevplatform.net', 'password' => 'DemoReseller2026!'],
+                ['role' => 'End User', 'email' => 'demo-user@stratadevplatform.net', 'password' => 'DemoUser2026!'],
+                ['role' => 'Client', 'email' => 'demo-client@stratadevplatform.net', 'password' => 'DemoClient2026!'],
             ] : [],
         ]);
     }
