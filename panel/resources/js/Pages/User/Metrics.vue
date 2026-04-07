@@ -121,6 +121,9 @@
                             <span v-if="loading">Loading...</span>
                             <span v-else>Refresh Log</span>
                         </button>
+                        <button type="button" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 transition-colors hover:bg-gray-800 disabled:opacity-60" :disabled="!canDownloadLog" @click="downloadLog">
+                            Download Recent
+                        </button>
                         <span v-if="logPath" class="truncate font-mono text-xs text-gray-500">{{ logPath }}</span>
                     </div>
 
@@ -169,7 +172,7 @@ import PageHeader from '@/Components/PageHeader.vue';
 import ResourceBar from '@/Components/ResourceBar.vue';
 import StatCard from '@/Components/StatCard.vue';
 import axios from 'axios';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps({
     account: Object,
@@ -187,6 +190,7 @@ const loading = ref(false);
 const traffic = ref(null);
 const trafficError = ref('');
 const trafficLoading = ref(false);
+const canDownloadLog = computed(() => selectedType.value === 'php' || selectedDomainId.value);
 
 async function loadLog() {
     loading.value = true;
@@ -237,6 +241,16 @@ async function loadTraffic() {
     } finally {
         trafficLoading.value = false;
     }
+}
+
+function downloadLog() {
+    if (!canDownloadLog.value) return;
+
+    window.location = route('my.metrics.logs.download', {
+        type: selectedType.value,
+        domain_id: selectedType.value === 'php' ? null : selectedDomainId.value,
+        lines: 300,
+    });
 }
 
 onMounted(() => {

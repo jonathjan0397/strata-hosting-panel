@@ -79,6 +79,33 @@ class MetricsController extends Controller
         ]);
     }
 
+    public function download(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $data = $request->validate([
+            'domain_id' => ['nullable', 'exists:domains,id'],
+            'type' => ['required', 'in:access,error,php'],
+            'lines' => ['nullable', 'integer', 'min:10', 'max:500'],
+        ]);
+
+        $account = $this->account($request);
+        $client = AgentClient::for($account->node);
+        $lines = $data['lines'] ?? 300;
+        $path = $this->resolveLogPath($account, $data['type'], $data['domain_id'] ?? null);
+
+        $response = $client->fileTail($account->username, $path, $lines);
+
+        if (! $response->successful()) {
+            abort($response->status(), $response->body());
+        }
+
+        $filename = str_replace(['/', '\\'], '-', $path);
+
+        return response($response->json('content') ?? '', 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"recent-{$filename}\"",
+        ]);
+    }
+
     public function traffic(Request $request): JsonResponse
     {
         $data = $request->validate([
