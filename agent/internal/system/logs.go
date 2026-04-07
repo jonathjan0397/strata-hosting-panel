@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -24,6 +25,7 @@ var allowedLogs = map[string]string{
 	"dovecot":        "/var/log/dovecot.log",
 	"rspamd":         "/var/log/rspamd/rspamd.log",
 	"mysql":          "/var/log/mysql/error.log",
+	"postgresql":     "/var/log/postgresql/postgresql-*-main.log",
 	"syslog":         "/var/log/syslog",
 	"auth":           "/var/log/auth.log",
 	"fail2ban":       "/var/log/fail2ban.log",
@@ -43,7 +45,7 @@ func ReadLog(service string, lines int) ([]string, error) {
 	}
 
 	// Extra safety: resolve symlinks and confirm the path is still under /var/log
-	resolved, err := filepath.EvalSymlinks(logPath)
+	resolved, err := resolveLogPath(logPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []string{}, nil
@@ -64,6 +66,31 @@ func ReadLog(service string, lines int) ([]string, error) {
 	defer f.Close()
 
 	return tailLines(f, lines), nil
+}
+
+func resolveLogPath(logPath string) (string, error) {
+	if !strings.ContainsAny(logPath, "*?[") {
+		return filepath.EvalSymlinks(logPath)
+	}
+
+	matches, err := filepath.Glob(logPath)
+	if err != nil {
+		return "", err
+	}
+	if len(matches) == 0 {
+		return "", os.ErrNotExist
+	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		left, leftErr := os.Stat(matches[i])
+		right, rightErr := os.Stat(matches[j])
+		if leftErr != nil || rightErr != nil {
+			return matches[i] > matches[j]
+		}
+		return left.ModTime().After(right.ModTime())
+	})
+
+	return filepath.EvalSymlinks(matches[0])
 }
 
 // ListLogs returns the set of log names the agent can serve.

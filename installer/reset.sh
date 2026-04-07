@@ -76,6 +76,7 @@ ok "Databases dropped."
 step "Purging packages…"
 DEBIAN_FRONTEND=noninteractive apt-get purge -y \
     mariadb-server mariadb-client mariadb-common \
+    postgresql postgresql-client postgresql-common \
     pdns-server pdns-backend-mysql \
     pure-ftpd pure-ftpd-common \
     redis-server \

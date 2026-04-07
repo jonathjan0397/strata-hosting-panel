@@ -38,6 +38,7 @@
 
 **Databases**
 - DB user grants: grant additional MariaDB users to existing databases (with revoke)
+- PostgreSQL database/user lifecycle support through the same Databases workspace
 
 **Security**
 - SSH key management: add/remove SSH authorized keys per hosting account (user + admin)
@@ -115,7 +116,7 @@
 
 **DNS + Databases + FTP**
 - PowerDNS zone management + full record type support
-- MariaDB per-user databases
+- MariaDB/PostgreSQL per-user databases
 - Pure-FTPd jailed accounts
 
 ---

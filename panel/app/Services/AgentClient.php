@@ -217,23 +217,24 @@ class AgentClient
 
     // ── Databases ─────────────────────────────────────────────────────────────
 
-    public function createDatabase(string $dbName, string $username, string $password): Response
+    public function createDatabase(string $dbName, string $username, string $password, string $engine = 'mysql'): Response
     {
         return $this->post('/databases', [
             'db_name'  => $dbName,
             'username' => $username,
             'password' => $password,
+            'engine'   => $engine,
         ]);
     }
 
-    public function deleteDatabase(string $dbName, string $username): Response
+    public function deleteDatabase(string $dbName, string $username, string $engine = 'mysql'): Response
     {
-        return $this->delete("/databases/{$dbName}?username={$username}");
+        return $this->delete("/databases/{$dbName}?username={$username}&engine={$engine}");
     }
 
-    public function changeDatabasePassword(string $username, string $password): Response
+    public function changeDatabasePassword(string $username, string $password, string $engine = 'mysql'): Response
     {
-        return $this->put("/databases/users/{$username}/password", ['password' => $password]);
+        return $this->put("/databases/users/{$username}/password", ['password' => $password, 'engine' => $engine]);
     }
 
     // ── FTP ───────────────────────────────────────────────────────────────────
@@ -537,14 +538,14 @@ class AgentClient
 
     // ── Database Grants ───────────────────────────────────────────────────────
 
-    public function databaseGrant(string $dbName, string $dbUser, string $password, string $host = 'localhost'): Response
+    public function databaseGrant(string $dbName, string $dbUser, string $password, string $host = 'localhost', string $engine = 'mysql'): Response
     {
-        return $this->post('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'password' => $password, 'host' => $host]);
+        return $this->post('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'password' => $password, 'host' => $host, 'engine' => $engine]);
     }
 
-    public function databaseRevoke(string $dbName, string $dbUser, bool $deleteUser = false, string $host = 'localhost'): Response
+    public function databaseRevoke(string $dbName, string $dbUser, bool $deleteUser = false, string $host = 'localhost', string $engine = 'mysql'): Response
     {
-        return $this->delete_with_body('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'delete_user' => $deleteUser, 'host' => $host]);
+        return $this->delete_with_body('/databases/grant', ['db_name' => $dbName, 'db_user' => $dbUser, 'delete_user' => $deleteUser, 'host' => $host, 'engine' => $engine]);
     }
 
     // ── App Installer ─────────────────────────────────────────────────────────

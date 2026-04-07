@@ -3,8 +3,8 @@
         <div class="space-y-6 p-6">
             <PageHeader
                 eyebrow="Databases"
-                title="MySQL Databases"
-                description="Create databases and users for your applications, then rotate credentials when needed."
+                title="Databases"
+                description="Create MySQL or PostgreSQL databases and users for your applications, then rotate credentials when needed."
             />
 
             <div class="grid gap-4 md:grid-cols-3">
@@ -16,6 +16,12 @@
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <h3 class="mb-4 text-sm font-semibold text-gray-300">Create Database</h3>
                 <form @submit.prevent="submit" class="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Engine" :error="form.errors.engine">
+                        <select v-model="form.engine" class="field w-full">
+                            <option value="mysql">MySQL / MariaDB</option>
+                            <option value="postgresql">PostgreSQL</option>
+                        </select>
+                    </FormField>
                     <FormField label="Database name" :error="form.errors.db_name">
                         <input
                             v-model="form.db_name"
@@ -24,7 +30,7 @@
                             class="field w-full"
                         />
                     </FormField>
-                    <FormField label="DB username" :error="form.errors.db_user">
+                    <FormField label="DB username" :error="form.errors.db_user" :class="form.engine === 'mysql' ? '' : 'sm:col-span-2'">
                         <input
                             v-model="form.db_user"
                             type="text"
@@ -57,6 +63,7 @@
                     <thead>
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Database</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Engine</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">User</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Note</th>
                             <th class="px-5 py-3"></th>
@@ -65,6 +72,7 @@
                     <tbody class="divide-y divide-gray-800">
                         <tr v-for="db in databases" :key="db.id" class="transition-colors hover:bg-gray-800/40">
                             <td class="px-5 py-3.5 text-sm font-mono text-gray-100">{{ db.db_name }}</td>
+                            <td class="px-5 py-3.5 text-sm text-gray-400">{{ engineLabel(db.engine) }}</td>
                             <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ db.db_user }}</td>
                             <td class="px-5 py-3.5 text-sm text-gray-500">{{ db.note ?? '-' }}</td>
                             <td class="px-5 py-3.5 text-right">
@@ -86,10 +94,10 @@
                             </td>
                         </tr>
                         <tr v-if="databases.length === 0">
-                            <td colspan="4" class="px-5 py-8">
+                            <td colspan="5" class="px-5 py-8">
                                 <EmptyState
                                     title="No databases yet"
-                                    description="Create a database and matching user for your first application."
+                                    description="Create a MySQL or PostgreSQL database and matching user for your first application."
                                 />
                             </td>
                         </tr>
@@ -128,6 +136,7 @@
                         <thead>
                             <tr>
                                 <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Database</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Engine</th>
                                 <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">User</th>
                                 <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Host</th>
                                 <th class="px-5 py-3"></th>
@@ -136,6 +145,7 @@
                         <tbody class="divide-y divide-gray-800">
                             <tr v-for="grant in grants" :key="grant.id" class="transition-colors hover:bg-gray-800/40">
                                 <td class="px-5 py-3.5 text-sm font-mono text-gray-100">{{ grant.db_name }}</td>
+                                <td class="px-5 py-3.5 text-sm text-gray-500">{{ engineLabel(grant.engine) }}</td>
                                 <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ grant.db_user }}</td>
                                 <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ grant.host ?? 'localhost' }}</td>
                                 <td class="px-5 py-3.5 text-right">
@@ -145,7 +155,7 @@
                                 </td>
                             </tr>
                             <tr v-if="grants.length === 0">
-                                <td colspan="4" class="px-5 py-8">
+                                <td colspan="5" class="px-5 py-8">
                                     <EmptyState
                                         title="No database grants"
                                         description="Grant a database user to localhost or a remote host when an application needs direct database access."
@@ -207,11 +217,15 @@ const remainingDatabases = computed(() => {
     return Math.max(props.account.max_databases - props.databases.length, 0);
 });
 
-const form = useForm({ db_name: '', db_user: '', password: '' });
+const form = useForm({ engine: 'mysql', db_name: '', db_user: '', password: '' });
 const grantForm = useForm({ database_id: '', db_user: '', password: '', host: 'localhost' });
 
 function submit() {
     form.post(route('my.databases.store'), { onSuccess: () => form.reset() });
+}
+
+function engineLabel(engine) {
+    return engine === 'postgresql' ? 'PostgreSQL' : 'MySQL';
 }
 
 const pwTarget = ref(null);

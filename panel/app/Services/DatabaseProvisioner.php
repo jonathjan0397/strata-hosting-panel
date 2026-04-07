@@ -15,10 +15,10 @@ class DatabaseProvisioner
      * Create a new database + user on the node and record in the panel DB.
      * Returns [bool $success, ?string $error].
      */
-    public function create(Account $account, string $dbName, string $dbUser, string $password, ?string $note = null): array
+    public function create(Account $account, string $dbName, string $dbUser, string $password, ?string $note = null, string $engine = 'mysql'): array
     {
         try {
-            $response = $this->client->createDatabase($dbName, $dbUser, $password);
+            $response = $this->client->createDatabase($dbName, $dbUser, $password, $engine);
             if (! $response->successful()) {
                 return [false, $response->body()];
             }
@@ -26,6 +26,7 @@ class DatabaseProvisioner
             HostingDatabase::create([
                 'account_id' => $account->id,
                 'node_id'    => $account->node_id,
+                'engine'     => $engine,
                 'db_name'    => $dbName,
                 'db_user'    => $dbUser,
                 'note'       => $note,
@@ -48,13 +49,13 @@ class DatabaseProvisioner
                 ->get();
 
             foreach ($grants as $grant) {
-                $revoke = $this->client->databaseRevoke($db->db_name, $grant->db_user, true, $grant->host ?? 'localhost');
+                $revoke = $this->client->databaseRevoke($db->db_name, $grant->db_user, true, $grant->host ?? 'localhost', $db->engine ?? 'mysql');
                 if (! $revoke->successful()) {
                     return [false, "revoke {$grant->db_user}@{$grant->host}: {$revoke->body()}"];
                 }
             }
 
-            $response = $this->client->deleteDatabase($db->db_name, $db->db_user);
+            $response = $this->client->deleteDatabase($db->db_name, $db->db_user, $db->engine ?? 'mysql');
             if (! $response->successful()) {
                 return [false, $response->body()];
             }
@@ -77,7 +78,7 @@ class DatabaseProvisioner
     public function changePassword(HostingDatabase $db, string $password): array
     {
         try {
-            $response = $this->client->changeDatabasePassword($db->db_user, $password);
+            $response = $this->client->changeDatabasePassword($db->db_user, $password, $db->engine ?? 'mysql');
             if (! $response->successful()) {
                 return [false, $response->body()];
             }

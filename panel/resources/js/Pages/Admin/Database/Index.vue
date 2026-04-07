@@ -17,7 +17,7 @@
         <div class="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
             <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
                 <h3 class="text-sm font-semibold text-gray-200">
-                    MySQL Databases
+                    Databases
                     <span class="ml-2 text-xs font-normal text-gray-500">{{ databases.length }}</span>
                 </h3>
                 <button @click="showCreate = !showCreate" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
@@ -29,6 +29,13 @@
             <div v-if="showCreate" class="border-b border-gray-800 px-5 py-4 bg-gray-800/30">
                 <form @submit.prevent="submitCreate" class="space-y-3">
                     <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Engine</label>
+                            <select v-model="form.engine" class="field text-xs">
+                                <option value="mysql">MySQL / MariaDB</option>
+                                <option value="postgresql">PostgreSQL</option>
+                            </select>
+                        </div>
                         <div>
                             <label class="block text-xs text-gray-500 mb-1">Database name</label>
                             <input v-model="form.db_name" type="text" placeholder="e.g. alice_wp" class="field font-mono text-xs" required />
@@ -59,6 +66,8 @@
                     <div>
                         <p class="text-sm font-mono text-gray-100">{{ db.db_name }}</p>
                         <p class="text-xs text-gray-500">
+                            <span>{{ engineLabel(db.engine) }}</span>
+                            <span class="mx-1 text-gray-700">/</span>
                             User: <span class="font-mono">{{ db.db_user }}</span>
                             <span v-if="db.note" class="ml-2 text-gray-600">· {{ db.note }}</span>
                         </p>
@@ -130,13 +139,13 @@ const props = defineProps({
 });
 
 const showCreate = ref(false);
-const form   = ref({ db_name: '', db_user: '', password: '', note: '' });
+const form   = ref({ engine: 'mysql', db_name: '', db_user: '', password: '', note: '' });
 const errors = ref({});
 
 function submitCreate() {
     router.post(route('admin.accounts.databases.store', props.account.id), form.value, {
         onSuccess: () => {
-            form.value  = { db_name: '', db_user: '', password: '', note: '' };
+            form.value  = { engine: 'mysql', db_name: '', db_user: '', password: '', note: '' };
             errors.value = {};
             showCreate.value = false;
         },
@@ -160,6 +169,10 @@ function submitPassword() {
     }, {
         onFinish: () => { pwdModal.busy = false; pwdModal.show = false; },
     });
+}
+
+function engineLabel(engine) {
+    return engine === 'postgresql' ? 'PostgreSQL' : 'MySQL';
 }
 </script>
 

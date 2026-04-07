@@ -29,7 +29,7 @@ class DatabaseController extends Controller
             'databases' => $databases,
             'grants' => DatabaseGrant::where('account_id', $account->id)
                 ->latest()
-                ->get(['id', 'db_name', 'db_user', 'host', 'password_hint', 'created_at']),
+                ->get(['id', 'engine', 'db_name', 'db_user', 'host', 'password_hint', 'created_at']),
         ]);
     }
 
@@ -51,6 +51,7 @@ class DatabaseController extends Controller
         $data = $request->validate([
             'db_name'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,47}$/', 'unique:hosting_databases,db_name'],
             'db_user'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,15}$/', 'unique:hosting_databases,db_user'],
+            'engine'   => ['required', 'in:mysql,postgresql'],
             'password' => ['required', 'string', 'min:8'],
             'note'     => ['nullable', 'string', 'max:255'],
         ]);
@@ -63,6 +64,7 @@ class DatabaseController extends Controller
             $data['db_user'],
             $data['password'],
             $data['note'] ?? null,
+            $data['engine'],
         );
 
         return $success
@@ -113,7 +115,12 @@ class DatabaseController extends Controller
         $host = $data['host'] ?: 'localhost';
 
         $client   = AgentClient::for($account->node);
-        $response = $client->databaseGrant($database->db_name, $data['db_user'], $data['password'], $host);
+        $engine = $database->engine ?? 'mysql';
+        if ($engine === 'postgresql' && $host !== 'localhost') {
+            return back()->with('error', 'PostgreSQL remote host access requires pg_hba.conf/listen_addresses configuration on the node.');
+        }
+
+        $response = $client->databaseGrant($database->db_name, $data['db_user'], $data['password'], $host, $engine);
 
         if (! $response->successful()) {
             return back()->with('error', 'Grant failed: ' . $response->body());
@@ -121,7 +128,7 @@ class DatabaseController extends Controller
 
         DatabaseGrant::updateOrCreate(
             ['db_name' => $database->db_name, 'db_user' => $data['db_user'], 'host' => $host],
-            ['account_id' => $account->id, 'node_id' => $account->node_id, 'password_hint' => substr($data['password'], 0, 3) . '***'],
+            ['account_id' => $account->id, 'node_id' => $account->node_id, 'engine' => $engine, 'password_hint' => substr($data['password'], 0, 3) . '***'],
         );
 
         return back()->with('success', "User {$data['db_user']} granted access from {$host}.");
@@ -139,7 +146,7 @@ class DatabaseController extends Controller
         $host = $data['host'] ?: 'localhost';
 
         $client = AgentClient::for($account->node);
-        $response = $client->databaseRevoke($database->db_name, $data['db_user'], true, $host);
+        $response = $client->databaseRevoke($database->db_name, $data['db_user'], true, $host, $database->engine ?? 'mysql');
 
         if (! $response->successful()) {
             return back()->with('error', 'Revoke failed: ' . $response->body());

@@ -23,7 +23,7 @@ A single install gives you a fully functional hosting server — the panel and a
 | Frontend | Vue 3 + Inertia.js |
 | Queue | Redis + Laravel Horizon |
 | Cache | Redis |
-| Database | MariaDB |
+| Database | MariaDB + PostgreSQL |
 | Auth | Laravel Sanctum (API tokens) + session |
 
 ### Agent (Remote Node Daemon)
@@ -44,7 +44,7 @@ A single install gives you a fully functional hosting server — the panel and a
 | SSL | acme.sh (Let's Encrypt + ZeroSSL) |
 | FTP | Pure-FTPd (jailed per account) |
 | Webmail | Roundcube |
-| Database | MariaDB (per-user databases + users) |
+| Database | MariaDB + PostgreSQL (per-user databases + users) |
 | Firewall | UFW + fail2ban |
 | Accelerators | Varnish, Redis, Memcached (per-node, optional) |
 
@@ -71,7 +71,7 @@ Everything runs on one machine. The panel manages itself via its own local agent
 │  │       strata-agent (Go)          │   │
 │  │  Nginx · PHP-FPM · Postfix       │   │
 │  │  Dovecot · Rspamd · PowerDNS     │   │
-│  │  MariaDB · acme.sh · Pure-FTPd   │   │
+│  │  MariaDB · PostgreSQL · acme.sh  │   │
 │  └──────────────────────────────────┘   │
 └─────────────────────────────────────────┘
 ```
@@ -192,7 +192,7 @@ Admin
 - [x] Server DNS zones (standalone zones not tied to hosted accounts)
 
 ### Databases
-- [x] Create/delete MariaDB databases
+- [x] Create/delete MariaDB and PostgreSQL databases
 - [x] Create/delete database users
 - [x] Assign user permissions (grant additional users to databases)
 - [ ] phpMyAdmin SSO (deferred — post v1.0)
@@ -283,7 +283,7 @@ Admin
 
 ### Phase 4 — DNS + Databases + FTP ✅
 - PowerDNS integration
-- MariaDB account management
+- MariaDB and PostgreSQL account management
 - Pure-FTPd
 - phpMyAdmin SSO (pending)
 

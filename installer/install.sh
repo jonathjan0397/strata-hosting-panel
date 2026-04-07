@@ -349,6 +349,11 @@ done
 [[ $_db_ready -eq 1 ]] || die "MariaDB did not start within 30 seconds — check: systemctl status mariadb"
 success "MariaDB is up."
 
+info "Installing PostgreSQL for hosted database accounts…"
+DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql postgresql-client
+systemctl enable --now postgresql || warn "PostgreSQL service did not start — check: systemctl status postgresql"
+success "PostgreSQL installed."
+
 info "Securing MariaDB and creating databases…"
 # Use `mariadb` client if available (MariaDB 11.x / Debian 13 — preferred),
 # fall back to `mysql` for older installs.
@@ -1412,8 +1417,8 @@ rm -f /usr/share/keyrings/rspamd.gpg
 
 echo ""
 echo "[ok] Strata Hosting Panel removed."
-echo "     Packages (mariadb-server, pdns-server, redis-server, etc.) were NOT purged."
-echo "     To remove them: apt-get purge mariadb-server pdns-server pdns-backend-mysql \\"
+echo "     Packages (mariadb-server, postgresql, pdns-server, redis-server, etc.) were NOT purged."
+echo "     To remove them: apt-get purge mariadb-server postgresql postgresql-client pdns-server pdns-backend-mysql \\"
 echo "       redis-server pure-ftpd postfix dovecot-core rspamd fail2ban"
 UNINSTEOF
 chmod 700 /root/strata-uninstall.sh

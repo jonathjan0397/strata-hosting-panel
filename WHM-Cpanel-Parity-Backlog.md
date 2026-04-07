@@ -163,6 +163,8 @@ Implemented on `main`:
 
 - host-scoped MariaDB grants for localhost or remote hosts
 - user-facing remote database access management in the Databases workspace
+- PostgreSQL database/user lifecycle support in the existing Databases workspace
+- PostgreSQL service/log visibility in the admin node tools
 
 ## Phase 3: Advanced Platform Parity
 

@@ -29,7 +29,7 @@ class DatabaseController extends Controller
             'databases' => $databases,
             'grants' => DatabaseGrant::where('account_id', $account->id)
                 ->latest()
-                ->get(['id', 'db_name', 'db_user', 'host', 'password_hint', 'created_at']),
+                ->get(['id', 'engine', 'db_name', 'db_user', 'host', 'password_hint', 'created_at']),
         ]);
     }
 
@@ -49,6 +49,7 @@ class DatabaseController extends Controller
         $data = $request->validate([
             'db_name'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,47}$/', 'unique:hosting_databases,db_name'],
             'db_user'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,15}$/', 'unique:hosting_databases,db_user'],
+            'engine'   => ['required', 'in:mysql,postgresql'],
             'password' => ['required', 'string', 'min:8'],
             'note'     => ['nullable', 'string', 'max:255'],
         ]);
@@ -62,11 +63,12 @@ class DatabaseController extends Controller
             $data['db_user'],
             $data['password'],
             $data['note'] ?? null,
+            $data['engine'],
         );
 
         if ($success) {
             AuditLog::record('database.created', $account, [
-                'db_name' => $data['db_name'], 'db_user' => $data['db_user'],
+                'db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'engine' => $data['engine'],
             ]);
         }
 
@@ -126,9 +128,17 @@ class DatabaseController extends Controller
             'host'     => ['nullable', 'regex:/^(localhost|%|[A-Za-z0-9][A-Za-z0-9._%-]{0,252})$/'],
         ]);
         $host = $data['host'] ?: 'localhost';
+        $database = HostingDatabase::where('account_id', $account->id)
+            ->where('db_name', $data['db_name'])
+            ->firstOrFail();
+        $engine = $database->engine ?? 'mysql';
+
+        if ($engine === 'postgresql' && $host !== 'localhost') {
+            return back()->with('error', 'PostgreSQL remote host access requires pg_hba.conf/listen_addresses configuration on the node.');
+        }
 
         $client   = AgentClient::for($account->node);
-        $response = $client->databaseGrant($data['db_name'], $data['db_user'], $data['password'], $host);
+        $response = $client->databaseGrant($data['db_name'], $data['db_user'], $data['password'], $host, $engine);
 
         if (! $response->successful()) {
             return back()->with('error', 'Grant failed: ' . $response->body());
@@ -136,10 +146,10 @@ class DatabaseController extends Controller
 
         DatabaseGrant::updateOrCreate(
             ['db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'host' => $host],
-            ['account_id' => $account->id, 'node_id' => $account->node_id, 'password_hint' => substr($data['password'], 0, 3) . '***'],
+            ['account_id' => $account->id, 'node_id' => $account->node_id, 'engine' => $engine, 'password_hint' => substr($data['password'], 0, 3) . '***'],
         );
 
-        AuditLog::record('database.grant', $account, ['db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'host' => $host]);
+        AuditLog::record('database.grant', $account, ['db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'host' => $host, 'engine' => $engine]);
 
         return back()->with('success', "User {$data['db_user']} granted to {$data['db_name']} from {$host}.");
     }
@@ -152,9 +162,12 @@ class DatabaseController extends Controller
             'host' => ['nullable', 'regex:/^(localhost|%|[A-Za-z0-9][A-Za-z0-9._%-]{0,252})$/'],
         ]);
         $host = $data['host'] ?: 'localhost';
+        $database = HostingDatabase::where('account_id', $account->id)
+            ->where('db_name', $data['db_name'])
+            ->firstOrFail();
 
         $client   = AgentClient::for($account->node);
-        $response = $client->databaseRevoke($data['db_name'], $data['db_user'], true, $host);
+        $response = $client->databaseRevoke($data['db_name'], $data['db_user'], true, $host, $database->engine ?? 'mysql');
 
         if (! $response->successful()) {
             return back()->with('error', 'Revoke failed: ' . $response->body());
@@ -165,7 +178,7 @@ class DatabaseController extends Controller
             ->where('host', $host)
             ->delete();
 
-        AuditLog::record('database.revoke', $account, ['db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'host' => $host]);
+        AuditLog::record('database.revoke', $account, ['db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'host' => $host, 'engine' => $database->engine ?? 'mysql']);
 
         return back()->with('success', "Access revoked for {$data['db_user']} from {$host}.");
     }
