@@ -83,6 +83,30 @@
                                 <p>Home: {{ item.detected_paths?.has_home ? 'yes' : 'no' }}</p>
                                 <p>public_html: {{ item.detected_paths?.has_public_html ? 'yes' : 'no' }}</p>
                                 <p>SQL dumps: {{ item.detected_paths?.sql_dumps ?? 0 }}</p>
+                                <p>Domains: {{ item.detected_paths?.domains?.length ?? 0 }}</p>
+                                <p>Mailboxes: {{ item.detected_paths?.mailboxes?.length ?? 0 }}</p>
+                                <p>Forwarders: {{ item.detected_paths?.forwarders?.length ?? 0 }}</p>
+                                <details v-if="hasImportMetadata(item)" class="mt-2">
+                                    <summary class="cursor-pointer text-indigo-300">Show metadata</summary>
+                                    <div class="mt-2 space-y-2 rounded-lg border border-gray-800 bg-gray-950/50 p-3">
+                                        <div v-if="item.detected_paths?.domains?.length">
+                                            <p class="font-semibold text-gray-300">Domains</p>
+                                            <p class="mt-1 break-words">{{ item.detected_paths.domains.slice(0, 8).join(', ') }}</p>
+                                        </div>
+                                        <div v-if="item.detected_paths?.dns_zones?.length">
+                                            <p class="font-semibold text-gray-300">DNS zones</p>
+                                            <p class="mt-1 break-words">{{ item.detected_paths.dns_zones.slice(0, 8).join(', ') }}</p>
+                                        </div>
+                                        <div v-if="item.detected_paths?.mailboxes?.length">
+                                            <p class="font-semibold text-gray-300">Mailboxes</p>
+                                            <p class="mt-1 break-words">{{ item.detected_paths.mailboxes.slice(0, 8).join(', ') }}</p>
+                                        </div>
+                                        <div v-if="item.detected_paths?.forwarders?.length">
+                                            <p class="font-semibold text-gray-300">Forwarders</p>
+                                            <p class="mt-1 break-words">{{ item.detected_paths.forwarders.slice(0, 6).join(', ') }}</p>
+                                        </div>
+                                    </div>
+                                </details>
                             </td>
                             <td class="px-5 py-3.5 text-xs text-gray-400">
                                 <div v-if="item.backup">
@@ -176,5 +200,14 @@ function statusClass(status) {
         complete: 'bg-emerald-900/40 text-emerald-300',
         failed: 'bg-red-900/40 text-red-300',
     }[status] ?? 'bg-gray-800 text-gray-300';
+}
+
+function hasImportMetadata(item) {
+    return Boolean(
+        item.detected_paths?.domains?.length
+        || item.detected_paths?.dns_zones?.length
+        || item.detected_paths?.mailboxes?.length
+        || item.detected_paths?.forwarders?.length
+    );
 }
 </script>

@@ -51,6 +51,7 @@ Public beta target: `v1.0.0-beta.1`.
 **Backups**
 - Admin backup list supports bulk deletion while preserving panel records when node cleanup fails
 - Admin competitor-backup import queue converts supported cPanel/CWP `.tar.gz` and `.tgz` archives into normal Strata full-backup jobs for restore
+- Competitor backup imports now detect and preview domains, DNS zone files, mailbox names, and forwarders when present in cPanel/CWP archives
 - Manual backup creation, full restore, and path restore now run through the queue worker with restore status/error tracking instead of holding browser requests open
 
 **Domains**

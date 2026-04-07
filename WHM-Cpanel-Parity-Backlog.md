@@ -96,6 +96,7 @@ Implemented on `main`:
 - API migration workflow endpoints for list, detail, prepare, transfer, restore, cutover, and source cleanup
 - queued migration execution for prepare, transfer, restore, cutover, and source cleanup with migration-row progress tracking
 - competitor backup import queue for cPanel/CWP `.tar.gz` and `.tgz` archives, converting supported website files and SQL dumps into normal Strata full-backup jobs
+- competitor backup import metadata preview for detected domains, DNS zone files, mailbox names, and forwarders
 - queued manual backup creation, full restore, and path restore with restore status/error tracking
 
 ### 4. Metrics and Logs

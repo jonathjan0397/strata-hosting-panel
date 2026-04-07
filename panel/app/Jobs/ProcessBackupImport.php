@@ -134,6 +134,10 @@ class ProcessBackupImport implements ShouldQueue
         $homePath = null;
         $publicHtmlPath = null;
         $sqlDumps = [];
+        $domains = [];
+        $dnsZones = [];
+        $mailboxes = [];
+        $forwarders = [];
 
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($extractDir, \FilesystemIterator::SKIP_DOTS),
@@ -158,6 +162,15 @@ class ProcessBackupImport implements ShouldQueue
                     $sqlDumps[] = $path;
                 }
             }
+
+            if ($item->isFile() && ! $item->isLink()) {
+                $this->detectDnsZone($relative, $domains, $dnsZones);
+                $this->detectMailboxMetadata($path, $relative, $domains, $mailboxes, $forwarders);
+            }
+
+            if ($item->isDir() && ! $item->isLink()) {
+                $this->detectMaildirMailbox($relative, $domains, $mailboxes);
+            }
         }
 
         $sourceSystem = 'unknown';
@@ -177,7 +190,85 @@ class ProcessBackupImport implements ShouldQueue
             'home_path' => $homePath,
             'public_html_path' => $publicHtmlPath,
             'sql_dumps' => $sqlDumps,
+            'domains' => array_values(array_unique($domains)),
+            'dns_zones' => array_values(array_unique($dnsZones)),
+            'mailboxes' => array_values(array_unique($mailboxes)),
+            'forwarders' => array_values(array_unique($forwarders)),
         ];
+    }
+
+    private function detectDnsZone(string $relative, array &$domains, array &$dnsZones): void
+    {
+        if (! preg_match('#(^|/)dnszones/([^/]+)\.db$#i', $relative, $match)) {
+            return;
+        }
+
+        $domain = strtolower($match[2]);
+        if ($this->isLikelyDomain($domain)) {
+            $domains[] = $domain;
+            $dnsZones[] = $domain;
+        }
+    }
+
+    private function detectMailboxMetadata(string $path, string $relative, array &$domains, array &$mailboxes, array &$forwarders): void
+    {
+        if (preg_match('#(^|/)homedir/etc/([^/]+)/passwd$#i', $relative, $match)) {
+            $domain = strtolower($match[2]);
+            if (! $this->isLikelyDomain($domain)) {
+                return;
+            }
+
+            $domains[] = $domain;
+            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+                $local = trim(strtok($line, ':') ?: '');
+                if ($this->isSafeLocalPart($local)) {
+                    $mailboxes[] = "{$local}@{$domain}";
+                }
+            }
+            return;
+        }
+
+        if (preg_match('#(^|/)homedir/etc/([^/]+)/aliases$#i', $relative, $match)) {
+            $domain = strtolower($match[2]);
+            if (! $this->isLikelyDomain($domain)) {
+                return;
+            }
+
+            $domains[] = $domain;
+            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+                if (! str_contains($line, ':')) {
+                    continue;
+                }
+                [$local, $destination] = array_map('trim', explode(':', $line, 2));
+                if ($this->isSafeLocalPart($local) && $destination !== '') {
+                    $forwarders[] = "{$local}@{$domain} -> {$destination}";
+                }
+            }
+        }
+    }
+
+    private function detectMaildirMailbox(string $relative, array &$domains, array &$mailboxes): void
+    {
+        if (! preg_match('#(^|/)homedir/mail/([^/]+)/([^/]+)$#i', $relative, $match)) {
+            return;
+        }
+
+        $domain = strtolower($match[2]);
+        $local = $match[3];
+        if ($this->isLikelyDomain($domain) && $this->isSafeLocalPart($local)) {
+            $domains[] = $domain;
+            $mailboxes[] = "{$local}@{$domain}";
+        }
+    }
+
+    private function isLikelyDomain(string $domain): bool
+    {
+        return (bool) preg_match('/^(?=.{1,253}$)(?!-)[a-z0-9.-]+\.[a-z]{2,}$/i', $domain);
+    }
+
+    private function isSafeLocalPart(string $local): bool
+    {
+        return (bool) preg_match('/^[a-z0-9._%+\-]{1,64}$/i', $local);
     }
 
     private function buildStrataArchive(BackupImport $import, array $detected, string $workDir): string
@@ -276,6 +367,14 @@ class ProcessBackupImport implements ShouldQueue
 
         if ($detected['sql_dumps'] === []) {
             $notes[] = 'No SQL dumps were detected in the source archive.';
+        }
+
+        if (($detected['domains'] ?? []) !== []) {
+            $notes[] = 'Detected domains: ' . implode(', ', array_slice($detected['domains'], 0, 10)) . '.';
+        }
+
+        if (($detected['mailboxes'] ?? []) !== [] || ($detected['forwarders'] ?? []) !== []) {
+            $notes[] = 'Mailbox and forwarder names were detected for operator review, but original mailbox passwords are not recoverable from the import.';
         }
 
         return implode(' ', $notes);

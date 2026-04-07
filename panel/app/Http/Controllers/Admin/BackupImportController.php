@@ -40,6 +40,10 @@ class BackupImportController extends Controller
                     'sql_dumps' => count($import->detected_paths['sql_dumps'] ?? []),
                     'has_home' => filled($import->detected_paths['home_path'] ?? null),
                     'has_public_html' => filled($import->detected_paths['public_html_path'] ?? null),
+                    'domains' => $import->detected_paths['domains'] ?? [],
+                    'dns_zones' => $import->detected_paths['dns_zones'] ?? [],
+                    'mailboxes' => $import->detected_paths['mailboxes'] ?? [],
+                    'forwarders' => $import->detected_paths['forwarders'] ?? [],
                 ],
                 'backup' => $import->backupJob ? [
                     'filename' => $import->backupJob->filename,
