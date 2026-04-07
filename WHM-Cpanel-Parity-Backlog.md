@@ -91,6 +91,7 @@ Implemented on `main`:
 - target-node restore action that provisions the target account, restores the transferred archive, and retains the source for validation/cutover
 - conservative cutover action for static/domain-only accounts with target-node panel ownership update and vhost reprovision rollback
 - explicit post-cutover source-node cleanup action with failure isolation from the completed cutover state
+- migration queue cutover-blocker visibility for accounts that need manual service re-provisioning
 
 ### 4. Metrics and Logs
 Status: `in progress`

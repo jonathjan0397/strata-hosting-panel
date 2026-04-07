@@ -77,6 +77,9 @@
                                     {{ statusLabel(migration.status) }}
                                 </span>
                                 <p v-if="migration.error" class="mt-1 max-w-sm truncate text-xs text-red-400" :title="migration.error">{{ migration.error }}</p>
+                                <p v-if="migration.status === 'restored' && migration.cutover_blockers?.length" class="mt-1 max-w-sm text-xs text-amber-300">
+                                    Cutover blocked: {{ migration.cutover_blockers.join(', ') }}
+                                </p>
                             </td>
                             <td class="px-5 py-3.5 text-xs text-gray-500">
                                 <p>{{ migration.created_at }}</p>
@@ -100,13 +103,14 @@
                                     Restore Target
                                 </button>
                                 <button
-                                    v-else-if="migration.status === 'restored'"
+                                    v-else-if="migration.status === 'restored' && migration.can_cutover"
                                     type="button"
                                     class="text-xs font-semibold text-blue-400 transition-colors hover:text-blue-300"
                                     @click="cutoverMigration(migration.id)"
                                 >
                                     Cut Over
                                 </button>
+                                <span v-else-if="migration.status === 'restored'" class="text-xs text-amber-300">Blocked</span>
                                 <button
                                     v-else-if="migration.status === 'complete'"
                                     type="button"

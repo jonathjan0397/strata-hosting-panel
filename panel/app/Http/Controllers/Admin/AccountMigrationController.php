@@ -37,27 +37,35 @@ class AccountMigrationController extends Controller
         ])
             ->latest()
             ->paginate(25)
-            ->through(fn (AccountMigration $migration) => [
-                'id' => $migration->id,
-                'account' => $migration->account?->username,
-                'source_node' => $migration->sourceNode?->name,
-                'target_node' => $migration->targetNode?->name,
-                'status' => $migration->status,
-                'error' => $migration->error,
-                'backup' => $migration->backupJob ? [
-                    'filename' => $migration->backupJob->filename,
-                    'status' => $migration->backupJob->status,
-                    'size_human' => $migration->backupJob->size_human,
-                ] : null,
-                'target_backup' => $migration->targetBackupJob ? [
-                    'filename' => $migration->targetBackupJob->filename,
-                    'status' => $migration->targetBackupJob->status,
-                    'size_human' => $migration->targetBackupJob->size_human,
-                ] : null,
-                'started_by' => $migration->startedBy?->name,
-                'created_at' => $migration->created_at?->toDateTimeString(),
-                'completed_at' => $migration->completed_at?->toDateTimeString(),
-            ]);
+            ->through(function (AccountMigration $migration) {
+                $cutoverBlockers = $migration->account
+                    ? $this->cutoverBlockers($migration->account)
+                    : [];
+
+                return [
+                    'id' => $migration->id,
+                    'account' => $migration->account?->username,
+                    'source_node' => $migration->sourceNode?->name,
+                    'target_node' => $migration->targetNode?->name,
+                    'status' => $migration->status,
+                    'error' => $migration->error,
+                    'cutover_blockers' => $cutoverBlockers,
+                    'can_cutover' => $cutoverBlockers === [],
+                    'backup' => $migration->backupJob ? [
+                        'filename' => $migration->backupJob->filename,
+                        'status' => $migration->backupJob->status,
+                        'size_human' => $migration->backupJob->size_human,
+                    ] : null,
+                    'target_backup' => $migration->targetBackupJob ? [
+                        'filename' => $migration->targetBackupJob->filename,
+                        'status' => $migration->targetBackupJob->status,
+                        'size_human' => $migration->targetBackupJob->size_human,
+                    ] : null,
+                    'started_by' => $migration->startedBy?->name,
+                    'created_at' => $migration->created_at?->toDateTimeString(),
+                    'completed_at' => $migration->completed_at?->toDateTimeString(),
+                ];
+            });
 
         return Inertia::render('Admin/Migrations/Index', [
             'migrations' => $migrations,
