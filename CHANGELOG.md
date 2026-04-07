@@ -21,6 +21,7 @@
 - Theme preference picker is available in the shared top bar for admins, resellers, and users
 - Admin sidebar now exposes Firewall and Fail2Ban in a dedicated Security group
 - Shared Email Accounts sidebar entry is available for admins, resellers, and users
+- Email Accounts password modal now uses a high-contrast field for readability across glass themes
 
 **Accounts**
 - Bulk package reassignment from the admin account list
@@ -64,6 +65,7 @@
 **Email**
 - Autoresponders: Dovecot Sieve vacation scripts, per-mailbox, subject + body + active toggle
 - Email Accounts workspace: add/remove mailboxes, change mailbox passwords, and show secure IMAP/POP3/SMTP configuration ports
+- Email Accounts workspace can enable mail for domains in the current admin/reseller/user scope while preserving account/package mailbox limits
 - Spam filter stats UI: Rspamd stats page (scanned / spam / ham / actions), per-node
 - Mailbox archive policy: copy incoming messages to the Archive folder through Sieve
 - Domain Key Manager: user workflow to view/copy/regenerate DKIM domain keys and publish managed DNS records

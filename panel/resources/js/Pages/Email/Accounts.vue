@@ -54,6 +54,35 @@
                 <p v-if="enabledDomains.length === 0" class="mt-3 text-sm text-amber-300">No mail-enabled domains are available for this account scope.</p>
             </section>
 
+            <section v-if="disabledDomains.length" class="rounded-xl border border-amber-700/50 bg-amber-950/20 p-5">
+                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-amber-300">Mail setup available</p>
+                        <h3 class="mt-1 text-base font-semibold text-gray-100">Enable mail for eligible domains</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-amber-100/75">
+                            Mail can be enabled for domains in this account scope when the account package includes Email.
+                            Mailbox creation still respects each account's mailbox limit.
+                        </p>
+                    </div>
+                </div>
+                <div class="mt-4 grid gap-3 lg:grid-cols-2">
+                    <div v-for="domain in disabledDomains" :key="domain.id" class="flex items-center justify-between gap-4 rounded-xl border border-amber-800/60 bg-black/20 p-4">
+                        <div>
+                            <p class="font-semibold text-gray-100">{{ domain.domain }}</p>
+                            <p class="text-xs text-gray-500">{{ domain.account?.username ?? 'account' }} · {{ mailboxLimitLabel(domain) }}</p>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn-primary shrink-0"
+                            :disabled="enablingDomainId === domain.id"
+                            @click="enableMail(domain)"
+                        >
+                            {{ enablingDomainId === domain.id ? 'Enabling...' : 'Enable Mail' }}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
             <section class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
                 <div class="border-b border-gray-800 px-5 py-4">
                     <h3 class="text-sm font-semibold text-gray-200">Mailboxes</h3>
@@ -100,11 +129,18 @@
 
         <Teleport to="body">
             <div v-if="passwordModal.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="passwordModal.show = false">
-                <div class="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
+                <div class="w-full max-w-sm rounded-xl border border-gray-600 bg-gray-900 p-6 shadow-2xl">
                     <h3 class="text-base font-semibold text-gray-100">Change Mailbox Password</h3>
                     <p class="mt-1 font-mono text-sm text-gray-400">{{ passwordModal.email }}</p>
                     <form class="mt-4 space-y-4" @submit.prevent="changePassword">
-                        <input v-model="passwordForm.password" type="password" class="field w-full" placeholder="New password" required />
+                        <input
+                            v-model="passwordForm.password"
+                            type="password"
+                            class="w-full rounded-lg border border-sky-500/70 bg-gray-950 px-3 py-2 text-sm text-white placeholder:text-gray-400 shadow-inner outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-500/40"
+                            placeholder="New password"
+                            autocomplete="new-password"
+                            required
+                        />
                         <div class="flex justify-end gap-3">
                             <button type="button" class="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800" @click="passwordModal.show = false">
                                 Cancel
@@ -121,8 +157,8 @@
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { computed, reactive, ref } from 'vue';
+import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 import EmptyState from '@/Components/EmptyState.vue';
@@ -136,7 +172,9 @@ const props = defineProps({
 });
 
 const enabledDomains = computed(() => props.domains.filter((domain) => domain.mail_enabled));
+const disabledDomains = computed(() => props.domains.filter((domain) => !domain.mail_enabled));
 const primaryMailServer = computed(() => enabledDomains.value[0]?.node?.hostname ?? 'mail.your-domain.example');
+const enablingDomainId = ref(null);
 
 const createForm = useForm({
     domain_id: '',
@@ -162,6 +200,16 @@ function createMailbox() {
     });
 }
 
+function enableMail(domain) {
+    enablingDomainId.value = domain.id;
+    router.post(route('email-accounts.domains.enable', domain.id), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            enablingDomainId.value = null;
+        },
+    });
+}
+
 function openPassword(mailbox) {
     passwordModal.show = true;
     passwordModal.mailboxId = mailbox.id;
@@ -182,6 +230,13 @@ function changePassword() {
 function quotaLabel(mailbox) {
     if (!mailbox.quota_mb || mailbox.quota_mb <= 0) return 'Unlimited';
     return `${mailbox.used_mb ?? 0} / ${mailbox.quota_mb} MB`;
+}
+
+function mailboxLimitLabel(domain) {
+    const limit = domain.account?.max_email_accounts ?? 0;
+    const current = domain.account?.email_accounts_count ?? 0;
+
+    return limit > 0 ? `${current} / ${limit} mailboxes used` : `${current} mailboxes, unlimited package`;
 }
 </script>
 

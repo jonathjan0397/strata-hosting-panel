@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Domain;
 use App\Models\EmailAccount;
+use App\Services\DnsProvisioner;
 use App\Services\MailProvisioner;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +33,8 @@ class EmailAccountController extends Controller
                     'id' => $domain->account?->id,
                     'username' => $domain->account?->username,
                     'owner' => $domain->account?->user?->email,
+                    'max_email_accounts' => $domain->account?->max_email_accounts,
+                    'email_accounts_count' => $domain->account?->emailAccounts()->count(),
                 ],
             ]),
             'mailboxes' => EmailAccount::query()
@@ -67,6 +70,30 @@ class EmailAccountController extends Controller
                 ]),
             'role' => $request->user()->getRoleNames()->first(),
         ]);
+    }
+
+    public function enableDomain(Request $request, Domain $domain): RedirectResponse
+    {
+        $domain = $this->domainQuery($request)
+            ->with('dnsZone')
+            ->where('id', $domain->id)
+            ->firstOrFail();
+
+        abort_unless($domain->account?->hasFeature('email'), 403);
+
+        if ($domain->mail_enabled) {
+            return back()->with('success', "Mail is already enabled for {$domain->domain}.");
+        }
+
+        [$success, $error, $dns] = app(MailProvisioner::class)->enableDomain($domain);
+
+        if (! $success) {
+            return back()->with('error', "Mail setup failed: {$error}");
+        }
+
+        app(DnsProvisioner::class)->addMailRecords($domain->refresh());
+
+        return back()->with('success', "Mail enabled for {$domain->domain}. DKIM, SPF, and DMARC records are ready.");
     }
 
     public function store(Request $request): RedirectResponse

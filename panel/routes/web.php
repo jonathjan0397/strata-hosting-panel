@@ -71,6 +71,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/impersonation/stop', [ImpersonationController::class, 'stop'])->name('impersonation.stop');
     Route::middleware('role:user|admin|reseller')->group(function () {
         Route::get('/email-accounts', [EmailAccountController::class, 'index'])->name('email-accounts.index');
+        Route::post('/email-accounts/domains/{domain}/enable', [EmailAccountController::class, 'enableDomain'])->name('email-accounts.domains.enable');
         Route::post('/email-accounts', [EmailAccountController::class, 'store'])->name('email-accounts.store');
         Route::put('/email-accounts/{mailbox}/password', [EmailAccountController::class, 'changePassword'])->name('email-accounts.password');
         Route::delete('/email-accounts/{mailbox}', [EmailAccountController::class, 'destroy'])->name('email-accounts.destroy');
