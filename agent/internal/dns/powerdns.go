@@ -25,11 +25,11 @@ func envOrDefault(key, def string) string {
 
 // Zone represents a PowerDNS zone with its resource record sets.
 type Zone struct {
-	ID      string  `json:"id"`
-	Name    string  `json:"name"`
-	Kind    string  `json:"kind"`
-	DNSSec  bool    `json:"dnssec"`
-	RRSets  []RRSet `json:"rrsets,omitempty"`
+	ID     string  `json:"id"`
+	Name   string  `json:"name"`
+	Kind   string  `json:"kind"`
+	DNSSec bool    `json:"dnssec"`
+	RRSets []RRSet `json:"rrsets,omitempty"`
 }
 
 // RRSet is a DNS resource record set (one name+type combination).
@@ -187,6 +187,9 @@ func UpsertRecord(domain, name, recType string, ttl int, contents []string) erro
 
 	records := make([]Record, len(contents))
 	for i, c := range contents {
+		if recType == "TXT" {
+			c = quoteTXTContent(c)
+		}
 		records[i] = Record{Content: c}
 	}
 	payload := map[string]any{
@@ -208,6 +211,15 @@ func UpsertRecord(domain, name, recType string, ttl int, contents []string) erro
 		return fmt.Errorf("pdns upsert record: status %d: %s", status, string(data))
 	}
 	return nil
+}
+
+func quoteTXTContent(content string) string {
+	content = strings.TrimSpace(content)
+	if strings.HasPrefix(content, "\"") && strings.HasSuffix(content, "\"") {
+		return content
+	}
+
+	return `"` + strings.ReplaceAll(content, `"`, `\"`) + `"`
 }
 
 // DeleteRecord removes an RRset from a zone.
