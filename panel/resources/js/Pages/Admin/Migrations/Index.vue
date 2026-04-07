@@ -107,6 +107,14 @@
                                 >
                                     Cut Over
                                 </button>
+                                <button
+                                    v-else-if="migration.status === 'complete'"
+                                    type="button"
+                                    class="text-xs font-semibold text-red-400 transition-colors hover:text-red-300"
+                                    @click="cleanupSource(migration.id)"
+                                >
+                                    Cleanup Source
+                                </button>
                                 <span v-else class="text-xs text-gray-600">-</span>
                             </td>
                         </tr>
@@ -179,6 +187,13 @@ function cutoverMigration(id) {
     });
 }
 
+function cleanupSource(id) {
+    if (!confirm('Permanently remove the migrated account data from the original source node?')) return;
+    form.post(route('admin.migrations.cleanup-source', id), {
+        preserveScroll: true,
+    });
+}
+
 function statusLabel(status) {
     return String(status ?? 'unknown').replaceAll('_', ' ');
 }
@@ -193,6 +208,8 @@ function statusClass(status) {
         restore_running: 'bg-amber-900/40 text-amber-300',
         restored: 'bg-emerald-900/40 text-emerald-300',
         cutover_running: 'bg-amber-900/40 text-amber-300',
+        source_cleanup_running: 'bg-amber-900/40 text-amber-300',
+        source_cleaned: 'bg-gray-800 text-gray-300',
         failed: 'bg-red-900/40 text-red-300',
         complete: 'bg-indigo-900/40 text-indigo-300',
     }[status] ?? 'bg-gray-800 text-gray-300';

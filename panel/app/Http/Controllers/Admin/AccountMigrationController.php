@@ -365,6 +365,47 @@ class AccountMigrationController extends Controller
         return back()->with('success', "Account {$account->username} cut over to {$migration->targetNode->name}. Source node data is retained for manual cleanup.");
     }
 
+    public function cleanupSource(AccountMigration $migration): RedirectResponse
+    {
+        $migration->load(['account', 'sourceNode']);
+
+        if ($migration->status !== 'complete') {
+            return back()->with('error', 'Only completed migrations can clean up source node data.');
+        }
+
+        if (! $migration->account || ! $migration->sourceNode) {
+            return back()->with('error', 'Migration is missing account or source node metadata.');
+        }
+
+        if (! $migration->sourceNode->isOnline()) {
+            return back()->with('error', 'Source node must be online before cleanup.');
+        }
+
+        $migration->update(['status' => 'source_cleanup_running', 'error' => null]);
+
+        try {
+            $response = AgentClient::for($migration->sourceNode)->deprovisionAccount($migration->account->username);
+
+            if (! $response->successful()) {
+                throw new \RuntimeException($response->json('message') ?? $response->body());
+            }
+        } catch (\Throwable $e) {
+            $migration->update(['status' => 'complete', 'error' => 'Source cleanup failed: ' . $e->getMessage()]);
+
+            return back()->with('error', 'Source cleanup failed; cutover remains complete: ' . $e->getMessage());
+        }
+
+        $migration->update(['status' => 'source_cleaned', 'error' => null]);
+
+        AuditLog::record('account.migration_source_cleaned', $migration->account, [
+            'migration_id' => $migration->id,
+            'source_node_id' => $migration->source_node_id,
+            'target_node_id' => $migration->target_node_id,
+        ]);
+
+        return back()->with('success', "Source node data for {$migration->account->username} was cleaned up.");
+    }
+
     private function cutoverBlockers(Account $account): array
     {
         $checks = [

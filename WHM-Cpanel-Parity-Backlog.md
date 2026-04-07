@@ -90,6 +90,7 @@ Implemented on `main`:
 - authenticated target-node backup upload endpoint and transfer action to move prepared archives to `transfer_ready`
 - target-node restore action that provisions the target account, restores the transferred archive, and retains the source for validation/cutover
 - conservative cutover action for static/domain-only accounts with target-node panel ownership update and vhost reprovision rollback
+- explicit post-cutover source-node cleanup action with failure isolation from the completed cutover state
 
 ### 4. Metrics and Logs
 Status: `in progress`
