@@ -180,6 +180,8 @@ Admin
 - [x] DKIM (2048-bit, auto-generated on domain add)
 - [x] SPF auto-generated on domain add
 - [x] DMARC auto-generated on domain add
+- [ ] Domain Key Manager UI for viewing/regenerating DKIM/domain-key DNS records
+- [ ] SPF Manager UI for editing, validating, and restoring SPF records
 - [x] Autoresponders (Dovecot Sieve vacation scripts)
 - [x] Spam filter stats (Rspamd stats UI, per-node)
 - [x] Webmail SSO (alternative to Roundcube — see webmail-skin)
