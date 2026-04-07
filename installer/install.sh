@@ -85,6 +85,8 @@ SQLEOF
 
     # Remove installed directories and binaries
     rm -rf "${INSTALL_DIR:-/opt/strata-panel}"
+    rm -rf "${WEBMAIL_DIR:-/var/www/webmail}"
+    rm -rf "${WEBMAIL_DATA:-/var/lib/snappymail}"
     rm -rf /etc/strata-agent
     rm -rf /etc/strata-panel
     rm -f  /usr/sbin/strata-agent
@@ -1229,7 +1231,7 @@ wget -q "https://github.com/the-djmaze/snappymail/releases/download/v${SNAPPYMAI
     -O "$SNAPPY_ZIP" || warn "SnappyMail download failed — install manually."
 
 if [[ -f "$SNAPPY_ZIP" ]]; then
-    unzip -q "$SNAPPY_ZIP" -d "$WEBMAIL_DIR"
+    unzip -oq "$SNAPPY_ZIP" -d "$WEBMAIL_DIR"
     rm "$SNAPPY_ZIP"
 
     if [[ -d "$WEBMAIL_DIR/data" ]]; then
@@ -1405,6 +1407,8 @@ SQLEOF
 
 echo "[*] Removing files and directories…"
 rm -rf '${INSTALL_DIR}'
+rm -rf '${WEBMAIL_DIR}'
+rm -rf '${WEBMAIL_DATA}'
 rm -rf /etc/strata-agent
 rm -rf /etc/strata-panel
 rm -f  /usr/sbin/strata-agent
@@ -1431,8 +1435,7 @@ rm -f /usr/share/keyrings/rspamd.gpg
 echo ""
 echo "[ok] Strata Hosting Panel removed."
 echo "     Packages (mariadb-server, postgresql, pdns-server, redis-server, etc.) were NOT purged."
-echo "     To remove them: apt-get purge mariadb-server postgresql postgresql-client pdns-server pdns-backend-mysql \\"
-echo "       redis-server pure-ftpd postfix dovecot-core rspamd fail2ban"
+echo "     To remove them: apt-get purge mariadb-server postgresql postgresql-client pdns-server pdns-backend-mysql redis-server pure-ftpd postfix dovecot-core rspamd fail2ban"
 UNINSTEOF
 chmod 700 /root/strata-uninstall.sh
 success "Uninstall script saved to /root/strata-uninstall.sh"
