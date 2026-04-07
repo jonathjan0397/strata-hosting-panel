@@ -50,6 +50,7 @@ Public beta target: `v1.0.0-beta.1`.
 
 **Backups**
 - Admin backup list supports bulk deletion while preserving panel records when node cleanup fails
+- Admin competitor-backup import queue converts supported cPanel/CWP `.tar.gz` and `.tgz` archives into normal Strata full-backup jobs for restore
 
 **Domains**
 - New hosted domains now automatically provision a managed PowerDNS zone with full default web/mail records during vhost creation

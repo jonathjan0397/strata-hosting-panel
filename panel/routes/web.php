@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\FtpController;
 use App\Http\Controllers\Admin\HostingPackageController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
+use App\Http\Controllers\Admin\BackupImportController;
 use App\Http\Controllers\Admin\LicenseSyncController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
@@ -289,6 +290,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('migrations/{migration}/restore', [AccountMigrationController::class, 'restore'])->name('migrations.restore');
         Route::post('migrations/{migration}/cutover', [AccountMigrationController::class, 'cutover'])->name('migrations.cutover');
         Route::post('migrations/{migration}/cleanup-source', [AccountMigrationController::class, 'cleanupSource'])->name('migrations.cleanup-source');
+        Route::get('backup-imports', [BackupImportController::class, 'index'])->name('backup-imports.index');
+        Route::post('backup-imports', [BackupImportController::class, 'store'])->name('backup-imports.store');
         Route::resource('packages', HostingPackageController::class)->except(['show']);
         Route::resource('feature-lists', FeatureListController::class)->except(['show']);
 

@@ -244,6 +244,7 @@ Admin
 - [x] Per-account backup schedules (frequency, time, day — admin-configurable)
 - [x] Remote backup destination (SFTP + S3, admin-configurable, auto-push after backup)
 - [x] One-click restore
+- [x] cPanel/CWP archive import conversion into Strata full-backup jobs (website files + detected SQL dumps)
 
 ### Security
 - [x] 2FA (TOTP) for all user levels
