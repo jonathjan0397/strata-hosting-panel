@@ -46,9 +46,11 @@
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Account</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Source</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Target</th>
-                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Backup</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Source Backup</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Target Backup</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Started</th>
+                            <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-800">
@@ -63,6 +65,13 @@
                                 </div>
                                 <span v-else>None</span>
                             </td>
+                            <td class="px-5 py-3.5 text-xs text-gray-400">
+                                <div v-if="migration.target_backup">
+                                    <p class="font-mono text-gray-300">{{ migration.target_backup.filename ?? 'pending filename' }}</p>
+                                    <p class="mt-1 text-gray-500">{{ migration.target_backup.status }} - {{ migration.target_backup.size_human }}</p>
+                                </div>
+                                <span v-else>Not transferred</span>
+                            </td>
                             <td class="px-5 py-3.5">
                                 <span :class="statusClass(migration.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
                                     {{ statusLabel(migration.status) }}
@@ -72,6 +81,17 @@
                             <td class="px-5 py-3.5 text-xs text-gray-500">
                                 <p>{{ migration.created_at }}</p>
                                 <p v-if="migration.started_by" class="mt-1">by {{ migration.started_by }}</p>
+                            </td>
+                            <td class="px-5 py-3.5 text-right">
+                                <button
+                                    v-if="migration.status === 'backup_ready'"
+                                    type="button"
+                                    class="text-xs font-semibold text-indigo-400 transition-colors hover:text-indigo-300"
+                                    @click="transferBackup(migration.id)"
+                                >
+                                    Transfer Backup
+                                </button>
+                                <span v-else class="text-xs text-gray-600">-</span>
                             </td>
                         </tr>
                     </tbody>
@@ -122,6 +142,13 @@ function prepareMigration() {
     });
 }
 
+function transferBackup(id) {
+    if (!confirm('Transfer this migration backup to the target node?')) return;
+    form.post(route('admin.migrations.transfer', id), {
+        preserveScroll: true,
+    });
+}
+
 function statusLabel(status) {
     return String(status ?? 'unknown').replaceAll('_', ' ');
 }
@@ -131,6 +158,7 @@ function statusClass(status) {
         pending: 'bg-gray-800 text-gray-300',
         backup_running: 'bg-amber-900/40 text-amber-300',
         backup_ready: 'bg-emerald-900/40 text-emerald-300',
+        transfer_running: 'bg-amber-900/40 text-amber-300',
         transfer_ready: 'bg-blue-900/40 text-blue-300',
         failed: 'bg-red-900/40 text-red-300',
         complete: 'bg-indigo-900/40 text-indigo-300',

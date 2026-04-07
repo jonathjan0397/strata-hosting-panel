@@ -23,6 +23,7 @@ class AccountMigrationController extends Controller
             'sourceNode:id,name,hostname',
             'targetNode:id,name,hostname',
             'backupJob:id,filename,size_bytes,status',
+            'targetBackupJob:id,filename,size_bytes,status',
             'startedBy:id,name',
         ])
             ->latest()
@@ -38,6 +39,11 @@ class AccountMigrationController extends Controller
                     'filename' => $migration->backupJob->filename,
                     'status' => $migration->backupJob->status,
                     'size_human' => $migration->backupJob->size_human,
+                ] : null,
+                'target_backup' => $migration->targetBackupJob ? [
+                    'filename' => $migration->targetBackupJob->filename,
+                    'status' => $migration->targetBackupJob->status,
+                    'size_human' => $migration->targetBackupJob->size_human,
                 ] : null,
                 'started_by' => $migration->startedBy?->name,
                 'created_at' => $migration->created_at?->toDateTimeString(),
@@ -84,7 +90,7 @@ class AccountMigrationController extends Controller
         }
 
         $activeMigration = AccountMigration::where('account_id', $account->id)
-            ->whereIn('status', ['pending', 'backup_running', 'backup_ready', 'transfer_ready'])
+            ->whereIn('status', ['pending', 'backup_running', 'backup_ready', 'transfer_running', 'transfer_ready'])
             ->exists();
 
         if ($activeMigration) {
@@ -143,5 +149,82 @@ class AccountMigrationController extends Controller
         ]);
 
         return back()->with('success', "Migration backup is ready for {$account->username}. Transfer/restore can proceed from the migration queue.");
+    }
+
+    public function transfer(AccountMigration $migration): RedirectResponse
+    {
+        $migration->load(['account', 'sourceNode', 'targetNode', 'backupJob']);
+
+        if ($migration->status !== 'backup_ready') {
+            return back()->with('error', 'Only backup-ready migrations can be transferred.');
+        }
+
+        if (! $migration->account || ! $migration->sourceNode || ! $migration->targetNode || ! $migration->backupJob?->filename) {
+            return back()->with('error', 'Migration is missing account, node, or backup metadata.');
+        }
+
+        if (! $migration->sourceNode->isOnline() || ! $migration->targetNode->isOnline()) {
+            return back()->with('error', 'Both source and target nodes must be online before transfer.');
+        }
+
+        $migration->update(['status' => 'transfer_running', 'error' => null]);
+
+        $targetBackup = BackupJob::create([
+            'account_id' => $migration->account_id,
+            'node_id' => $migration->target_node_id,
+            'filename' => $migration->backupJob->filename,
+            'type' => $migration->backupJob->type,
+            'status' => 'running',
+            'trigger' => 'manual',
+        ]);
+
+        try {
+            $download = AgentClient::for($migration->sourceNode)->backupDownload(
+                $migration->account->username,
+                $migration->backupJob->filename
+            );
+
+            if (! $download->successful()) {
+                throw new \RuntimeException($download->body());
+            }
+
+            $upload = AgentClient::for($migration->targetNode)->backupUpload(
+                $migration->account->username,
+                $migration->backupJob->filename,
+                $download->body()
+            );
+
+            if (! $upload->successful()) {
+                throw new \RuntimeException($upload->body());
+            }
+        } catch (\Throwable $e) {
+            $targetBackup->update(['status' => 'failed', 'error' => $e->getMessage()]);
+            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
+
+            return back()->with('error', 'Migration transfer failed: ' . $e->getMessage());
+        }
+
+        $result = $upload->json();
+        $targetBackup->update([
+            'status' => 'complete',
+            'filename' => $result['filename'] ?? $migration->backupJob->filename,
+            'size_bytes' => $result['size_bytes'] ?? $migration->backupJob->size_bytes,
+        ]);
+
+        $migration->update([
+            'status' => 'transfer_ready',
+            'target_backup_job_id' => $targetBackup->id,
+        ]);
+
+        AuditLog::record('account.migration_transfer_ready', $migration->account, [
+            'migration_id' => $migration->id,
+            'source_node_id' => $migration->source_node_id,
+            'target_node_id' => $migration->target_node_id,
+            'source_backup_job_id' => $migration->backup_job_id,
+            'target_backup_job_id' => $targetBackup->id,
+            'filename' => $targetBackup->filename,
+        ]);
+
+        return back()->with('success', "Migration backup transferred to {$migration->targetNode->name}.");
     }
 }

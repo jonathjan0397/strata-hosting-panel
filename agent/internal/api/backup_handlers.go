@@ -46,6 +46,39 @@ func handleBackupList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entries)
 }
 
+// POST /backups/{username}/upload
+func handleBackupUpload(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+
+	r.Body = http.MaxBytesReader(w, r.Body, 20<<30)
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, "failed to parse multipart form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "backup file required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	filename := r.FormValue("filename")
+	if filename == "" {
+		filename = header.Filename
+	}
+
+	entry, err := backup.Store(username, filename, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entry)
+}
+
 // DELETE /backups/{username}/{filename}
 func handleBackupDelete(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")

@@ -102,6 +102,7 @@ func Routes() chi.Router {
 	// Backups
 	r.Post("/backups/{username}", handleBackupCreate)
 	r.Get("/backups/{username}", handleBackupList)
+	r.Post("/backups/{username}/upload", handleBackupUpload)
 	r.Delete("/backups/{username}/{filename}", handleBackupDelete)
 	r.Get("/backups/{username}/download/{filename}", handleBackupDownload)
 	r.Post("/backups/{username}/restore/{filename}", handleBackupRestore)

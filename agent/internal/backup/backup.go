@@ -133,6 +133,67 @@ func List(username string) ([]Entry, error) {
 	return result, nil
 }
 
+// Store validates and writes an existing backup archive into the account's
+// backup directory, returning the stored archive metadata.
+func Store(username, filename string, src io.Reader) (*Entry, error) {
+	if strings.Contains(filename, "/") || strings.Contains(filename, "..") || !strings.HasSuffix(filename, ".tar.gz") {
+		return nil, fmt.Errorf("invalid filename")
+	}
+	if !strings.HasPrefix(filename, username+"_") {
+		return nil, fmt.Errorf("backup filename must start with account username")
+	}
+
+	dir, err := Dir(username)
+	if err != nil {
+		return nil, err
+	}
+
+	tmp, err := os.CreateTemp(dir, ".upload-*.tar.gz")
+	if err != nil {
+		return nil, fmt.Errorf("create temp backup: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := io.Copy(tmp, src); err != nil {
+		_ = tmp.Close()
+		return nil, fmt.Errorf("write backup: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return nil, fmt.Errorf("close backup: %w", err)
+	}
+
+	dest := filepath.Join(dir, filename)
+	if _, err := os.Stat(dest); err == nil {
+		return nil, fmt.Errorf("backup already exists: %s", filename)
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("stat backup destination: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, dest); err != nil {
+		return nil, fmt.Errorf("store backup: %w", err)
+	}
+
+	info, err := os.Stat(dest)
+	if err != nil {
+		return nil, fmt.Errorf("stat backup: %w", err)
+	}
+
+	btype := "full"
+	if strings.Contains(filename, "_files_") {
+		btype = "files"
+	} else if strings.Contains(filename, "_databases_") {
+		btype = "databases"
+	}
+
+	return &Entry{
+		Filename:  filename,
+		Type:      btype,
+		SizeBytes: info.Size(),
+		CreatedAt: info.ModTime().UTC(),
+	}, nil
+}
+
 // Delete removes a backup file by filename. The filename is validated to stay
 // within the account's backup directory.
 func Delete(username, filename string) error {

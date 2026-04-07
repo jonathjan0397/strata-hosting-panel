@@ -12,6 +12,7 @@ class AccountMigration extends Model
         'source_node_id',
         'target_node_id',
         'backup_job_id',
+        'target_backup_job_id',
         'started_by',
         'status',
         'error',
@@ -40,6 +41,11 @@ class AccountMigration extends Model
     public function backupJob(): BelongsTo
     {
         return $this->belongsTo(BackupJob::class);
+    }
+
+    public function targetBackupJob(): BelongsTo
+    {
+        return $this->belongsTo(BackupJob::class, 'target_backup_job_id');
     }
 
     public function startedBy(): BelongsTo

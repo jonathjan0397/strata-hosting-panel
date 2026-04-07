@@ -87,6 +87,7 @@ Implemented on `main`:
 - admin migration queue with source/target node tracking
 - migration-prep workflow that creates a full source-node backup and marks the migration `backup_ready`
 - migration audit event for prepared backups
+- authenticated target-node backup upload endpoint and transfer action to move prepared archives to `transfer_ready`
 
 ### 4. Metrics and Logs
 Status: `in progress`

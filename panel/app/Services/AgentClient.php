@@ -365,6 +365,22 @@ class AgentClient
         return $this->get("/backups/{$username}/download/" . urlencode($filename));
     }
 
+    public function backupUpload(string $username, string $filename, string $contents): Response
+    {
+        $boundary = 'strata-' . bin2hex(random_bytes(16));
+        $eol = "\r\n";
+        $body = "--{$boundary}{$eol}";
+        $body .= 'Content-Disposition: form-data; name="filename"' . "{$eol}{$eol}";
+        $body .= $filename . $eol;
+        $body .= "--{$boundary}{$eol}";
+        $body .= 'Content-Disposition: form-data; name="file"; filename="' . addslashes($filename) . "\"{$eol}";
+        $body .= "Content-Type: application/gzip{$eol}{$eol}";
+        $body .= $contents . $eol;
+        $body .= "--{$boundary}--{$eol}";
+
+        return $this->requestRaw('POST', "/backups/{$username}/upload", $body, "multipart/form-data; boundary={$boundary}", timeout: 600);
+    }
+
     // ── PHP settings ──────────────────────────────────────────────────────────
 
     public function updatePhpSettings(string $username, string $phpVersion, array $settings): Response
@@ -617,6 +633,23 @@ class AgentClient
             'PATCH'  => $http->patch($url, $body),
             'DELETE' => $body ? $http->withBody(json_encode($body), 'application/json')->delete($url) : $http->delete($url),
             default  => throw new \InvalidArgumentException("Unknown method: {$method}"),
+        };
+    }
+
+    private function requestRaw(string $method, string $path, string $body, string $contentType, int $timeout = 30): Response
+    {
+        $timestamp = (string) time();
+        $signature = hash_hmac('sha256', $timestamp . "\n" . $body, $this->node->hmac_secret);
+
+        $http = Http::withHeaders([
+            'X-Strata-Signature' => $signature,
+            'X-Strata-Timestamp' => $timestamp,
+            'Accept'             => 'application/json',
+        ])->timeout($timeout);
+
+        return match ($method) {
+            'POST' => $http->withBody($body, $contentType)->post($this->node->apiUrl($path)),
+            default => throw new \InvalidArgumentException("Unsupported raw method: {$method}"),
         };
     }
 }
