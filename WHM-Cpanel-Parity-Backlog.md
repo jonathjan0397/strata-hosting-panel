@@ -217,6 +217,7 @@ Implemented on `main`:
 - admin account, domain, and node indexes converted to shared page structure with operational summaries
 - admin account bulk suspend and unsuspend actions
 - admin account bulk package reassignment action
+- admin backup bulk delete action with remote-cleanup failure preservation
 - remaining user-facing app installer, file manager, domain detail, DNS detail, deliverability, delivery tracking, filters, PHP settings, and no-account pages converted to shared page structure
 - reseller branding and package catalog pages converted to shared page structure
 

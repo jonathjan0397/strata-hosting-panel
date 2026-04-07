@@ -326,6 +326,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('backups', [AdminBackupController::class, 'index'])->name('backups.index');
         Route::post('backups', [AdminBackupController::class, 'store'])->name('backups.store');
         Route::post('backups/import-existing', [AdminBackupController::class, 'importExisting'])->name('backups.import-existing');
+        Route::delete('backups/bulk-delete', [AdminBackupController::class, 'bulkDestroy'])->name('backups.bulk-destroy');
         Route::delete('backups/{backup}', [AdminBackupController::class, 'destroy'])->name('backups.destroy');
         Route::post('backups/{backup}/restore', [AdminBackupController::class, 'restore'])->name('backups.restore');
 

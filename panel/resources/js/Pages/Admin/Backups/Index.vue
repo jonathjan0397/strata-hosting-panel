@@ -48,6 +48,17 @@
                     <option value="failed">Failed</option>
                     <option value="running">Running</option>
                 </select>
+                <div class="ml-auto flex items-center gap-3">
+                    <span class="text-xs text-gray-500">{{ selectedIds.length }} selected</span>
+                    <button
+                        type="button"
+                        :disabled="selectedIds.length === 0"
+                        class="rounded-lg border border-red-700 px-3 py-2 text-xs font-semibold text-red-300 transition-colors hover:bg-red-900/20 disabled:opacity-50"
+                        @click="bulkDelete"
+                    >
+                        Delete Selected
+                    </button>
+                </div>
             </div>
 
             <!-- Table -->
@@ -55,6 +66,15 @@
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-gray-800 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <th class="px-5 py-3">
+                                <input
+                                    type="checkbox"
+                                    class="rounded border-gray-700 bg-gray-800 text-indigo-500 focus:ring-indigo-500"
+                                    :checked="allVisibleSelected"
+                                    :disabled="jobs.data.length === 0"
+                                    @change="toggleVisible($event.target.checked)"
+                                />
+                            </th>
                             <th class="px-5 py-3">Date</th>
                             <th class="px-5 py-3">Account</th>
                             <th class="px-5 py-3">Node</th>
@@ -67,6 +87,14 @@
                     </thead>
                     <tbody class="divide-y divide-gray-800">
                         <tr v-for="job in jobs.data" :key="job.id">
+                            <td class="px-5 py-3.5">
+                                <input
+                                    v-model="selectedIds"
+                                    type="checkbox"
+                                    class="rounded border-gray-700 bg-gray-800 text-indigo-500 focus:ring-indigo-500"
+                                    :value="job.id"
+                                />
+                            </td>
                             <td class="px-5 py-3.5 text-gray-400 font-mono text-xs">{{ job.created_at }}</td>
                             <td class="px-5 py-3.5 font-mono text-gray-200">{{ job.account }}</td>
                             <td class="px-5 py-3.5 text-gray-400">{{ job.node }}</td>
@@ -92,7 +120,7 @@
                             </td>
                         </tr>
                         <tr v-if="!jobs.data.length">
-                            <td colspan="8" class="px-5 py-10 text-center text-sm text-gray-500">No backup jobs found.</td>
+                            <td colspan="9" class="px-5 py-10 text-center text-sm text-gray-500">No backup jobs found.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -111,7 +139,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { router, Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -123,12 +151,16 @@ const props = defineProps({
 
 const search = ref(props.filters.search ?? '');
 const status = ref(props.filters.status ?? '');
+const selectedIds = ref([]);
 const importForm = useForm({ account_id: '' });
+const visibleIds = computed(() => props.jobs.data.map((job) => job.id));
+const allVisibleSelected = computed(() => visibleIds.value.length > 0 && visibleIds.value.every((id) => selectedIds.value.includes(id)));
 let debounce = null;
 
 function filter() {
     clearTimeout(debounce);
     debounce = setTimeout(() => {
+        selectedIds.value = [];
         router.get(route('admin.backups.index'), { search: search.value, status: status.value }, { preserveState: true });
     }, 300);
 }
@@ -139,8 +171,25 @@ function restore(id) {
 }
 
 function remove(id) {
-    if (!confirm('Delete this backup record?')) return;
+    if (!confirm('Delete this backup from the node and panel?')) return;
     router.delete(route('admin.backups.destroy', id));
+}
+
+function toggleVisible(checked) {
+    selectedIds.value = checked ? [...visibleIds.value] : [];
+}
+
+function bulkDelete() {
+    if (selectedIds.value.length === 0) return;
+    if (!confirm(`Delete ${selectedIds.value.length} selected backup(s) from their nodes and the panel? Failed remote deletes will keep their panel records.`)) return;
+
+    router.delete(route('admin.backups.bulk-destroy'), {
+        data: { backup_ids: selectedIds.value },
+        preserveScroll: true,
+        onSuccess: () => {
+            selectedIds.value = [];
+        },
+    });
 }
 
 function importExisting() {

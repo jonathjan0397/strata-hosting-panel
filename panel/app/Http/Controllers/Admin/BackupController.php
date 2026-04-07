@@ -178,20 +178,71 @@ class BackupController extends Controller
 
     public function destroy(BackupJob $backup): RedirectResponse
     {
+        $error = $this->deleteBackupJob($backup);
+
+        return $error
+            ? back()->with('error', $error)
+            : back()->with('success', 'Backup deleted.');
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'backup_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'backup_ids.*' => ['integer', 'exists:backup_jobs,id'],
+        ]);
+
+        $deleted = 0;
+        $errors = [];
+
+        BackupJob::with(['account:id,username', 'node:id,name'])
+            ->whereIn('id', $data['backup_ids'])
+            ->get()
+            ->each(function (BackupJob $backup) use (&$deleted, &$errors) {
+                $error = $this->deleteBackupJob($backup);
+
+                if ($error) {
+                    $errors[] = "Backup {$backup->id}: {$error}";
+                    return;
+                }
+
+                $deleted++;
+            });
+
+        if ($errors !== []) {
+            return back()->with(
+                $deleted > 0 ? 'success' : 'error',
+                $deleted > 0
+                    ? "Deleted {$deleted} backup(s). " . count($errors) . ' failed: ' . implode(' ', array_slice($errors, 0, 3))
+                    : 'No backups deleted. ' . implode(' ', array_slice($errors, 0, 3))
+            );
+        }
+
+        return back()->with('success', "Deleted {$deleted} backup(s).");
+    }
+
+    private function deleteBackupJob(BackupJob $backup): ?string
+    {
+        $backup->loadMissing(['account:id,username', 'node:id,name']);
+
         if ($backup->filename && $backup->node) {
+            if (! $backup->account) {
+                return 'Failed to delete backup from node: backup account is missing.';
+            }
+
             try {
-                $client = new AgentClient($backup->node);
-                $response = $client->backupDelete($backup->account->username, $backup->filename);
+                $response = AgentClient::for($backup->node)->backupDelete($backup->account->username, $backup->filename);
                 if (! $response->successful()) {
-                    return back()->with('error', 'Failed to delete backup from node: ' . $response->body());
+                    return 'Failed to delete backup from node: ' . $response->body();
                 }
             } catch (\Throwable $e) {
-                return back()->with('error', 'Failed to delete backup from node: ' . $e->getMessage());
+                return 'Failed to delete backup from node: ' . $e->getMessage();
             }
         }
 
         $backup->delete();
-        return back();
+
+        return null;
     }
 
     private function backupTypeFromFilename(string $filename): string
