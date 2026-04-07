@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"text/template"
+
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/webroot"
 )
 
 const (
@@ -87,6 +89,9 @@ func WriteVhost(cfg VhostConfig) error {
 	}
 	if cfg.PHPSocket == "" {
 		cfg.PHPSocket = fmt.Sprintf("/run/php/php%s-fpm-%s.sock", cfg.PHPVersion, cfg.Username)
+	}
+	if err := webroot.EnsureDefaultIndex(cfg.Username, cfg.Domain, cfg.DocumentRoot); err != nil {
+		return err
 	}
 
 	availPath := filepath.Join(sitesAvailable, cfg.Domain+".conf")

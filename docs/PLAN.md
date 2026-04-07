@@ -167,6 +167,7 @@ Admin
 ### Domain Management
 - [x] Add/remove domains and subdomains
 - [x] Document root configuration
+- [x] Default hosted-site `index.html` starter page with "Powered by Strata Hosting Panel" GitHub banner
 - [x] Nginx vhost generation
 - [x] Apache vhost generation
 - [x] SSL via acme.sh (auto-renew)

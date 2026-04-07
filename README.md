@@ -152,7 +152,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 |---|---|
 | **Accounts** | Create/suspend/terminate, packages, feature lists, resource limits, system user provisioning |
 | **Reseller Portal** | Dashboard with quota meters, create/manage client accounts, package selection, default packages, white-label branding |
-| **Domains** | Nginx/Apache vhosts, SSL, Force HTTPS, PHP version per domain, redirects, custom directives, hotlink protection, directory privacy |
+| **Domains** | Nginx/Apache vhosts, default starter index page, SSL, Force HTTPS, PHP version per domain, redirects, custom directives, hotlink protection, directory privacy |
 | **Email** | Mailboxes, forwarders, autoresponders, DKIM/SPF/DMARC setup, Domain Key Manager, SPF Manager, filters, spam policies, archive controls, delivery tracking, bulk import |
 | **DNS** | PowerDNS zone management, full record type support, BIND import/export, server DNS zones |
 | **Databases** | MariaDB/PostgreSQL create/delete/password, user grants, remote MariaDB host grants, phpMyAdmin/phpPgAdmin launch guide |

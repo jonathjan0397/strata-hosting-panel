@@ -9,6 +9,7 @@
 - Fail2ban APIs now require `fail2ban-client` to already be installed on the node instead of auto-installing and enabling fail2ban during status reads
 - Fail2Ban administration now has a dedicated admin menu/page under Firewall with jail ban/remove controls and service start/stop/restart actions
 - Installer setup now strongly recommends a dedicated panel subdomain, defaults to `panel.<base-domain>` from the server hostname, and warns if the apex/root domain is used for the panel
+- New hosted document roots now receive an Apache/Nginx-style default `index.html` with a "Powered by Strata Hosting Panel" banner linking to GitHub when no `index.html` or `index.php` exists
 - OS update handler now runs `apt-get update -q` before `apt-get upgrade` to refresh the package index and prevent stale-metadata failures
 
 ### Added — Admin features
