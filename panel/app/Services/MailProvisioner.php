@@ -38,6 +38,8 @@ class MailProvisioner
                 'server_ip'       => $data['server_ip'] ?? null,
             ]);
 
+            app(SnappyMailProvisioner::class)->provisionDomain($domain->refresh());
+
             return [true, null, $data];
         } catch (\Throwable $e) {
             return [false, $e->getMessage(), []];

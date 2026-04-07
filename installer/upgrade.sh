@@ -234,12 +234,18 @@ if grep -q '^STRATA_VERSION=' "$INSTALL_DIR/panel/.env"; then
 else
     printf '\nSTRATA_VERSION=%s\n' "$target_version" >> "$INSTALL_DIR/panel/.env"
 fi
+if grep -q '^STRATA_WEBMAIL_DATA_PATH=' "$INSTALL_DIR/panel/.env"; then
+    sed -i "s|^STRATA_WEBMAIL_DATA_PATH=.*|STRATA_WEBMAIL_DATA_PATH=/var/www/webmail/data|" "$INSTALL_DIR/panel/.env"
+else
+    printf 'STRATA_WEBMAIL_DATA_PATH=/var/www/webmail/data\n' >> "$INSTALL_DIR/panel/.env"
+fi
 
 info "Installing panel dependencies and running migrations..."
 cd "$INSTALL_DIR/panel"
 composer install --no-dev --optimize-autoloader --no-interaction
 "$PHP_BIN" artisan migrate --force
 "$PHP_BIN" artisan strata:license-sync 2>/dev/null || true
+"$PHP_BIN" artisan strata:webmail-configure || warn "SnappyMail managed domain profile repair skipped."
 
 info "Building frontend assets..."
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}"

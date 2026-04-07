@@ -13,6 +13,7 @@
 - Fail2Ban jail discovery now handles Debian `fail2ban-client status` tree-formatted output so active jails render in the admin page
 - Installer Fail2Ban defaults now include SSH, Nginx auth, Postfix, Postfix SASL, and Dovecot jails with 10 failed attempts before a ban
 - Installer mail setup now enables authenticated submission services on ports 587 and 465 and keeps unauthenticated relay restricted
+- SnappyMail managed domain profiles now use full mailbox logins over IMAPS 993 and authenticated SMTP submission instead of the upstream `localhost:143` default
 - Installer setup now strongly recommends a dedicated panel subdomain, defaults to `panel.<base-domain>` from the server hostname, and warns if the apex/root domain is used for the panel
 - New hosted document roots now receive an Apache/Nginx-style default `index.html` with a "Powered by Strata Hosting Panel" banner linking to GitHub when no `index.html` or `index.php` exists
 - OS update handler now runs `apt-get update -q` before `apt-get upgrade` to refresh the package index and prevent stale-metadata failures

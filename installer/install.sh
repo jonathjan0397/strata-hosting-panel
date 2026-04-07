@@ -884,6 +884,7 @@ STRATA_VERSION=${PANEL_VERSION}
 # Webmail SSO
 STRATA_WEBMAIL_SSO_SECRET=${WEBMAIL_SSO_SECRET}
 STRATA_WEBMAIL_URL=/webmail/
+STRATA_WEBMAIL_DATA_PATH=${WEBMAIL_DIR}/data
 EOF
 chmod 600 "$INSTALL_DIR/panel/.env"
 
@@ -1360,6 +1361,76 @@ if [[ -f "$SNAPPY_ZIP" ]]; then
         cp "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" \
            "$WEBMAIL_DATA/_data_/_default_/configs/application.ini"
     fi
+    mkdir -p "$WEBMAIL_DIR/data/_data_/_default_/domains"
+    cat > "$WEBMAIL_DIR/data/_data_/_default_/domains/default.json" <<'JSON'
+{
+    "IMAP": {
+        "host": "127.0.0.1",
+        "port": 993,
+        "type": 1,
+        "timeout": 300,
+        "shortLogin": false,
+        "lowerLogin": true,
+        "sasl": ["SCRAM-SHA3-512", "SCRAM-SHA-512", "SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN", "LOGIN"],
+        "ssl": {
+            "verify_peer": false,
+            "verify_peer_name": false,
+            "allow_self_signed": true,
+            "SNI_enabled": true,
+            "disable_compression": true,
+            "security_level": 1
+        },
+        "disabled_capabilities": ["METADATA", "OBJECTID", "PREVIEW", "STATUS=SIZE"],
+        "use_expunge_all_on_delete": false,
+        "fast_simple_search": true,
+        "force_select": false,
+        "message_all_headers": false,
+        "message_list_limit": 10000,
+        "search_filter": "",
+        "spam_headers": "",
+        "virus_headers": ""
+    },
+    "SMTP": {
+        "host": "127.0.0.1",
+        "port": 587,
+        "type": 2,
+        "timeout": 60,
+        "shortLogin": false,
+        "lowerLogin": true,
+        "sasl": ["SCRAM-SHA3-512", "SCRAM-SHA-512", "SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN", "LOGIN"],
+        "ssl": {
+            "verify_peer": false,
+            "verify_peer_name": false,
+            "allow_self_signed": true,
+            "SNI_enabled": true,
+            "disable_compression": true,
+            "security_level": 1
+        },
+        "useAuth": true,
+        "setSender": false,
+        "usePhpMail": false
+    },
+    "Sieve": {
+        "host": "",
+        "port": 4190,
+        "type": 0,
+        "timeout": 10,
+        "shortLogin": false,
+        "lowerLogin": true,
+        "sasl": ["SCRAM-SHA3-512", "SCRAM-SHA-512", "SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN", "LOGIN"],
+        "ssl": {
+            "verify_peer": false,
+            "verify_peer_name": false,
+            "allow_self_signed": true,
+            "SNI_enabled": true,
+            "disable_compression": true,
+            "security_level": 1
+        },
+        "enabled": false
+    },
+    "whiteList": ""
+}
+JSON
     if [[ -d "${SNAPPY_SRC}/../webmail-skin/themes/strata-dark" ]]; then
         cp -r "${SNAPPY_SRC}/../webmail-skin/themes/strata-dark" \
             "$WEBMAIL_DATA/_data_/_default_/themes/Strata Dark"
@@ -1388,6 +1459,8 @@ if [[ -f "$SNAPPY_ZIP" ]]; then
     find "$WEBMAIL_DATA" -type d -exec chmod 700 {} \;
     success "SnappyMail installed."
 fi
+
+(cd "$INSTALL_DIR/panel" && php artisan strata:webmail-configure 2>/dev/null) || warn "SnappyMail managed domain profile repair skipped."
 
 mkdir -p /etc/strata-panel
 cat > /etc/strata-panel/webmail-sso.php <<EOF

@@ -2,6 +2,7 @@
 
 use App\Console\Commands\AppsCheckUpdates;
 use App\Console\Commands\BackupRun;
+use App\Console\Commands\ConfigureSnappyMail;
 use App\Console\Commands\LicenseSync;
 use App\Console\Commands\MetricsAggregateTraffic;
 use App\Console\Commands\NodeHealthCheck;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withCommands([
+        ConfigureSnappyMail::class,
         UpgradeRemoteAgents::class,
     ])
     ->withSchedule(function (Schedule $schedule): void {
