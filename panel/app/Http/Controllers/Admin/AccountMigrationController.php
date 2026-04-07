@@ -5,12 +5,21 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\AccountMigration;
+use App\Models\AppInstallation;
 use App\Models\AuditLog;
 use App\Models\BackupJob;
+use App\Models\DatabaseGrant;
+use App\Models\DnsZone;
+use App\Models\EmailAccount;
+use App\Models\EmailForwarder;
+use App\Models\FtpAccount;
+use App\Models\HostingDatabase;
 use App\Models\Node;
 use App\Services\AgentClient;
+use App\Services\DomainProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -90,7 +99,7 @@ class AccountMigrationController extends Controller
         }
 
         $activeMigration = AccountMigration::where('account_id', $account->id)
-            ->whereIn('status', ['pending', 'backup_running', 'backup_ready', 'transfer_running', 'transfer_ready', 'restore_running', 'restored'])
+            ->whereIn('status', ['pending', 'backup_running', 'backup_ready', 'transfer_running', 'transfer_ready', 'restore_running', 'restored', 'cutover_running'])
             ->exists();
 
         if ($activeMigration) {
@@ -282,5 +291,91 @@ class AccountMigrationController extends Controller
         ]);
 
         return back()->with('success', "Migration archive restored on {$migration->targetNode->name}. Source account is still retained for cutover validation.");
+    }
+
+    public function cutover(AccountMigration $migration): RedirectResponse
+    {
+        $migration->load(['account.domains', 'sourceNode', 'targetNode']);
+
+        if ($migration->status !== 'restored') {
+            return back()->with('error', 'Only restored migrations can be cut over.');
+        }
+
+        if (! $migration->account || ! $migration->sourceNode || ! $migration->targetNode) {
+            return back()->with('error', 'Migration is missing account or node metadata.');
+        }
+
+        $blockers = $this->cutoverBlockers($migration->account);
+        if ($blockers !== []) {
+            return back()->with('error', 'Automatic cutover is blocked until service re-provisioning is added for: ' . implode(', ', $blockers) . '.');
+        }
+
+        if (! $migration->targetNode->isOnline()) {
+            return back()->with('error', 'Target node must be online before cutover.');
+        }
+
+        $account = $migration->account;
+        $sourceNodeId = $migration->source_node_id;
+        $targetNodeId = $migration->target_node_id;
+        $domainIds = $account->domains->pluck('id')->all();
+
+        $migration->update(['status' => 'cutover_running', 'error' => null]);
+
+        try {
+            DB::transaction(function () use ($account, $domainIds, $targetNodeId) {
+                $account->update(['node_id' => $targetNodeId]);
+
+                if ($domainIds !== []) {
+                    $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $targetNodeId]);
+                    DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $targetNodeId]);
+                }
+            });
+
+            foreach ($account->domains()->with('node', 'account')->get() as $domain) {
+                [$synced, $error] = app(DomainProvisioner::class)->reprovision($domain);
+                if (! $synced) {
+                    throw new \RuntimeException("{$domain->domain}: {$error}");
+                }
+            }
+        } catch (\Throwable $e) {
+            DB::transaction(function () use ($account, $domainIds, $sourceNodeId) {
+                $account->update(['node_id' => $sourceNodeId]);
+
+                if ($domainIds !== []) {
+                    $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $sourceNodeId]);
+                    DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $sourceNodeId]);
+                }
+            });
+
+            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
+
+            return back()->with('error', 'Migration cutover failed and panel ownership was rolled back: ' . $e->getMessage());
+        }
+
+        $migration->update(['status' => 'complete', 'completed_at' => now()]);
+
+        AuditLog::record('account.migration_cutover_complete', $account->refresh(), [
+            'migration_id' => $migration->id,
+            'source_node_id' => $sourceNodeId,
+            'target_node_id' => $targetNodeId,
+            'domains_reprovisioned' => count($domainIds),
+            'source_retained' => true,
+        ]);
+
+        return back()->with('success', "Account {$account->username} cut over to {$migration->targetNode->name}. Source node data is retained for manual cleanup.");
+    }
+
+    private function cutoverBlockers(Account $account): array
+    {
+        $checks = [
+            'mailboxes' => EmailAccount::where('account_id', $account->id)->count(),
+            'forwarders' => EmailForwarder::where('account_id', $account->id)->count(),
+            'FTP accounts' => FtpAccount::where('account_id', $account->id)->count(),
+            'databases' => HostingDatabase::where('account_id', $account->id)->count(),
+            'database grants' => DatabaseGrant::where('account_id', $account->id)->count(),
+            'app installs' => AppInstallation::where('account_id', $account->id)->count(),
+        ];
+
+        return array_keys(array_filter($checks, fn (int $count) => $count > 0));
     }
 }

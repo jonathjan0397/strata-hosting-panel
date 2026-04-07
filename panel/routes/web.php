@@ -252,6 +252,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('migrations', [AccountMigrationController::class, 'store'])->name('migrations.store');
         Route::post('migrations/{migration}/transfer', [AccountMigrationController::class, 'transfer'])->name('migrations.transfer');
         Route::post('migrations/{migration}/restore', [AccountMigrationController::class, 'restore'])->name('migrations.restore');
+        Route::post('migrations/{migration}/cutover', [AccountMigrationController::class, 'cutover'])->name('migrations.cutover');
         Route::resource('packages', HostingPackageController::class)->except(['show']);
         Route::resource('feature-lists', FeatureListController::class)->except(['show']);
 

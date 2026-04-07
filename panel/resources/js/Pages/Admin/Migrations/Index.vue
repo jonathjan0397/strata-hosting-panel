@@ -99,6 +99,14 @@
                                 >
                                     Restore Target
                                 </button>
+                                <button
+                                    v-else-if="migration.status === 'restored'"
+                                    type="button"
+                                    class="text-xs font-semibold text-blue-400 transition-colors hover:text-blue-300"
+                                    @click="cutoverMigration(migration.id)"
+                                >
+                                    Cut Over
+                                </button>
                                 <span v-else class="text-xs text-gray-600">-</span>
                             </td>
                         </tr>
@@ -164,6 +172,13 @@ function restoreBackup(id) {
     });
 }
 
+function cutoverMigration(id) {
+    if (!confirm('Move panel ownership to the target node and reprovision domain vhosts? The source node data will be retained.')) return;
+    form.post(route('admin.migrations.cutover', id), {
+        preserveScroll: true,
+    });
+}
+
 function statusLabel(status) {
     return String(status ?? 'unknown').replaceAll('_', ' ');
 }
@@ -177,6 +192,7 @@ function statusClass(status) {
         transfer_ready: 'bg-blue-900/40 text-blue-300',
         restore_running: 'bg-amber-900/40 text-amber-300',
         restored: 'bg-emerald-900/40 text-emerald-300',
+        cutover_running: 'bg-amber-900/40 text-amber-300',
         failed: 'bg-red-900/40 text-red-300',
         complete: 'bg-indigo-900/40 text-indigo-300',
     }[status] ?? 'bg-gray-800 text-gray-300';
