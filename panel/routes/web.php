@@ -251,6 +251,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('migrations', [AccountMigrationController::class, 'index'])->name('migrations.index');
         Route::post('migrations', [AccountMigrationController::class, 'store'])->name('migrations.store');
         Route::post('migrations/{migration}/transfer', [AccountMigrationController::class, 'transfer'])->name('migrations.transfer');
+        Route::post('migrations/{migration}/restore', [AccountMigrationController::class, 'restore'])->name('migrations.restore');
         Route::resource('packages', HostingPackageController::class)->except(['show']);
         Route::resource('feature-lists', FeatureListController::class)->except(['show']);
 

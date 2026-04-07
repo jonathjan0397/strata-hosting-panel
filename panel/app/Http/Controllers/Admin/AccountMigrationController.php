@@ -90,7 +90,7 @@ class AccountMigrationController extends Controller
         }
 
         $activeMigration = AccountMigration::where('account_id', $account->id)
-            ->whereIn('status', ['pending', 'backup_running', 'backup_ready', 'transfer_running', 'transfer_ready'])
+            ->whereIn('status', ['pending', 'backup_running', 'backup_ready', 'transfer_running', 'transfer_ready', 'restore_running', 'restored'])
             ->exists();
 
         if ($activeMigration) {
@@ -226,5 +226,61 @@ class AccountMigrationController extends Controller
         ]);
 
         return back()->with('success', "Migration backup transferred to {$migration->targetNode->name}.");
+    }
+
+    public function restore(AccountMigration $migration): RedirectResponse
+    {
+        $migration->load(['account', 'targetNode', 'targetBackupJob']);
+
+        if ($migration->status !== 'transfer_ready') {
+            return back()->with('error', 'Only transfer-ready migrations can be restored.');
+        }
+
+        if (! $migration->account || ! $migration->targetNode || ! $migration->targetBackupJob?->filename) {
+            return back()->with('error', 'Migration is missing account, target node, or target backup metadata.');
+        }
+
+        if (! $migration->targetNode->isOnline()) {
+            return back()->with('error', 'Target node must be online before restore.');
+        }
+
+        $migration->update(['status' => 'restore_running', 'error' => null]);
+
+        try {
+            $provision = AgentClient::for($migration->targetNode)->provisionAccount([
+                'username' => $migration->account->username,
+                'php_version' => $migration->account->php_version,
+            ]);
+
+            if (! $provision->successful()) {
+                throw new \RuntimeException($provision->json('message') ?? $provision->body());
+            }
+
+            $restore = AgentClient::for($migration->targetNode)->backupRestore(
+                $migration->account->username,
+                $migration->targetBackupJob->filename
+            );
+
+            if (! $restore->successful()) {
+                throw new \RuntimeException($restore->body());
+            }
+        } catch (\Throwable $e) {
+            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
+
+            return back()->with('error', 'Migration restore failed: ' . $e->getMessage());
+        }
+
+        $migration->update(['status' => 'restored', 'completed_at' => now()]);
+
+        AuditLog::record('account.migration_restored', $migration->account, [
+            'migration_id' => $migration->id,
+            'source_node_id' => $migration->source_node_id,
+            'target_node_id' => $migration->target_node_id,
+            'target_backup_job_id' => $migration->target_backup_job_id,
+            'filename' => $migration->targetBackupJob->filename,
+            'source_retained' => true,
+        ]);
+
+        return back()->with('success', "Migration archive restored on {$migration->targetNode->name}. Source account is still retained for cutover validation.");
     }
 }

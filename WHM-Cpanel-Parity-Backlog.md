@@ -88,6 +88,7 @@ Implemented on `main`:
 - migration-prep workflow that creates a full source-node backup and marks the migration `backup_ready`
 - migration audit event for prepared backups
 - authenticated target-node backup upload endpoint and transfer action to move prepared archives to `transfer_ready`
+- target-node restore action that provisions the target account, restores the transferred archive, and retains the source for validation/cutover
 
 ### 4. Metrics and Logs
 Status: `in progress`

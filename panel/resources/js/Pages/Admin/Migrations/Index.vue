@@ -91,6 +91,14 @@
                                 >
                                     Transfer Backup
                                 </button>
+                                <button
+                                    v-else-if="migration.status === 'transfer_ready'"
+                                    type="button"
+                                    class="text-xs font-semibold text-emerald-400 transition-colors hover:text-emerald-300"
+                                    @click="restoreBackup(migration.id)"
+                                >
+                                    Restore Target
+                                </button>
                                 <span v-else class="text-xs text-gray-600">-</span>
                             </td>
                         </tr>
@@ -149,6 +157,13 @@ function transferBackup(id) {
     });
 }
 
+function restoreBackup(id) {
+    if (!confirm('Provision the target account and restore this backup archive? The source account will be retained.')) return;
+    form.post(route('admin.migrations.restore', id), {
+        preserveScroll: true,
+    });
+}
+
 function statusLabel(status) {
     return String(status ?? 'unknown').replaceAll('_', ' ');
 }
@@ -160,6 +175,8 @@ function statusClass(status) {
         backup_ready: 'bg-emerald-900/40 text-emerald-300',
         transfer_running: 'bg-amber-900/40 text-amber-300',
         transfer_ready: 'bg-blue-900/40 text-blue-300',
+        restore_running: 'bg-amber-900/40 text-amber-300',
+        restored: 'bg-emerald-900/40 text-emerald-300',
         failed: 'bg-red-900/40 text-red-300',
         complete: 'bg-indigo-900/40 text-indigo-300',
     }[status] ?? 'bg-gray-800 text-gray-300';
