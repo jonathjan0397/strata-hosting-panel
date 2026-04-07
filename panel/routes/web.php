@@ -372,7 +372,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('clients/{account}', [Reseller\ClientController::class, 'show'])->name('clients.show');
         Route::put('clients/{account}', [Reseller\ClientController::class, 'update'])->name('clients.update');
 
-        // White-label branding
+        // Reseller settings and white-label branding
         Route::get('branding', [Reseller\BrandingController::class, 'edit'])->name('branding');
         Route::put('branding', [Reseller\BrandingController::class, 'update'])->name('branding.update');
     });

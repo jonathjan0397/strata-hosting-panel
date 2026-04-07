@@ -122,6 +122,7 @@ const props = defineProps({
     nodes: Array,
     phpVersions: Array,
     packages: Array,
+    defaultPackageId: { type: [Number, String], default: null },
     remaining: Object,
 });
 
@@ -131,7 +132,7 @@ const form = useForm({
     password: '',
     username: '',
     node_id: props.nodes[0]?.id ?? '',
-    hosting_package_id: '',
+    hosting_package_id: props.defaultPackageId ?? '',
     php_version: '8.3',
     disk_limit_mb: 0,
     bandwidth_limit_mb: 0,
@@ -141,7 +142,7 @@ const form = useForm({
 });
 
 watch(() => form.hosting_package_id, (packageId) => {
-    const pkg = props.packages.find((candidate) => candidate.id === packageId);
+    const pkg = props.packages.find((candidate) => String(candidate.id) === String(packageId));
     if (!pkg) return;
     form.php_version = pkg.php_version;
     form.disk_limit_mb = pkg.disk_limit_mb;
@@ -149,7 +150,7 @@ watch(() => form.hosting_package_id, (packageId) => {
     form.max_domains = pkg.max_domains;
     form.max_email_accounts = pkg.max_email_accounts;
     form.max_databases = pkg.max_databases;
-});
+}, { immediate: true });
 
 function submit() {
     form.post(route('reseller.accounts.store'));

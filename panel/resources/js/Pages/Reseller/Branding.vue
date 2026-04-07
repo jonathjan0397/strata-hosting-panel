@@ -1,10 +1,10 @@
 <template>
-    <AppLayout title="Branding">
+    <AppLayout title="Reseller Settings">
         <div class="max-w-lg space-y-6 p-6">
             <PageHeader
                 eyebrow="Reseller"
-                title="White-Label Branding"
-                description="Customize the panel name and accent color shown to your clients. Leave blank to show the default Strata Hosting Panel branding."
+                title="Branding and Defaults"
+                description="Customize the client-facing panel branding and choose the package used by default when creating new accounts."
             />
 
             <!-- Live preview -->
@@ -52,16 +52,28 @@
                     <p v-if="form.errors.brand_color" class="mt-1 text-xs text-red-400">{{ form.errors.brand_color }}</p>
                 </div>
 
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1.5">Default Client Package</label>
+                    <select v-model="form.default_hosting_package_id" class="field w-full">
+                        <option value="">No default package</option>
+                        <option v-for="pkg in packages" :key="pkg.id" :value="pkg.id">
+                            {{ pkg.name }}
+                        </option>
+                    </select>
+                    <p v-if="form.errors.default_hosting_package_id" class="mt-1 text-xs text-red-400">{{ form.errors.default_hosting_package_id }}</p>
+                    <p class="mt-1 text-xs text-gray-500">New client account forms will preselect this reseller-safe package.</p>
+                </div>
+
                 <div class="flex items-center gap-3 pt-1">
                     <button
                         type="submit"
                         :disabled="form.processing"
                         class="btn-primary"
                     >
-                        Save Branding
+                        Save Settings
                     </button>
                     <button
-                        v-if="form.brand_name || form.brand_color !== '#6366f1'"
+                        v-if="form.brand_name || form.brand_color !== '#6366f1' || form.default_hosting_package_id"
                         type="button"
                         @click="reset"
                         class="text-sm text-gray-500 hover:text-gray-300 transition-colors"
@@ -81,13 +93,16 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({
-    brand_name:  { type: String, default: '' },
+    brand_name: { type: String, default: '' },
     brand_color: { type: String, default: '#6366f1' },
+    default_hosting_package_id: { type: Number, default: null },
+    packages: { type: Array, default: () => [] },
 });
 
 const form = useForm({
-    brand_name:  props.brand_name  ?? '',
+    brand_name: props.brand_name ?? '',
     brand_color: props.brand_color ?? '#6366f1',
+    default_hosting_package_id: props.default_hosting_package_id ?? '',
 });
 
 const previewStyle = computed(() => ({
@@ -100,8 +115,9 @@ function save() {
 }
 
 function reset() {
-    form.brand_name  = '';
+    form.brand_name = '';
     form.brand_color = '#6366f1';
+    form.default_hosting_package_id = '';
     form.put(route('reseller.branding.update'));
 }
 </script>

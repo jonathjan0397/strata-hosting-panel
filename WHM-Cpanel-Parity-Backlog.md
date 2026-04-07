@@ -57,6 +57,7 @@ Implemented on `main`:
 - admin navigation entries for packages and feature lists
 - package-aware user feature enforcement in routing and navigation
 - reseller-visible package catalog and package reassignment on client edits
+- reseller default package preference for new client account forms
 
 ### 2. Reseller Package Management
 Status: `in progress`
@@ -65,6 +66,12 @@ Status: `in progress`
 - package availability controls
 - reseller default package selection
 - reseller package-scoped quota enforcement
+
+Implemented on `main`:
+
+- reseller-visible package catalog filtered to active reseller-safe packages
+- reseller client package reassignment with quota enforcement
+- reseller default package selection from the reseller settings screen
 
 ### 3. Account Lifecycle and Migration
 Status: `in progress`
