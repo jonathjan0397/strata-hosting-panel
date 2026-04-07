@@ -723,8 +723,8 @@ DOVEOF
 
 cat > /etc/dovecot/conf.d/10-ssl.conf <<EOF
 ssl = yes
-ssl_cert = </etc/strata-panel/tls/fullchain.pem
-ssl_key  = </etc/strata-panel/tls/privkey.pem
+ssl_server_cert_file = /etc/strata-panel/tls/fullchain.pem
+ssl_server_key_file = /etc/strata-panel/tls/privkey.pem
 ssl_min_protocol = TLSv1.2
 EOF
 
