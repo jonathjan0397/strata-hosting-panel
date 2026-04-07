@@ -290,6 +290,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('ftp/{ftpAccount}/password', [FtpController::class, 'changePassword'])->name('ftp.password');
 
         // Domains
+        Route::delete('domains/bulk-delete', [DomainController::class, 'bulkDestroy'])->name('domains.bulk-destroy');
         Route::resource('domains', DomainController::class)->except(['edit', 'update']);
         Route::post('domains/{domain}/ssl', [DomainController::class, 'issueSSL'])->name('domains.ssl');
 

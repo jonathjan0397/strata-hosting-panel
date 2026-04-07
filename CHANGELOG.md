@@ -23,6 +23,9 @@
 **Backups**
 - Admin backup list supports bulk deletion while preserving panel records when node cleanup fails
 
+**Domains**
+- Admin domain list supports bulk deletion while preserving panel records when server cleanup fails
+
 **Backup Schedules**
 - Per-account backup schedule configuration: frequency (disabled / daily / weekly), time (HH:MM), day of week (weekly only)
 - New migration: `backup_schedule`, `backup_time`, `backup_day` columns on `accounts` table

@@ -115,11 +115,59 @@ class DomainController extends Controller
     public function destroy(Domain $domain): RedirectResponse
     {
         $accountId = $domain->account_id;
+        $error = $this->deleteDomain($domain);
+
+        if ($error) {
+            return redirect()->route('admin.accounts.show', $accountId)
+                ->with('error', $error);
+        }
+
+        return redirect()->route('admin.accounts.show', $accountId)
+            ->with('success', 'Domain removed.');
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'domain_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'domain_ids.*' => ['integer', 'exists:domains,id'],
+        ]);
+
+        $deleted = 0;
+        $errors = [];
+
+        Domain::with(['account:id,username'])
+            ->whereIn('id', $data['domain_ids'])
+            ->get()
+            ->each(function (Domain $domain) use (&$deleted, &$errors) {
+                $error = $this->deleteDomain($domain);
+
+                if ($error) {
+                    $errors[] = "{$domain->domain}: {$error}";
+                    return;
+                }
+
+                $deleted++;
+            });
+
+        if ($errors !== []) {
+            return back()->with(
+                $deleted > 0 ? 'success' : 'error',
+                $deleted > 0
+                    ? "Deleted {$deleted} domain(s). " . count($errors) . ' failed: ' . implode(' ', array_slice($errors, 0, 3))
+                    : 'No domains deleted. ' . implode(' ', array_slice($errors, 0, 3))
+            );
+        }
+
+        return back()->with('success', "Deleted {$deleted} domain(s).");
+    }
+
+    private function deleteDomain(Domain $domain): ?string
+    {
         [$success, $error] = app(DomainProvisioner::class)->deprovision($domain);
 
         if (! $success) {
-            return redirect()->route('admin.accounts.show', $accountId)
-                ->with('error', "Server cleanup failed, domain was kept in the panel: {$error}");
+            return "Server cleanup failed, domain was kept in the panel: {$error}";
         }
 
         AuditLog::record('domain.deleted', $domain, [
@@ -129,7 +177,6 @@ class DomainController extends Controller
 
         $domain->delete();
 
-        return redirect()->route('admin.accounts.show', $accountId)
-            ->with('success', 'Domain removed.');
+        return null;
     }
 }
