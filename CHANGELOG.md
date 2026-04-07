@@ -11,6 +11,10 @@
 
 ### Added — Admin features
 
+**UI**
+- Modern glassmorphism app shell with four persisted role-wide theme choices: Smoky Gray, Aurora Teal, Ember Gold, and Violet Bloom
+- Theme preference picker is available in the shared top bar for admins, resellers, and users
+
 **Accounts**
 - Bulk package reassignment from the admin account list
 

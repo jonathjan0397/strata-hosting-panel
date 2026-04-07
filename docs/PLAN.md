@@ -271,7 +271,7 @@ Admin
 - Laravel project scaffold
 - Authentication (Admin/Reseller/User roles)
 - Node/agent system (Go agent, HMAC auth, health reporting)
-- Basic UI shell (AppLayout, nav, dark mode)
+- Modern glassmorphism UI shell (AppLayout, nav, persisted Smoky Gray/Aurora Teal/Ember Gold/Violet Bloom preferences)
 - Database schema
 
 ### Phase 2 — Core Server Functions ✅

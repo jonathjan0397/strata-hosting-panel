@@ -463,19 +463,15 @@
                             </button>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        class="inline-flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-800"
-                        @click="toggleTheme"
-                    >
-                        <svg v-if="theme === 'night'" class="h-4 w-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-                        </svg>
-                        <svg v-else class="h-4 w-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75 9.75 9.75 0 0 1 8.25 6c0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25 9.75 9.75 0 0 0 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
-                        </svg>
-                        {{ theme === 'night' ? 'Day' : 'Night' }}
-                    </button>
+                    <label class="inline-flex items-center gap-2 rounded-xl border border-gray-800 bg-gray-900 px-3 py-2 text-xs font-semibold text-gray-300">
+                        <span class="h-2.5 w-2.5 rounded-full" :style="{ background: activeTheme.swatch }"></span>
+                        <span class="sr-only">Theme</span>
+                        <select v-model="theme" class="theme-picker bg-transparent text-xs font-semibold focus:outline-none" @change="persistTheme">
+                            <option v-for="option in themeOptions" :key="option.value" :value="option.value">
+                                {{ option.label }}
+                            </option>
+                        </select>
+                    </label>
                 </div>
             </header>
 
@@ -554,7 +550,14 @@ const page = usePage();
 const accountFeatures = computed(() => page.props.auth?.user?.account?.features ?? []);
 const quickSearch = ref('');
 const searchFocused = ref(false);
-const theme = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('strata_theme') || 'night' : 'night');
+const themeOptions = [
+    { value: 'smoke', label: 'Smoky Gray', swatch: 'linear-gradient(135deg, #cbd5e1, #475569)' },
+    { value: 'aurora', label: 'Aurora Teal', swatch: 'linear-gradient(135deg, #2dd4bf, #2563eb)' },
+    { value: 'ember', label: 'Ember Gold', swatch: 'linear-gradient(135deg, #f59e0b, #dc2626)' },
+    { value: 'violet', label: 'Violet Bloom', swatch: 'linear-gradient(135deg, #a78bfa, #ec4899)' },
+];
+const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('strata_theme') : null;
+const theme = ref(themeOptions.some((option) => option.value === storedTheme) ? storedTheme : 'smoke');
 const featureFallbacks = {
     forwarders: 'email',
     autoresponders: 'email',
@@ -594,7 +597,8 @@ const licenseDot = computed(() => ({
     unknown:   'bg-gray-500',
 }[licenseStatus.value] ?? 'bg-emerald-400'));
 
-const themeClass = computed(() => theme.value === 'day' ? 'theme-day' : 'theme-night');
+const activeTheme = computed(() => themeOptions.find((option) => option.value === theme.value) ?? themeOptions[0]);
+const themeClass = computed(() => ['theme-glass', `theme-glass-${theme.value}`]);
 
 const workspaceLabel = computed(() => {
     const roles = page.props.auth?.user?.roles ?? [];
@@ -664,8 +668,7 @@ function addUserAction(items, feature, label, group, href) {
     }
 }
 
-function toggleTheme() {
-    theme.value = theme.value === 'night' ? 'day' : 'night';
+function persistTheme() {
     localStorage.setItem('strata_theme', theme.value);
 }
 

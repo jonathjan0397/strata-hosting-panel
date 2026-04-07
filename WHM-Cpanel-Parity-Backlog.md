@@ -205,7 +205,8 @@ Status: `in progress`
 
 Implemented on `main`:
 
-- day/night theme foundation with persisted user preference
+- modern glassmorphism theme foundation with persisted user preference
+- four selectable role-wide palettes: Smoky Gray, Aurora Teal, Ember Gold, and Violet Bloom
 - workspace-aware top bar for admin, reseller, and hosting contexts
 - quick-jump navigation search for common role-specific destinations
 - shared page header, action card, and empty-state components
