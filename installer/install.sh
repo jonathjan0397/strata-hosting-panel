@@ -680,12 +680,22 @@ EOF
 
 cat > /etc/dovecot/conf.d/10-master.conf <<'DOVEOF'
 service imap-login {
-  inet_listener imap { port = 0 }
-  inet_listener imaps { port = 993 ssl = yes }
+  inet_listener imap {
+    port = 0
+  }
+  inet_listener imaps {
+    port = 993
+    ssl = yes
+  }
 }
 service pop3-login {
-  inet_listener pop3 { port = 0 }
-  inet_listener pop3s { port = 995 ssl = yes }
+  inet_listener pop3 {
+    port = 0
+  }
+  inet_listener pop3s {
+    port = 995
+    ssl = yes
+  }
 }
 service lmtp {
   unix_listener /var/spool/postfix/private/dovecot-lmtp {
@@ -700,10 +710,15 @@ service auth {
     user  = postfix
     group = postfix
   }
-  unix_listener auth-userdb { mode = 0600 user = vmail }
+  unix_listener auth-userdb {
+    mode = 0600
+    user = vmail
+  }
   user = dovecot
 }
-service auth-worker { user = vmail }
+service auth-worker {
+  user = vmail
+}
 DOVEOF
 
 cat > /etc/dovecot/conf.d/10-ssl.conf <<EOF
