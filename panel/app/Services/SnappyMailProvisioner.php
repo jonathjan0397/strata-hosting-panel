@@ -56,6 +56,46 @@ class SnappyMailProvisioner
         return [true, null];
     }
 
+    public function repairStaleLocalProfiles(?string $host = null): array
+    {
+        $dataPath = $this->dataPath();
+        if (! $dataPath) {
+            return [false, 'SnappyMail data directory was not found.', 0];
+        }
+
+        $domainsDir = $this->ensureDomainsDir($dataPath);
+        $repaired = 0;
+
+        foreach (glob($domainsDir.'/*.json') ?: [] as $path) {
+            $profile = json_decode((string) file_get_contents($path), true);
+            if (! is_array($profile)) {
+                continue;
+            }
+
+            $imap = $profile['IMAP'] ?? [];
+            $isStaleLocal = in_array($imap['host'] ?? null, ['localhost', '127.0.0.1'], true)
+                && (int) ($imap['port'] ?? 0) === 143;
+
+            if (! $isStaleLocal) {
+                continue;
+            }
+
+            $profile = $this->baseProfile($host ?: '127.0.0.1');
+            $encoded = json_encode($profile, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            if ($encoded === false) {
+                continue;
+            }
+
+            File::put($path, $encoded.PHP_EOL);
+            @chmod($path, 0600);
+            @chown($path, 'www-data');
+            @chgrp($path, 'www-data');
+            $repaired++;
+        }
+
+        return [true, null, $repaired];
+    }
+
     private function profileFor(Domain $domain): array
     {
         $host = $domain->node?->is_primary

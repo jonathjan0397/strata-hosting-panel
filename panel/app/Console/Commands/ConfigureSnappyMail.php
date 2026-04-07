@@ -19,6 +19,13 @@ class ConfigureSnappyMail extends Command
             $this->warn("Default SnappyMail profile was not updated: {$defaultError}");
         }
 
+        [$repairOk, $repairError, $repaired] = $snappyMail->repairStaleLocalProfiles();
+        if (! $repairOk) {
+            $this->warn("Stale SnappyMail profile repair was skipped: {$repairError}");
+        } elseif ($repaired > 0) {
+            $this->line("Repaired {$repaired} stale local SnappyMail profile(s).");
+        }
+
         $query = Domain::query()
             ->with('node')
             ->where('mail_enabled', true);
