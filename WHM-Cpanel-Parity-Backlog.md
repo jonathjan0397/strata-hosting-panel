@@ -184,6 +184,7 @@ Implemented on `main`:
 - domain-level Force HTTPS redirects for SSL-enabled sites
 - admin IP blocker backed by UFW deny-from rules
 - package-gated ClamAV malware scanner for jailed account paths with optional quarantine
+- package-gated per-domain ModSecurity directive controls with enforce/detection-only modes
 
 ### 9. UX and Navigation
 Status: `in progress`

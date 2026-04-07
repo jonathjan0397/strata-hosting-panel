@@ -241,7 +241,7 @@ Admin
 - [x] fail2ban integration (admin UI — view jails, banned IPs, one-click unban)
 - [x] SSH key management (add/remove authorized_keys per account)
 - [x] ClamAV malware scanner for jailed account paths
-- [ ] ModSecurity (optional WAF — post v1.0)
+- [x] Per-domain ModSecurity controls for installed WAF modules
 
 ### Admin Tools
 - [x] Browser-based SSH terminal (per-node, xterm.js)

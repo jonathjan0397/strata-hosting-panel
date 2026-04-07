@@ -43,6 +43,7 @@
 **Security**
 - SSH key management: add/remove SSH authorized keys per hosting account (user + admin)
 - ClamAV malware scanner for jailed account paths with optional quarantine
+- Per-domain ModSecurity controls with blocking or detection-only mode
 
 **Backups**
 - Remote backup destinations: SFTP (scp/SSH key) and S3-compatible; admin-configurable; auto-push to all active destinations after each backup is created

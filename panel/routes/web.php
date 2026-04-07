@@ -96,6 +96,10 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('domains/{domain}/hotlink-protection', [User\DomainController::class, 'disableHotlinkProtection'])->name('domains.hotlink.destroy');
         });
 
+        Route::middleware(['account.feature:domains', 'account.feature:modsecurity'])->group(function () {
+            Route::put('domains/{domain}/modsecurity', [User\DomainController::class, 'updateModSecurity'])->name('domains.modsecurity.update');
+        });
+
         // Email (per-domain)
         Route::middleware('account.feature:email')->group(function () {
             Route::get('domains/{domain}/email', [User\EmailController::class, 'index'])->name('email.domain');

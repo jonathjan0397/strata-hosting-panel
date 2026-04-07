@@ -94,6 +94,7 @@ class DomainController extends Controller
             'phpVersions' => ['8.1', '8.2', '8.3'],
             'canManagePrivacy' => $account->hasFeature('directory_privacy'),
             'canManageHotlinkProtection' => $account->hasFeature('hotlink_protection'),
+            'canManageModSecurity' => $account->hasFeature('modsecurity'),
         ]);
     }
 
@@ -384,6 +385,36 @@ class DomainController extends Controller
         return $success
             ? back()->with('success', 'Hotlink protection disabled.')
             : back()->with('error', "Hotlink protection removal failed and was rolled back: {$error}");
+    }
+
+    public function updateModSecurity(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+        abort_unless($account->hasFeature('modsecurity'), 403);
+
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'mode' => ['required', 'in:on,detection_only'],
+        ]);
+
+        $previousConfig = $domain->modsecurity;
+        $domain->update([
+            'modsecurity' => $data['enabled']
+                ? ['enabled' => true, 'mode' => $data['mode']]
+                : null,
+        ]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        if (! $success) {
+            $domain->update(['modsecurity' => $previousConfig]);
+            app(DomainProvisioner::class)->reprovision($domain->fresh());
+        }
+
+        return $success
+            ? back()->with('success', $data['enabled'] ? 'ModSecurity updated.' : 'ModSecurity disabled.')
+            : back()->with('error', "ModSecurity update failed and was rolled back: {$error}");
     }
 
     private function parseDomainList(string $value): array

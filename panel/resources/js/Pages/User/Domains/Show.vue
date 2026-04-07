@@ -302,6 +302,43 @@
             </form>
         </div>
 
+        <div v-if="canManageModSecurity" class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <div class="mb-4 flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-300 mb-1">ModSecurity WAF</h3>
+                    <p class="text-xs text-gray-500">
+                        Enable per-domain ModSecurity directives. The node must already have the appropriate Apache or Nginx ModSecurity module and rule set installed.
+                    </p>
+                </div>
+                <span
+                    :class="domain.modsecurity?.enabled ? 'border-emerald-700 bg-emerald-900/30 text-emerald-300' : 'border-gray-700 bg-gray-800 text-gray-400'"
+                    class="rounded-full border px-2.5 py-1 text-xs font-semibold"
+                >
+                    {{ domain.modsecurity?.enabled ? 'Enabled' : 'Disabled' }}
+                </span>
+            </div>
+
+            <form @submit.prevent="modSecurityForm.put(route('my.domains.modsecurity.update', domain.id), { preserveScroll: true })" class="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+                <label class="flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300">
+                    <input v-model="modSecurityForm.enabled" type="checkbox" class="rounded border-gray-700 bg-gray-800 text-indigo-600" />
+                    Enable ModSecurity for this domain
+                </label>
+                <div>
+                    <label class="mb-1 block text-xs text-gray-400">Rule engine mode</label>
+                    <select v-model="modSecurityForm.mode" class="field w-full" :disabled="!modSecurityForm.enabled">
+                        <option value="on">Block matching requests</option>
+                        <option value="detection_only">Detection only</option>
+                    </select>
+                    <p v-if="modSecurityForm.errors.mode" class="mt-0.5 text-xs text-red-400">{{ modSecurityForm.errors.mode }}</p>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" :disabled="modSecurityForm.processing" class="btn-primary w-full">
+                        {{ modSecurityForm.processing ? 'Saving...' : 'Save WAF' }}
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <!-- Custom Nginx/Apache Directives -->
         <div class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <h3 class="text-sm font-semibold text-gray-300 mb-1">Custom Directives</h3>
@@ -338,6 +375,7 @@ const props = defineProps({
     phpVersions: Array,
     canManagePrivacy: Boolean,
     canManageHotlinkProtection: Boolean,
+    canManageModSecurity: Boolean,
 });
 
 const showCertUpload = ref(false);
@@ -372,6 +410,12 @@ const hotlinkForm = useForm({
     allow_direct: hotlinkConfig.allow_direct ?? true,
     allowed_domains: (hotlinkConfig.allowed_domains ?? []).join('\n'),
     extensions: (hotlinkConfig.extensions ?? ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico']).join(', '),
+});
+
+const modSecurityConfig = props.domain.modsecurity ?? {};
+const modSecurityForm = useForm({
+    enabled: modSecurityConfig.enabled ?? false,
+    mode: modSecurityConfig.mode ?? 'on',
 });
 
 const directivesForm = useForm({

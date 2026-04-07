@@ -34,6 +34,7 @@ class FeatureList extends Model
             'git' => 'Git Version Control',
             'directory_privacy' => 'Directory Privacy',
             'hotlink_protection' => 'Hotlink Protection',
+            'modsecurity' => 'ModSecurity WAF',
             'malware_scanner' => 'Malware Scanner',
             'disk_usage' => 'Disk Usage',
             'backups' => 'Backups',

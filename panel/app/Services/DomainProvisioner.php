@@ -259,7 +259,38 @@ class DomainProvisioner
             $parts[] = $hotlinkDirective;
         }
 
+        $modSecurityDirective = $this->buildModSecurityDirective($domain, $webServer);
+        if ($modSecurityDirective) {
+            $parts[] = $modSecurityDirective;
+        }
+
         return implode("\n\n", array_filter($parts));
+    }
+
+    private function buildModSecurityDirective(Domain $domain, string $webServer): ?string
+    {
+        $config = $domain->modsecurity ?? [];
+        if (! ($config['enabled'] ?? false)) {
+            return null;
+        }
+
+        $mode = $config['mode'] ?? 'on';
+        if (! in_array($mode, ['on', 'detection_only'], true)) {
+            $mode = 'on';
+        }
+
+        if ($webServer === 'apache') {
+            return implode("\n", [
+                '<IfModule security2_module>',
+                '    SecRuleEngine ' . ($mode === 'detection_only' ? 'DetectionOnly' : 'On'),
+                '</IfModule>',
+            ]);
+        }
+
+        return implode("\n", [
+            'modsecurity on;',
+            'modsecurity_rules \'SecRuleEngine ' . ($mode === 'detection_only' ? 'DetectionOnly' : 'On') . '\';',
+        ]);
     }
 
     private function buildForceHttpsDirective(Domain $domain, string $webServer): ?string
