@@ -203,14 +203,19 @@ class ProcessAccountMigrationStep implements ShouldQueue
         $sourceNodeId = $migration->source_node_id;
         $targetNodeId = $migration->target_node_id;
         $domainIds = $account->domains->pluck('id')->all();
+        $forwarderIds = EmailForwarder::where('account_id', $account->id)->pluck('id')->all();
 
         try {
-            DB::transaction(function () use ($account, $domainIds, $targetNodeId) {
+            DB::transaction(function () use ($account, $domainIds, $forwarderIds, $targetNodeId) {
                 $account->update(['node_id' => $targetNodeId]);
 
                 if ($domainIds !== []) {
                     $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $targetNodeId]);
                     DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $targetNodeId]);
+                }
+
+                if ($forwarderIds !== []) {
+                    EmailForwarder::whereIn('id', $forwarderIds)->update(['node_id' => $targetNodeId]);
                 }
             });
 
@@ -220,13 +225,28 @@ class ProcessAccountMigrationStep implements ShouldQueue
                     throw new \RuntimeException("{$domain->domain}: {$error}");
                 }
             }
+
+            foreach (EmailForwarder::whereIn('id', $forwarderIds)->with('node')->get() as $forwarder) {
+                $response = AgentClient::for($migration->targetNode)->post('/mail/forwarder', [
+                    'source' => $forwarder->source,
+                    'destination' => $forwarder->destination,
+                ]);
+
+                if (! $response->successful()) {
+                    throw new \RuntimeException("forwarder {$forwarder->source}: {$response->body()}");
+                }
+            }
         } catch (\Throwable $e) {
-            DB::transaction(function () use ($account, $domainIds, $sourceNodeId) {
+            DB::transaction(function () use ($account, $domainIds, $forwarderIds, $sourceNodeId) {
                 $account->update(['node_id' => $sourceNodeId]);
 
                 if ($domainIds !== []) {
                     $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $sourceNodeId]);
                     DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $sourceNodeId]);
+                }
+
+                if ($forwarderIds !== []) {
+                    EmailForwarder::whereIn('id', $forwarderIds)->update(['node_id' => $sourceNodeId]);
                 }
             });
 
@@ -241,6 +261,7 @@ class ProcessAccountMigrationStep implements ShouldQueue
             'source_node_id' => $sourceNodeId,
             'target_node_id' => $targetNodeId,
             'domains_reprovisioned' => count($domainIds),
+            'forwarders_reprovisioned' => count($forwarderIds),
             'source_retained' => true,
             'queued' => true,
         ]);
@@ -279,7 +300,6 @@ class ProcessAccountMigrationStep implements ShouldQueue
     {
         $checks = [
             'mailboxes' => EmailAccount::where('account_id', $account->id)->count(),
-            'forwarders' => EmailForwarder::where('account_id', $account->id)->count(),
             'FTP accounts' => FtpAccount::where('account_id', $account->id)->count(),
             'databases' => HostingDatabase::where('account_id', $account->id)->count(),
             'database grants' => DatabaseGrant::where('account_id', $account->id)->count(),

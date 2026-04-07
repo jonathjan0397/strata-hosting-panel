@@ -247,6 +247,7 @@ Admin
 - [x] cPanel/CWP archive import conversion into Strata full-backup jobs (website files + detected SQL dumps)
 - [x] cPanel/CWP archive metadata preview for detected domains, DNS zones, mailbox names, and forwarders
 - [x] Queued manual backup creation, full restore, and path restore with restore status tracking
+- [x] Migration cutover support for credentialless email forwarders
 
 ### Security
 - [x] 2FA (TOTP) for all user levels

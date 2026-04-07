@@ -95,6 +95,7 @@ Implemented on `main`:
 - migration queue cutover-blocker visibility for accounts that need manual service re-provisioning
 - API migration workflow endpoints for list, detail, prepare, transfer, restore, cutover, and source cleanup
 - queued migration execution for prepare, transfer, restore, cutover, and source cleanup with migration-row progress tracking
+- migration cutover support for credentialless email forwarder re-provisioning on the target node
 - competitor backup import queue for cPanel/CWP `.tar.gz` and `.tgz` archives, converting supported website files and SQL dumps into normal Strata full-backup jobs
 - competitor backup import metadata preview for detected domains, DNS zone files, mailbox names, and forwarders
 - queued manual backup creation, full restore, and path restore with restore status/error tracking

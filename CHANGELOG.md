@@ -47,6 +47,7 @@ Public beta target: `v1.0.0-beta.1`.
 
 **Migrations**
 - Migration prepare, transfer, restore, cutover, and source cleanup actions now run through the queue worker with migration-row progress tracking
+- Migration cutover now reassigns and re-provisions credentialless email forwarders on the target node instead of blocking solely because forwarders exist
 
 **Backups**
 - Admin backup list supports bulk deletion while preserving panel records when node cleanup fails
