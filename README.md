@@ -153,14 +153,14 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | **Accounts** | Create/suspend/terminate, packages, feature lists, resource limits, system user provisioning |
 | **Reseller Portal** | Dashboard with quota meters, create/manage client accounts, package selection, default packages, white-label branding |
 | **Domains** | Nginx/Apache vhosts, default starter index page, SSL, Force HTTPS, PHP version per domain, redirects, custom directives, hotlink protection, directory privacy |
-| **Email** | Mailboxes, forwarders, autoresponders, DKIM/SPF/DMARC setup, Domain Key Manager, SPF Manager, filters, spam policies, archive controls, delivery tracking, bulk import |
+| **Email** | Shared Email Accounts workspace for admins/resellers/users, mailboxes, password changes, forwarders, secure client port guide, autoresponders, DKIM/SPF/DMARC setup, Domain Key Manager, SPF Manager, filters, spam policies, archive controls, delivery tracking, bulk import |
 | **DNS** | PowerDNS zone management, full record type support, BIND import/export, server DNS zones |
 | **Databases** | MariaDB/PostgreSQL create/delete/password, user grants, remote MariaDB host grants, phpMyAdmin/phpPgAdmin launch guide |
 | **FTP / Web Disk** | Pure-FTPd jailed accounts with FTPS enforced, desktop-client connection guide |
 | **File Manager** | Browser-based upload/download/edit/chmod/compress/extract |
 | **Backups** | Files + databases, schedules, manual trigger, download, path restore, remote SFTP/S3 destinations |
 | **Metrics** | Resource usage, log viewer/downloads, recent traffic summaries, 30-day stored traffic history |
-| **Security** | 2FA, audit log, dedicated Fail2Ban administration, SSH keys, UFW firewall rules, ClamAV malware scans, per-domain ModSecurity and leech protection controls |
+| **Security** | 2FA, audit log, dedicated Admin Security sidebar for Firewall and Fail2Ban administration, SSH keys, UFW firewall rules, ClamAV malware scans, per-domain ModSecurity and leech protection controls |
 | **UI / Accessibility** | Glassmorphism app shell with persisted Smoky Gray, Aurora Teal, Ember Gold, and Violet Bloom theme preferences |
 | **Admin Tools** | Browser SSH terminal, email deliverability troubleshooter, OS update management, backup schedules, audited client-panel access, bulk operations |
 | **Multi-node** | Remote nodes via Go agent with HMAC auth, health monitoring, per-node service management, conservative account migration workflow |

@@ -35,6 +35,25 @@
                             Resellers
                         </NavItem>
                     </NavGroup>
+
+                    <NavGroup label="Security">
+                        <NavItem :href="route('admin.security.firewall')" :active="$page.url.startsWith('/admin/security/firewall')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
+                                </svg>
+                            </template>
+                            Firewall
+                        </NavItem>
+                        <NavItem :href="route('admin.security.fail2ban.index')" :active="$page.url.startsWith('/admin/security/fail2ban')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm8.25-4.5a8.25 8.25 0 1 1-16.5 0 8.25 8.25 0 0 1 16.5 0Z" />
+                                </svg>
+                            </template>
+                            Fail2Ban
+                        </NavItem>
+                    </NavGroup>
                 </template>
 
                 <!-- Admin nav (continued) -->
@@ -87,22 +106,6 @@
                                 </svg>
                             </template>
                             Security
-                        </NavItem>
-                        <NavItem :href="route('admin.security.firewall')" :active="$page.url.startsWith('/admin/security/firewall')">
-                            <template #icon>
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
-                                </svg>
-                            </template>
-                            Firewall
-                        </NavItem>
-                        <NavItem :href="route('admin.security.fail2ban.index')" :active="$page.url.startsWith('/admin/security/fail2ban')">
-                            <template #icon>
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm8.25-4.5a8.25 8.25 0 1 1-16.5 0 8.25 8.25 0 0 1 16.5 0Z" />
-                                </svg>
-                            </template>
-                            Fail2Ban
                         </NavItem>
                         <NavItem :href="route('admin.updates.index')" :active="$page.url.startsWith('/admin/updates')">
                             <template #icon>
@@ -197,6 +200,14 @@
                             </template>
                             Domains
                         </NavItem>
+                        <NavItem :href="route('email-accounts.index')" :active="$page.url.startsWith('/email-accounts')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                                </svg>
+                            </template>
+                            Email Accounts
+                        </NavItem>
                         <NavItem :href="route('admin.dns.index')" :active="$page.url.startsWith('/admin/dns') && !$page.url.startsWith('/admin/dns/server')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -235,6 +246,14 @@
                             </template>
                             Clients
                         </NavItem>
+                        <NavItem :href="route('email-accounts.index')" :active="$page.url.startsWith('/email-accounts')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                                </svg>
+                            </template>
+                            Email Accounts
+                        </NavItem>
                         <NavItem :href="route('reseller.packages.index')" :active="$page.url.startsWith('/reseller/packages')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -272,6 +291,14 @@
                                 </svg>
                             </template>
                             DNS
+                        </NavItem>
+                        <NavItem v-if="hasFeature('email')" :href="route('email-accounts.index')" :active="$page.url.startsWith('/email-accounts')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                                </svg>
+                            </template>
+                            Email Accounts
                         </NavItem>
                         <NavItem v-if="hasFeature('databases')" :href="route('my.databases.index')" :active="$page.url.startsWith('/my/databases')">
                             <template #icon>
@@ -650,17 +677,20 @@ const navActions = computed(() => {
             { label: 'Backups', group: 'System', href: route('admin.backups.index') },
             { label: 'Firewall and IP Blocker', group: 'Security', href: route('admin.security.firewall') },
             { label: 'Fail2Ban Administration', group: 'Security', href: route('admin.security.fail2ban.index') },
+            { label: 'Email Accounts', group: 'Mail', href: route('email-accounts.index') },
             { label: 'Audit Log', group: 'System', href: route('admin.audit-log.index') },
             { label: 'Webhooks', group: 'System', href: route('admin.webhooks.index') },
         );
     } else if (roles.includes('reseller')) {
         items.push(
             { label: 'Clients', group: 'Reseller', href: route('reseller.accounts.index') },
+            { label: 'Email Accounts', group: 'Mail', href: route('email-accounts.index') },
             { label: 'Packages', group: 'Reseller', href: route('reseller.packages.index') },
             { label: 'Reseller Settings', group: 'Reseller', href: route('reseller.branding') },
         );
     } else if (roles.includes('user')) {
         addUserAction(items, 'domains', 'Domains', 'Websites', route('my.domains.index'));
+        addUserAction(items, 'email', 'Email Accounts', 'Mail', route('email-accounts.index'));
         addUserAction(items, 'email', 'Email Delivery', 'Mail', route('my.email.delivery'));
         addUserAction(items, 'file_manager', 'File Manager', 'Files', route('my.files.index'));
         addUserAction(items, 'web_disk', 'Web Disk', 'Files', route('my.web-disk.index'));

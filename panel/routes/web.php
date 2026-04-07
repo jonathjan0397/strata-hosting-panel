@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliverabilityController;
+use App\Http\Controllers\EmailAccountController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AccountController;
@@ -68,6 +69,12 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::post('/impersonation/stop', [ImpersonationController::class, 'stop'])->name('impersonation.stop');
+    Route::middleware('role:user|admin|reseller')->group(function () {
+        Route::get('/email-accounts', [EmailAccountController::class, 'index'])->name('email-accounts.index');
+        Route::post('/email-accounts', [EmailAccountController::class, 'store'])->name('email-accounts.store');
+        Route::put('/email-accounts/{mailbox}/password', [EmailAccountController::class, 'changePassword'])->name('email-accounts.password');
+        Route::delete('/email-accounts/{mailbox}', [EmailAccountController::class, 'destroy'])->name('email-accounts.destroy');
+    });
 
     // User portal (also accessible by admin for testing/support)
     Route::middleware('role:user|admin')->prefix('my')->name('my.')->group(function () {

@@ -9,6 +9,7 @@
 - Fail2ban APIs now require `fail2ban-client` to already be installed on the node instead of auto-installing and enabling fail2ban during status reads
 - Fail2Ban administration now has a dedicated admin menu/page under Firewall with jail ban/remove controls and service start/stop/restart actions
 - Installer Fail2Ban defaults now include SSH, Nginx auth, Postfix, Postfix SASL, and Dovecot jails with 10 failed attempts before a ban
+- Installer mail setup now enables authenticated submission services on ports 587 and 465 and keeps unauthenticated relay restricted
 - Installer setup now strongly recommends a dedicated panel subdomain, defaults to `panel.<base-domain>` from the server hostname, and warns if the apex/root domain is used for the panel
 - New hosted document roots now receive an Apache/Nginx-style default `index.html` with a "Powered by Strata Hosting Panel" banner linking to GitHub when no `index.html` or `index.php` exists
 - OS update handler now runs `apt-get update -q` before `apt-get upgrade` to refresh the package index and prevent stale-metadata failures
@@ -18,6 +19,8 @@
 **UI**
 - Modern glassmorphism app shell with four persisted role-wide theme choices: Smoky Gray, Aurora Teal, Ember Gold, and Violet Bloom
 - Theme preference picker is available in the shared top bar for admins, resellers, and users
+- Admin sidebar now exposes Firewall and Fail2Ban in a dedicated Security group
+- Shared Email Accounts sidebar entry is available for admins, resellers, and users
 
 **Accounts**
 - Bulk package reassignment from the admin account list
@@ -60,6 +63,7 @@
 
 **Email**
 - Autoresponders: Dovecot Sieve vacation scripts, per-mailbox, subject + body + active toggle
+- Email Accounts workspace: add/remove mailboxes, change mailbox passwords, and show secure IMAP/POP3/SMTP configuration ports
 - Spam filter stats UI: Rspamd stats page (scanned / spam / ham / actions), per-node
 - Mailbox archive policy: copy incoming messages to the Archive folder through Sieve
 - Domain Key Manager: user workflow to view/copy/regenerate DKIM domain keys and publish managed DNS records

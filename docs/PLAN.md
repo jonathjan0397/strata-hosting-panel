@@ -183,6 +183,7 @@ Admin
 - [x] DMARC auto-generated on domain add
 - [x] Domain Key Manager UI for viewing/regenerating DKIM/domain-key DNS records
 - [x] SPF Manager UI for editing, validating, and restoring SPF records
+- [x] Shared Email Accounts workspace for admins, resellers, and users with mailbox create/delete/password management and secure IMAP/POP3/SMTP port guidance
 - [x] Autoresponders (Dovecot Sieve vacation scripts)
 - [x] Spam filter stats (Rspamd stats UI, per-node)
 - [x] Webmail SSO (alternative to Roundcube — see webmail-skin)
@@ -215,7 +216,7 @@ Admin
 ### End User Portal
 - [x] User dashboard with resource summary
 - [x] Domain management (add, view, SSL, PHP version)
-- [x] Email management (mailboxes, forwarders)
+- [x] Email management (mailboxes, forwarders, shared Email Accounts workspace)
 - [x] Database management
 - [x] FTP management
 - [x] DNS zone management
@@ -242,7 +243,7 @@ Admin
 ### Security
 - [x] 2FA (TOTP) for all user levels
 - [x] Audit log (every action logged with user + timestamp)
-- [x] fail2ban integration (dedicated admin UI for jail status, manual bans, unbans, and service start/stop/restart; installer defaults protect SSH, Nginx auth, Postfix, Postfix SASL, and Dovecot with 10 retries before ban)
+- [x] fail2ban integration (dedicated Admin Security sidebar entry and admin UI for jail status, manual bans, unbans, and service start/stop/restart; installer defaults protect SSH, Nginx auth, Postfix, Postfix SASL, and Dovecot with 10 retries before ban)
 - [x] SSH key management (add/remove authorized_keys per account)
 - [x] ClamAV malware scanner for jailed account paths
 - [x] Per-domain ModSecurity controls for installed WAF modules

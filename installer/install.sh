@@ -639,11 +639,16 @@ EOF
 chmod 640 /etc/postfix/mysql-virtual-*.cf
 chown root:postfix /etc/postfix/mysql-virtual-*.cf
 
-postconf -M "submission/inet=submission inet n - y - - smtpd
-  -o syslog_name=postfix/submission
-  -o smtpd_tls_security_level=encrypt
-  -o smtpd_sasl_auth_enable=yes
-  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject" 2>/dev/null || true
+postconf -M submission/inet="submission inet n - y - - smtpd" 2>/dev/null || true
+postconf -P "submission/inet/syslog_name=postfix/submission" 2>/dev/null || true
+postconf -P "submission/inet/smtpd_tls_security_level=encrypt" 2>/dev/null || true
+postconf -P "submission/inet/smtpd_sasl_auth_enable=yes" 2>/dev/null || true
+postconf -P "submission/inet/smtpd_relay_restrictions=permit_sasl_authenticated,reject" 2>/dev/null || true
+postconf -M smtps/inet="smtps inet n - y - - smtpd" 2>/dev/null || true
+postconf -P "smtps/inet/syslog_name=postfix/smtps" 2>/dev/null || true
+postconf -P "smtps/inet/smtpd_tls_wrappermode=yes" 2>/dev/null || true
+postconf -P "smtps/inet/smtpd_sasl_auth_enable=yes" 2>/dev/null || true
+postconf -P "smtps/inet/smtpd_relay_restrictions=permit_sasl_authenticated,reject" 2>/dev/null || true
 
 # Dovecot
 sed -i 's/^!include auth-system.conf.ext/#!include auth-system.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
@@ -1168,6 +1173,7 @@ ufw allow 53/udp comment "DNS UDP"              >/dev/null
 ufw allow 21/tcp comment "FTP control"          >/dev/null
 ufw allow 30000:50000/tcp comment "FTP passive" >/dev/null
 ufw allow 25/tcp comment "SMTP"                 >/dev/null
+ufw allow 465/tcp comment "SMTPS"               >/dev/null
 ufw allow 587/tcp comment "SMTP submission"     >/dev/null
 ufw allow 993/tcp comment "IMAPS"               >/dev/null
 ufw allow 995/tcp comment "POP3S"               >/dev/null
