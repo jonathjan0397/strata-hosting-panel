@@ -36,6 +36,7 @@ use App\Http\Controllers\User\EmailFilterController;
 use App\Http\Controllers\User\DeliveryController;
 use App\Http\Controllers\User\DiskUsageController;
 use App\Http\Controllers\User\GitController;
+use App\Http\Controllers\User\MalwareScanController;
 use App\Http\Controllers\User\MetricsController;
 use App\Http\Controllers\User\SpamController as UserSpamController;
 use App\Http\Controllers\User\SshKeyController;
@@ -219,6 +220,11 @@ Route::middleware(['auth'])->group(function () {
             Route::get('security/ssh-keys', [SshKeyController::class, 'index'])->name('ssh-keys.index');
             Route::post('security/ssh-keys', [SshKeyController::class, 'store'])->name('ssh-keys.store');
             Route::delete('security/ssh-keys/{sshKey}', [SshKeyController::class, 'destroy'])->name('ssh-keys.destroy');
+        });
+
+        Route::middleware('account.feature:malware_scanner')->group(function () {
+            Route::get('security/malware-scanner', [MalwareScanController::class, 'index'])->name('malware.index');
+            Route::post('security/malware-scanner/scan', [MalwareScanController::class, 'scan'])->name('malware.scan');
         });
 
         // App Installer

@@ -45,7 +45,7 @@ A single install gives you a fully functional hosting server — the panel and a
 | FTP | Pure-FTPd (jailed per account) |
 | Webmail | Roundcube |
 | Database | MariaDB + PostgreSQL (per-user databases + users) |
-| Firewall | UFW + fail2ban |
+| Firewall / Malware | UFW + fail2ban + ClamAV |
 | Accelerators | Varnish, Redis, Memcached (per-node, optional) |
 
 ---
@@ -239,6 +239,7 @@ Admin
 - [x] Audit log (every action logged with user + timestamp)
 - [x] fail2ban integration (admin UI — view jails, banned IPs, one-click unban)
 - [x] SSH key management (add/remove authorized_keys per account)
+- [x] ClamAV malware scanner for jailed account paths
 - [ ] ModSecurity (optional WAF — post v1.0)
 
 ### Admin Tools

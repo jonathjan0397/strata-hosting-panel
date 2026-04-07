@@ -7,24 +7,26 @@ import (
 
 // AllowedServiceControls is the definitive allowlist for service operations.
 var AllowedServiceControls = map[string]bool{
-	"nginx":        true,
-	"apache2":      true,
-	"php8.1-fpm":   true,
-	"php8.2-fpm":   true,
-	"php8.3-fpm":   true,
-	"php8.4-fpm":   true,
-	"postfix":      true,
-	"dovecot":      true,
-	"rspamd":       true,
-	"opendkim":     true,
-	"pdns":         true,
-	"mariadb":      true,
-	"mysql":        true,
-	"postgresql":   true,
-	"pure-ftpd":    true,
-	"fail2ban":     true,
-	"redis":        true,
-	"redis-server": true,
+	"nginx":            true,
+	"apache2":          true,
+	"php8.1-fpm":       true,
+	"php8.2-fpm":       true,
+	"php8.3-fpm":       true,
+	"php8.4-fpm":       true,
+	"postfix":          true,
+	"dovecot":          true,
+	"rspamd":           true,
+	"opendkim":         true,
+	"pdns":             true,
+	"mariadb":          true,
+	"mysql":            true,
+	"postgresql":       true,
+	"pure-ftpd":        true,
+	"fail2ban":         true,
+	"clamav-daemon":    true,
+	"clamav-freshclam": true,
+	"redis":            true,
+	"redis-server":     true,
 }
 
 type ServiceStatus struct {
@@ -40,6 +42,7 @@ func GetServiceStatuses() []ServiceStatus {
 		"php8.1-fpm", "php8.2-fpm", "php8.3-fpm", "php8.4-fpm",
 		"postfix", "dovecot", "rspamd", "opendkim",
 		"pdns", "mariadb", "mysql", "postgresql", "pure-ftpd", "fail2ban",
+		"clamav-daemon", "clamav-freshclam",
 		"redis", "redis-server",
 	}
 

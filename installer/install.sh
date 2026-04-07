@@ -292,6 +292,11 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
     git unzip zip openssl ufw fail2ban \
     acl sudo cron
 
+info "Installing ClamAV malware scanner…"
+DEBIAN_FRONTEND=noninteractive apt-get install -y clamav clamav-daemon
+systemctl enable --now clamav-freshclam || warn "clamav-freshclam did not start — malware signatures may need manual update."
+systemctl enable --now clamav-daemon || warn "clamav-daemon did not start — clamscan can still run on demand."
+
 # ── Step 2. PHP (Ondrej PPA) ──────────────────────────────────────────────────
 info "Adding PHP repository (ondrej/php)…"
 curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg \

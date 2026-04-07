@@ -149,5 +149,8 @@ func Routes() chi.Router {
 	r.Post("/git/{username}/clone", handleGitClone)
 	r.Post("/git/{username}/pull", handleGitPull)
 
+	// Malware scanning (jailed to /var/www/{username}/)
+	r.Post("/malware/{username}/scan", handleMalwareScan)
+
 	return r
 }

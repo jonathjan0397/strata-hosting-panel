@@ -134,7 +134,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | SSL | acme.sh (Let's Encrypt / ZeroSSL) |
 | FTP | Pure-FTPd |
 | Database | MariaDB + PostgreSQL |
-| Firewall | UFW + fail2ban |
+| Firewall / Malware | UFW + fail2ban + ClamAV |
 
 ## Features (v1.0-Beta)
 
@@ -149,7 +149,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | **FTP / Web Disk** | Pure-FTPd jailed accounts (FTPS enforced), desktop-client connection guide |
 | **File Manager** | Browser-based, upload/download/edit/chmod/compress/extract |
 | **Backups** | Files + databases, per-account schedules, manual trigger, download, remote SFTP/S3 destinations |
-| **Security** | 2FA (TOTP), audit log, fail2ban UI (view jails, unban IPs), SSH key management, UFW firewall rules |
+| **Security** | 2FA (TOTP), audit log, fail2ban UI (view jails, unban IPs), SSH key management, UFW firewall rules, jailed ClamAV malware scans |
 | **Admin Tools** | Browser SSH terminal, email deliverability troubleshooter, OS update management, backup schedules |
 | **Multi-node** | Remote nodes via Go agent (HMAC auth), health monitoring, per-node service management |
 | **Billing API** | REST provisioning API (create/suspend/terminate/usage), Bearer token auth, outbound webhooks |

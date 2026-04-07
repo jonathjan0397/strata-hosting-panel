@@ -85,6 +85,7 @@ DEBIAN_FRONTEND=noninteractive apt-get purge -y \
     opendkim opendkim-tools libsasl2-modules \
     rspamd \
     fail2ban \
+    clamav clamav-daemon clamav-freshclam \
     nginx nginx-common \
     apache2 apache2-utils apache2-bin \
     nodejs \

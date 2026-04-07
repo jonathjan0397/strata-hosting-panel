@@ -22,6 +22,16 @@ func JailRoot(username string) string {
 	return filepath.Join(wwwBase, username)
 }
 
+// ResolveQuarantineDir returns a jailed ClamAV quarantine path for infected files.
+func ResolveQuarantineDir(username string) string {
+	return filepath.Join(JailRoot(username), ".strata-quarantine")
+}
+
+// EnsureQuarantineDir creates the jailed ClamAV quarantine directory if needed.
+func EnsureQuarantineDir(username string) error {
+	return os.MkdirAll(ResolveQuarantineDir(username), 0700)
+}
+
 // Resolve resolves a relative path within the jail and returns the absolute path.
 // Returns an error if the resolved path escapes the jail.
 func Resolve(username, rel string) (string, error) {

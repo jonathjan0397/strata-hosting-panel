@@ -344,6 +344,14 @@ class AgentClient
         return $this->post("/git/{$username}/pull", ['path' => $path]);
     }
 
+    public function malwareScan(string $username, string $path = '/', bool $quarantine = false): Response
+    {
+        return $this->request('POST', "/malware/{$username}/scan", [
+            'path' => $path,
+            'quarantine' => $quarantine,
+        ], timeout: 650);
+    }
+
     // ── Backups ───────────────────────────────────────────────────────────────
 
     public function backupCreate(string $username, string $type = 'full'): Response
