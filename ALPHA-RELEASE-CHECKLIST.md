@@ -22,6 +22,7 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, final pass from public 
 ## Smoke Test Scope
 
 - [x] Admin login page renders with installer-created app configuration.
+- [x] Browser-driven admin click-through passes against the live Debian 13 Alpha install.
 - [x] Node inventory registers the primary node and agent responds.
 - [x] Account create/delete works.
 - [x] Domain create/delete and vhost reprovisioning work.
