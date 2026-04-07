@@ -763,6 +763,7 @@ success "acme.sh ready."
 # ── Step 10. System user ──────────────────────────────────────────────────────
 info "Creating system user '${PANEL_USER}'…"
 id "$PANEL_USER" &>/dev/null || /usr/sbin/useradd -r -m -d "$INSTALL_DIR" -s /bin/bash "$PANEL_USER"
+chmod 755 "$INSTALL_DIR"
 success "User '${PANEL_USER}' ready."
 
 # ── Step 11. Clone panel ──────────────────────────────────────────────────────
@@ -1021,6 +1022,8 @@ EOF
     else
         warn "Let's Encrypt failed — using self-signed cert. Re-run once DNS is ready:"
         warn "  /root/.acme.sh/acme.sh --issue --apache -d ${PANEL_DOMAIN}"
+        cp /etc/strata-panel/tls/fullchain.pem /usr/local/share/ca-certificates/strata-panel.crt
+        /usr/sbin/update-ca-certificates >/dev/null || warn "Could not add self-signed panel certificate to local CA trust store."
     fi
 
     apache2ctl configtest && systemctl restart apache2
@@ -1117,6 +1120,8 @@ EOF
     else
         warn "Let's Encrypt failed — using self-signed cert. Re-run once DNS is ready:"
         warn "  /root/.acme.sh/acme.sh --issue --nginx -d ${PANEL_DOMAIN}"
+        cp /etc/strata-panel/tls/fullchain.pem /usr/local/share/ca-certificates/strata-panel.crt
+        /usr/sbin/update-ca-certificates >/dev/null || warn "Could not add self-signed panel certificate to local CA trust store."
     fi
 
     nginx -t && systemctl reload nginx
@@ -1180,6 +1185,9 @@ logpath  = %(nginx_error_log)s
 EOF
 
 systemctl enable --now fail2ban
+if compgen -G "/var/lib/clamav/daily.*" >/dev/null; then
+    systemctl restart clamav-daemon || warn "clamav-daemon did not restart â€” clamscan can still run on demand."
+fi
 success "fail2ban configured (SSH, Postfix, Dovecot, Nginx jails active)."
 
 # ── Step 21. Register primary node ───────────────────────────────────────────

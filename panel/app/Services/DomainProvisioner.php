@@ -465,6 +465,11 @@ class DomainProvisioner
         $client = AgentClient::for($domain->node);
         $username = $domain->account->username;
 
+        $baseMkdir = $client->fileMkdir($username, '/.strata');
+        if (! $baseMkdir->successful()) {
+            return [false, 'Directory privacy storage setup failed: ' . $baseMkdir->body()];
+        }
+
         $mkdir = $client->fileMkdir($username, self::PRIVACY_DIR);
         if (! $mkdir->successful()) {
             return [false, 'Directory privacy storage setup failed: ' . $mkdir->body()];

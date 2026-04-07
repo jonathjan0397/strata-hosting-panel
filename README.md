@@ -26,6 +26,12 @@ Open-source hosting control panel — Nginx/Apache, PHP multi-version, email, DN
 
 - A fresh **Debian 11, 12, or 13** VPS or dedicated server (minimum 1 GB RAM, 20 GB disk)
 - **Root access** via SSH
+- `curl` and CA certificates available on the server. Minimal Debian images may not include them by default:
+
+```bash
+apt-get update && apt-get install -y curl ca-certificates
+```
+
 - A **domain name** you control, with the ability to add DNS A records (e.g. `panel.example.com`)
 - The domain's A record pointing at your server's IP address **before** running the installer speeds things up — Let's Encrypt needs it to issue a real SSL certificate. If DNS isn't ready yet that's fine too; the installer uses a self-signed cert and tells you the exact command to re-issue once DNS propagates.
 
@@ -157,7 +163,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 
 ## Architecture
 
-A single install gives you a fully functional hosting server. Remote nodes can be added at any time to scale horizontally. See [docs/PLAN.md](docs/PLAN.md) for the full project plan, feature list, and development phases. Billing and provisioning integrations can use the REST API documented in [docs/API.md](docs/API.md).
+A single install gives you a fully functional hosting server. Remote nodes can be added at any time to scale horizontally. See [docs/PLAN.md](docs/PLAN.md) for the full project plan, feature list, and development phases. Billing and provisioning integrations can use the REST API documented in [docs/API.md](docs/API.md). Alpha release validation criteria and known limitations are tracked in [ALPHA-RELEASE-CHECKLIST.md](ALPHA-RELEASE-CHECKLIST.md).
 
 ## Contributing & Feedback
 
