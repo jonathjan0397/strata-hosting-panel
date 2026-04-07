@@ -483,6 +483,24 @@
                 </div>
             </header>
 
+            <!-- Impersonation banner -->
+            <div
+                v-if="$page.props.auth?.impersonation"
+                class="mx-6 mt-5 flex items-center justify-between gap-4 rounded-xl border border-sky-700/60 bg-sky-900/25 px-4 py-3"
+            >
+                <div class="text-sm text-sky-200">
+                    Viewing this hosting panel as a client.
+                    <span class="text-sky-400">Original operator: {{ $page.props.auth.impersonation.impersonator_email }}</span>
+                </div>
+                <button
+                    type="button"
+                    class="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-sky-500"
+                    @click="stopImpersonation"
+                >
+                    Return to my panel
+                </button>
+            </div>
+
             <!-- 2FA nudge banner -->
             <div
                 v-if="show2faNudge"
@@ -686,6 +704,10 @@ function goToFirstSearchResult() {
     if (! first) return;
     quickSearch.value = '';
     router.visit(first.href);
+}
+
+function stopImpersonation() {
+    router.post(route('impersonation.stop'));
 }
 
 function hasFeature(feature) {

@@ -8,6 +8,7 @@
 - Firewall APIs now require `ufw` to already be installed on the node instead of auto-installing and enabling it during status reads
 - Fail2ban APIs now require `fail2ban-client` to already be installed on the node instead of auto-installing and enabling fail2ban during status reads
 - Fail2Ban administration now has a dedicated admin menu/page under Firewall with jail ban/remove controls and service start/stop/restart actions
+- Installer Fail2Ban defaults now include SSH, Nginx auth, Postfix, Postfix SASL, and Dovecot jails with 10 failed attempts before a ban
 - Installer setup now strongly recommends a dedicated panel subdomain, defaults to `panel.<base-domain>` from the server hostname, and warns if the apex/root domain is used for the panel
 - New hosted document roots now receive an Apache/Nginx-style default `index.html` with a "Powered by Strata Hosting Panel" banner linking to GitHub when no `index.html` or `index.php` exists
 - OS update handler now runs `apt-get update -q` before `apt-get upgrade` to refresh the package index and prevent stale-metadata failures
@@ -20,6 +21,8 @@
 
 **Accounts**
 - Bulk package reassignment from the admin account list
+- Admins and resellers can access an active sub-client hosting panel through audited support impersonation, with a persistent return banner
+- Fixed reseller client detail loading by using the existing account database relationship
 
 **API**
 - Account migration workflow endpoints for list/detail/prepare/transfer/restore/cutover/source cleanup
@@ -37,6 +40,7 @@
 - Admin per-account database page supports bulk deletion while preserving panel records when remote cleanup fails
 
 **Backup Schedules**
+- Fixed scheduled backup invocation so Laravel passes `--scheduled` as a boolean flag instead of `--scheduled=1`
 - Per-account backup schedule configuration: frequency (disabled / daily / weekly), time (HH:MM), day of week (weekly only)
 - New migration: `backup_schedule`, `backup_time`, `backup_day` columns on `accounts` table
 - `BackupRun` command updated with `--scheduled` flag: filters accounts whose schedule matches the current hour window; respects daily vs weekly

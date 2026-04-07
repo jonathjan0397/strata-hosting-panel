@@ -242,7 +242,7 @@ Admin
 ### Security
 - [x] 2FA (TOTP) for all user levels
 - [x] Audit log (every action logged with user + timestamp)
-- [x] fail2ban integration (dedicated admin UI for jail status, manual bans, unbans, and service start/stop/restart)
+- [x] fail2ban integration (dedicated admin UI for jail status, manual bans, unbans, and service start/stop/restart; installer defaults protect SSH, Nginx auth, Postfix, Postfix SASL, and Dovecot with 10 retries before ban)
 - [x] SSH key management (add/remove authorized_keys per account)
 - [x] ClamAV malware scanner for jailed account paths
 - [x] Per-domain ModSecurity controls for installed WAF modules
@@ -314,6 +314,7 @@ Admin
 - [x] Client detail page with resource limit editing
 - [x] Admin: create/view/update reseller quotas, delete resellers
 - [x] White-label branding (panel name + accent colour per reseller, shown to clients)
+- [x] Audited admin/reseller access into active sub-client hosting panels with return banner
 
 ### Phase 7 — Billing API + Integrations ✅ (partial)
 - [x] REST provisioning API (create, suspend, unsuspend, terminate, usage)

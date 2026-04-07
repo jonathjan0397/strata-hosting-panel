@@ -30,7 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command(SslRenew::class)->dailyAt('03:00');
 
         // Run scheduled backups every hour — BackupRun filters by each account's configured time.
-        $schedule->command(BackupRun::class, ['--type' => 'full', '--scheduled' => true])->hourly();
+        $schedule->command(BackupRun::class, ['--type' => 'full', '--scheduled'])->hourly();
 
         // Check all app installations for available updates daily at 01:00; auto-apply where enabled.
         $schedule->command(AppsCheckUpdates::class, ['--apply' => true])->dailyAt('01:00');

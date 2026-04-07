@@ -56,6 +56,11 @@
                                         @click="unsuspendAccount(a)"
                                         class="text-xs text-emerald-400 hover:text-emerald-300"
                                     >Unsuspend</button>
+                                    <button
+                                        v-if="a.status === 'active'"
+                                        @click="accessPanel(a)"
+                                        class="text-xs text-sky-400 hover:text-sky-300"
+                                    >Access Panel</button>
                                     <Link
                                         :href="route('reseller.clients.show', a.id)"
                                         class="text-xs text-gray-400 hover:text-gray-200 transition-colors"
@@ -115,6 +120,10 @@ function deleteAccount(a) {
     if (confirm(`Delete ${a.username}? This will remove the account and all hosted data.`)) {
         router.delete(route('reseller.accounts.destroy', a.id));
     }
+}
+
+function accessPanel(a) {
+    router.post(route('reseller.accounts.impersonate', a.id));
 }
 
 function statusClass(status) {

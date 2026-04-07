@@ -14,6 +14,14 @@
                 <span :class="statusClass(account.status)" class="ml-auto rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize">
                     {{ account.status }}
                 </span>
+                <button
+                    v-if="account.status === 'active'"
+                    type="button"
+                    class="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-sky-500"
+                    @click="accessPanel"
+                >
+                    Access Panel
+                </button>
             </div>
 
             <div class="grid grid-cols-4 gap-3">
@@ -90,7 +98,7 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 
 const props = defineProps({
@@ -140,6 +148,10 @@ function save() {
             }, 3000);
         },
     });
+}
+
+function accessPanel() {
+    router.post(route('reseller.accounts.impersonate', props.account.id));
 }
 
 function statusClass(status) {

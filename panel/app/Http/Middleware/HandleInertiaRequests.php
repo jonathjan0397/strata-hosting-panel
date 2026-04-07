@@ -62,6 +62,11 @@ class HandleInertiaRequests extends Middleware
                         'features' => $account->enabledFeatures(),
                     ] : null,
                 ] : null,
+                'impersonation' => $request->session()->has('impersonator_id') ? [
+                    'impersonator_id' => $request->session()->get('impersonator_id'),
+                    'impersonator_name' => $request->session()->get('impersonator_name'),
+                    'impersonator_email' => $request->session()->get('impersonator_email'),
+                ] : null,
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

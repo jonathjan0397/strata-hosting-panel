@@ -1181,27 +1181,37 @@ cat > /etc/fail2ban/jail.local <<EOF
 [DEFAULT]
 bantime  = 3600
 findtime = 600
-maxretry = 5
+maxretry = 10
 backend  = systemd
 
 [sshd]
 enabled  = true
 port     = ssh
+maxretry = 10
 logpath  = %(sshd_log)s
 
 [postfix]
 enabled  = true
-port     = smtp,submission
+port     = smtp,465,submission
+maxretry = 10
+logpath  = %(postfix_log)s
+
+[postfix-sasl]
+enabled  = true
+port     = smtp,465,submission
+maxretry = 10
 logpath  = %(postfix_log)s
 
 [dovecot]
 enabled  = true
-port     = imap3,imaps,pop3,pop3s
+port     = imap,imaps,pop3,pop3s,submission,465,sieve
+maxretry = 10
 logpath  = %(dovecot_log)s
 
 [nginx-http-auth]
 enabled  = true
 port     = http,https
+maxretry = 10
 logpath  = %(nginx_error_log)s
 EOF
 
@@ -1209,7 +1219,7 @@ systemctl enable --now fail2ban
 if compgen -G "/var/lib/clamav/daily.*" >/dev/null; then
     systemctl restart clamav-daemon || warn "clamav-daemon did not restart â€” clamscan can still run on demand."
 fi
-success "fail2ban configured (SSH, Postfix, Dovecot, Nginx jails active)."
+success "fail2ban configured (SSH, Postfix/Postfix SASL, Dovecot, Nginx jails active; 10 retries before ban)."
 
 # ── Step 21. Register primary node ───────────────────────────────────────────
 info "Registering primary node in panel database…"

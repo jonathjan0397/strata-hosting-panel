@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliverabilityController;
+use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\AccountMigrationController;
@@ -66,6 +67,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::post('/impersonation/stop', [ImpersonationController::class, 'stop'])->name('impersonation.stop');
 
     // User portal (also accessible by admin for testing/support)
     Route::middleware('role:user|admin')->prefix('my')->name('my.')->group(function () {
@@ -267,6 +269,7 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('accounts', AccountController::class)->except(['edit', 'update']);
         Route::post('accounts/bulk-status', [AccountController::class, 'bulkStatus'])->name('accounts.bulk-status');
         Route::post('accounts/bulk-package', [AccountController::class, 'bulkPackage'])->name('accounts.bulk-package');
+        Route::post('accounts/{account}/impersonate', [ImpersonationController::class, 'startFromAdmin'])->name('accounts.impersonate');
         Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])->name('accounts.suspend');
         Route::post('accounts/{account}/unsuspend', [AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
         Route::get('migrations', [AccountMigrationController::class, 'index'])->name('migrations.index');
@@ -409,6 +412,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('accounts', [Reseller\AccountController::class, 'store'])->name('accounts.store');
         Route::post('accounts/{account}/suspend', [Reseller\AccountController::class, 'suspend'])->name('accounts.suspend');
         Route::post('accounts/{account}/unsuspend', [Reseller\AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
+        Route::post('accounts/{account}/impersonate', [ImpersonationController::class, 'startFromReseller'])->name('accounts.impersonate');
         Route::delete('accounts/{account}', [Reseller\AccountController::class, 'destroy'])->name('accounts.destroy');
 
         // Client detail + limit editing

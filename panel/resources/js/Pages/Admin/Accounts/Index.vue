@@ -104,12 +104,22 @@
                                 <span v-else class="text-gray-600">Unlimited</span>
                             </td>
                             <td class="px-5 py-3.5 text-right">
-                                <Link
-                                    :href="route('admin.accounts.show', account.id)"
-                                    class="text-xs text-indigo-400 transition-colors hover:text-indigo-300"
-                                >
-                                    Manage
-                                </Link>
+                                <div class="flex items-center justify-end gap-3">
+                                    <button
+                                        v-if="account.status === 'active'"
+                                        type="button"
+                                        class="text-xs text-sky-400 transition-colors hover:text-sky-300"
+                                        @click="accessPanel(account)"
+                                    >
+                                        Access Panel
+                                    </button>
+                                    <Link
+                                        :href="route('admin.accounts.show', account.id)"
+                                        class="text-xs text-indigo-400 transition-colors hover:text-indigo-300"
+                                    >
+                                        Manage
+                                    </Link>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="accounts.data.length === 0">
@@ -208,5 +218,9 @@ function bulkStatus(action) {
             selectedIds.value = [];
         },
     });
+}
+
+function accessPanel(account) {
+    router.post(route('admin.accounts.impersonate', account.id));
 }
 </script>

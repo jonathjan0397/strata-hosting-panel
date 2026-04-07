@@ -19,7 +19,7 @@ class ClientController extends Controller
     {
         $this->authorize($request->user(), $account);
 
-        $account->load(['user', 'node', 'domains', 'emailAccounts', 'hostingDatabases', 'ftpAccounts', 'hostingPackage']);
+        $account->load(['user', 'node', 'domains', 'emailAccounts', 'databases', 'ftpAccounts', 'hostingPackage']);
 
         return Inertia::render('Reseller/Clients/Show', [
             'account' => [
@@ -39,7 +39,7 @@ class ClientController extends Controller
                 'user'                => $account->user?->only('id', 'name', 'email'),
                 'domain_count'        => $account->domains->count(),
                 'email_count'         => $account->emailAccounts->count(),
-                'database_count'      => $account->hostingDatabases->count(),
+                'database_count'      => $account->databases->count(),
                 'ftp_count'           => $account->ftpAccounts->count(),
             ],
             'packages' => HostingPackage::query()
