@@ -194,6 +194,9 @@ Admin
 - [x] PowerDNS zone management
 - [x] Full record type support (A, AAAA, CNAME, MX, TXT, SRV, CAA)
 - [x] Auto-populate standard website/email records on domain add without using loopback/private node addresses
+- [x] Nameserver records derived from the primary panel hostname, for example `panel.example.com` -> `ns1.example.com`
+- [x] Backup DNS mirroring to other online nodes for managed zone record writes/deletes
+- [x] Scheduled backup DNS backfill for managed zones when new nodes come online
 - [x] Import zone files (BIND format paste/upload)
 - [x] Export zone files (BIND format download)
 - [x] Server DNS zones (standalone zones not tied to hosted accounts)
@@ -202,7 +205,7 @@ Admin
 - [x] Create/delete MariaDB and PostgreSQL databases
 - [x] Create/delete database users
 - [x] Assign user permissions (grant additional users to databases)
-- [x] phpMyAdmin/phpPgAdmin launch guide with manual database credential login
+- [x] phpMyAdmin/phpPgAdmin launch guide with manual database credential login and availability checks
 - [ ] phpMyAdmin/phpPgAdmin SSO (deferred — post v1.0; requires a safe credential delegation design)
 
 ### FTP

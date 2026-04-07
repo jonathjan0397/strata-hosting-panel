@@ -15,22 +15,32 @@
                 <a
                     v-for="tool in tools"
                     :key="tool.name"
-                    :href="tool.url"
-                    target="_blank"
+                    :href="tool.available ? tool.url : undefined"
+                    :target="tool.available ? '_blank' : undefined"
                     rel="noopener noreferrer"
-                    class="rounded-xl border border-gray-800 bg-gray-900 p-5 transition hover:border-indigo-500/60 hover:bg-gray-800/70"
+                    :class="[
+                        'rounded-xl border border-gray-800 bg-gray-900 p-5 transition',
+                        tool.available ? 'hover:border-indigo-500/60 hover:bg-gray-800/70' : 'cursor-not-allowed opacity-70'
+                    ]"
                 >
                     <div class="flex items-start justify-between gap-4">
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ tool.label }}</p>
                             <h3 class="mt-1 text-lg font-semibold text-gray-100">{{ tool.name }}</h3>
                         </div>
-                        <span class="rounded-full border border-indigo-700 bg-indigo-950 px-3 py-1 text-xs font-semibold text-indigo-200">
-                            Open
+                        <span
+                            :class="tool.available ? 'border-indigo-700 bg-indigo-950 text-indigo-200' : 'border-amber-700 bg-amber-950 text-amber-200'"
+                            class="rounded-full border px-3 py-1 text-xs font-semibold"
+                        >
+                            {{ tool.available ? 'Open' : 'Not installed' }}
                         </span>
                     </div>
                     <p class="mt-4 text-sm leading-6 text-gray-400">{{ tool.login }}</p>
                     <p class="mt-4 break-all font-mono text-xs text-gray-500">{{ tool.url }}</p>
+                    <p v-if="!tool.available" class="mt-3 text-xs leading-5 text-amber-200">
+                        Ask the server administrator to install and expose {{ tool.name }} on this panel host.
+                        Strata does not proxy credentials or bypass tool authentication.
+                    </p>
                 </a>
 
                 <div class="rounded-xl border border-amber-800 bg-amber-950/30 p-5">
@@ -102,7 +112,7 @@
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <h3 class="text-sm font-semibold text-gray-200">Admin Setup Note</h3>
                 <p class="mt-2 text-sm leading-6 text-gray-500">
-                    The launch targets expect phpMyAdmin at <span class="font-mono text-gray-300">/phpmyadmin/</span> and phpPgAdmin at <span class="font-mono text-gray-300">/phppgadmin/</span> on the panel or node hostname. If those tools are not installed, administrators should deploy them separately and keep them behind HTTPS and normal tool authentication.
+                    The launch targets expect phpMyAdmin at <span class="font-mono text-gray-300">/phpmyadmin/</span> and phpPgAdmin at <span class="font-mono text-gray-300">/phppgadmin/</span> on the panel hostname. If those tools are not installed, Strata shows them as unavailable instead of sending users to a Laravel/nginx 404.
                 </p>
             </div>
         </div>

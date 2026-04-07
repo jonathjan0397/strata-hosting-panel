@@ -23,6 +23,7 @@ class DatabaseToolsController extends Controller
             ->get(['id', 'engine', 'db_name', 'db_user']);
 
         $host = $account->node->hostname ?: $account->node->ip_address;
+        $baseUrl = rtrim(config('app.url'), '/');
 
         return Inertia::render('User/Database/Tools', [
             'account' => [
@@ -37,14 +38,16 @@ class DatabaseToolsController extends Controller
                     'name' => 'phpMyAdmin',
                     'engine' => 'mysql',
                     'label' => 'MySQL / MariaDB',
-                    'url' => '/phpmyadmin/',
+                    'url' => $this->toolUrl($baseUrl, 'phpmyadmin'),
+                    'available' => is_dir('/usr/share/phpmyadmin'),
                     'login' => 'Use the database username and password created in Strata.',
                 ],
                 [
                     'name' => 'phpPgAdmin',
                     'engine' => 'postgresql',
                     'label' => 'PostgreSQL',
-                    'url' => '/phppgadmin/',
+                    'url' => $this->toolUrl($baseUrl, 'phppgadmin'),
+                    'available' => is_dir('/usr/share/phppgadmin'),
                     'login' => 'Use the PostgreSQL database username and password created in Strata.',
                 ],
             ],
@@ -54,5 +57,10 @@ class DatabaseToolsController extends Controller
                 'localHost' => 'localhost',
             ],
         ]);
+    }
+
+    private function toolUrl(string $baseUrl, string $path): string
+    {
+        return $baseUrl . '/' . trim($path, '/') . '/';
     }
 }

@@ -793,6 +793,9 @@ info "Installing Composer…"
 curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer >/dev/null 2>&1
 success "Composer installed."
 
+info "Installing database web tools..."
+DEBIAN_FRONTEND=noninteractive apt-get install -y phpmyadmin phppgadmin || warn "phpMyAdmin/phpPgAdmin packages were not available; Database Tools page will show them as not installed."
+
 # ── Step 8. Go ────────────────────────────────────────────────────────────────
 info "Installing Go 1.23…"
 GO_VERSION="1.23.8"
@@ -1047,7 +1050,22 @@ if [[ "$WEB_SERVER" == "apache" ]]; then
         AllowOverride All
         Require all granted
     </Directory>
+    Alias /phpmyadmin /usr/share/phpmyadmin
+    <Directory /usr/share/phpmyadmin>
+        Options -Indexes +FollowSymLinks
+        DirectoryIndex index.php
+        Require all granted
+    </Directory>
+    Alias /phppgadmin /usr/share/phppgadmin
+    <Directory /usr/share/phppgadmin>
+        Options -Indexes +FollowSymLinks
+        DirectoryIndex index.php
+        Require all granted
+    </Directory>
     <FilesMatch "^/var/www/webmail/.+\.php\$">
+        SetHandler "proxy:unix:/run/php/php${PANEL_PHP_VER}-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+    <FilesMatch "^/usr/share/(phpmyadmin|phppgadmin)/.+\.php\$">
         SetHandler "proxy:unix:/run/php/php${PANEL_PHP_VER}-fpm.sock|fcgi://localhost"
     </FilesMatch>
 </VirtualHost>
@@ -1116,6 +1134,34 @@ server {
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location = /phpmyadmin { return 301 /phpmyadmin/; }
+    location /phpmyadmin/ {
+        alias /usr/share/phpmyadmin/;
+        index index.php;
+        try_files \$uri \$uri/ /phpmyadmin/index.php?\$query_string;
+    }
+
+    location ~ ^/phpmyadmin/(.+\.php)\$ {
+        alias /usr/share/phpmyadmin/\$1;
+        fastcgi_pass unix:/run/php/php${PANEL_PHP_VER}-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME /usr/share/phpmyadmin/\$1;
+        include fastcgi_params;
+    }
+
+    location = /phppgadmin { return 301 /phppgadmin/; }
+    location /phppgadmin/ {
+        alias /usr/share/phppgadmin/;
+        index index.php;
+        try_files \$uri \$uri/ /phppgadmin/index.php?\$query_string;
+    }
+
+    location ~ ^/phppgadmin/(.+\.php)\$ {
+        alias /usr/share/phppgadmin/\$1;
+        fastcgi_pass unix:/run/php/php${PANEL_PHP_VER}-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME /usr/share/phppgadmin/\$1;
+        include fastcgi_params;
     }
 
     location ~ \.php\$ {

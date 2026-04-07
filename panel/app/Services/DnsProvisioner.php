@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Domain;
 use App\Models\DnsRecord;
 use App\Models\DnsZone;
+use App\Models\Node;
+use Illuminate\Support\Collection;
 use Throwable;
 
 class DnsProvisioner
@@ -48,6 +50,8 @@ class DnsProvisioner
         $mailHost = 'mail.' . $domain->domain . '.';
         $nodeIp = $this->publicAddressFor($domain);
         $records = [
+            ['@', 'NS', $this->nameserverHosts(), null],
+            ...$this->nameserverAddressRecordsFor($domain),
             ['www', 'CNAME', [$domainName], null],
             ['ftp', 'CNAME', [$domainName], null],
             ['smtp', 'CNAME', [$mailHost], null],
@@ -74,6 +78,10 @@ class DnsProvisioner
         }
 
         foreach ($records as [$name, $type, $contents, $priority]) {
+            if ($contents === []) {
+                continue;
+            }
+
             [$created, $error] = $this->addRecord($zone, $name, $type, 300, $contents, true, $priority);
             if (! $created) {
                 return [false, "{$type} {$name}: {$error}"];
@@ -89,6 +97,22 @@ class DnsProvisioner
             $domain->server_ip,
             $domain->node?->ip_address,
             $this->resolveHostname($domain->node?->hostname),
+        ]);
+
+        foreach ($candidates as $candidate) {
+            if ($this->isPublicIp($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function publicAddressForNode(Node $node): ?string
+    {
+        $candidates = array_filter([
+            $node->ip_address,
+            $this->resolveHostname($node->hostname),
         ]);
 
         foreach ($candidates as $candidate) {
@@ -127,6 +151,13 @@ class DnsProvisioner
                 return [false, $response->body()];
             }
 
+            foreach ($this->backupDnsNodesForNode($domain->node_id) as $node) {
+                $backupResponse = AgentClient::for($node)->deleteDnsZone($domain->domain);
+                if (! $backupResponse->successful()) {
+                    return [false, "Backup DNS zone removal failed on {$node->name}: " . $backupResponse->body()];
+                }
+            }
+
             DnsZone::where('domain_id', $domain->id)->delete();
 
             return [true, null];
@@ -152,6 +183,11 @@ class DnsProvisioner
                 return [false, $response->body()];
             }
 
+            [$mirrored, $mirrorError] = $this->mirrorRecordToBackupNodes($zone, $name, $type, $ttl, $agentContents);
+            if (! $mirrored) {
+                return [false, $mirrorError];
+            }
+
             // Upsert into DB (replace existing same name+type).
             DnsRecord::updateOrCreate(
                 ['dns_zone_id' => $zone->id, 'name' => $name, 'type' => $type],
@@ -173,6 +209,11 @@ class DnsProvisioner
             $response = $this->client->deleteDnsRecord($zone->zone_name, $name, $type);
             if (! $response->successful()) {
                 return [false, $response->body()];
+            }
+
+            [$mirrored, $mirrorError] = $this->deleteRecordFromBackupNodes($zone, $name, $type);
+            if (! $mirrored) {
+                return [false, $mirrorError];
             }
 
             DnsRecord::where('dns_zone_id', $zone->id)
@@ -237,5 +278,117 @@ class DnsProvisioner
         $contents[] = $spfRecord;
 
         return $this->addRecord($zone, '@', 'TXT', 300, $contents, true);
+    }
+
+    private function nameserverHosts(): array
+    {
+        $primary = Node::where('is_primary', true)->orderBy('id')->first() ?? Node::orderBy('id')->first();
+        $baseDomain = $this->baseDomainFor($primary?->hostname);
+
+        if (! $baseDomain) {
+            return [];
+        }
+
+        return Node::whereNull('deleted_at')
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->get()
+            ->values()
+            ->map(fn (Node $node, int $index) => 'ns' . ($index + 1) . '.' . $baseDomain . '.')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function nameserverAddressRecordsFor(Domain $domain): array
+    {
+        $primary = Node::where('is_primary', true)->orderBy('id')->first() ?? Node::orderBy('id')->first();
+        $baseDomain = $this->baseDomainFor($primary?->hostname);
+
+        if (! $baseDomain || rtrim($domain->domain, '.') !== $baseDomain) {
+            return [];
+        }
+
+        return Node::whereNull('deleted_at')
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->get()
+            ->values()
+            ->map(function (Node $node, int $index) {
+                $address = $this->publicAddressForNode($node);
+                if (! $address) {
+                    return null;
+                }
+
+                return [
+                    'ns' . ($index + 1),
+                    filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A',
+                    [$address],
+                    null,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function baseDomainFor(?string $hostname): ?string
+    {
+        $hostname = strtolower(trim((string) $hostname, '. '));
+        if ($hostname === '' || filter_var($hostname, FILTER_VALIDATE_IP)) {
+            return null;
+        }
+
+        $parts = array_values(array_filter(explode('.', $hostname)));
+        if (count($parts) < 2) {
+            return null;
+        }
+
+        return implode('.', array_slice($parts, -2));
+    }
+
+    private function mirrorRecordToBackupNodes(DnsZone $zone, string $name, string $type, int $ttl, array $contents): array
+    {
+        foreach ($this->backupDnsNodes($zone) as $node) {
+            $client = AgentClient::for($node);
+
+            $zoneResponse = $client->createDnsZone($zone->zone_name);
+            if (! $zoneResponse->successful()) {
+                return [false, "Backup DNS zone sync failed on {$node->name}: " . $zoneResponse->body()];
+            }
+
+            $recordResponse = $client->upsertDnsRecord($zone->zone_name, $name, $type, $ttl, $contents);
+            if (! $recordResponse->successful()) {
+                return [false, "Backup DNS record sync failed on {$node->name}: " . $recordResponse->body()];
+            }
+        }
+
+        return [true, null];
+    }
+
+    private function deleteRecordFromBackupNodes(DnsZone $zone, string $name, string $type): array
+    {
+        foreach ($this->backupDnsNodes($zone) as $node) {
+            $response = AgentClient::for($node)->deleteDnsRecord($zone->zone_name, $name, $type);
+            if (! $response->successful()) {
+                return [false, "Backup DNS record removal failed on {$node->name}: " . $response->body()];
+            }
+        }
+
+        return [true, null];
+    }
+
+    private function backupDnsNodes(DnsZone $zone): Collection
+    {
+        return $this->backupDnsNodesForNode($zone->node_id);
+    }
+
+    private function backupDnsNodesForNode(?int $nodeId): Collection
+    {
+        return Node::whereNull('deleted_at')
+            ->when($nodeId, fn ($query) => $query->where('id', '!=', $nodeId))
+            ->where('status', 'online')
+            ->orderBy('id')
+            ->get();
     }
 }

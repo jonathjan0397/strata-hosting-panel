@@ -44,11 +44,16 @@
 - New hosted domains now automatically provision a managed PowerDNS zone with full default web/mail records during vhost creation
 - Default DNS record seeding now refuses loopback/private node addresses such as `127.0.0.1` and falls back to the node hostname's public address when available
 - Agent PowerDNS writes now quote TXT content automatically so SPF, DKIM, and DMARC records are accepted by PowerDNS while remaining readable in the panel
+- Managed DNS zones now include nameserver records derived from the primary panel hostname, for example `panel.example.com` -> `ns1.example.com`
+- DNS record writes and deletes are mirrored to other online nodes so successive nodes can act as backup DNS servers for managed zones
+- Scheduled `dns:sync-backup-zones` backfills managed zones to online backup DNS nodes after a node comes online
 - Users can delete their own domains from the domain detail page after a destructive warning; deletion removes the vhost, managed DNS zone, directory privacy settings, and dedicated addon/subdomain document-root files
 - Admin domain list supports bulk deletion while preserving panel records when server cleanup fails
 
 **Databases**
 - Admin per-account database page supports bulk deletion while preserving panel records when remote cleanup fails
+- Database Tools now checks phpMyAdmin/phpPgAdmin availability before showing launch actions, preventing unavailable tool links from falling through to Laravel/nginx 404s
+- Installer now attempts to install phpMyAdmin/phpPgAdmin and configures panel web aliases for `/phpmyadmin/` and `/phppgadmin/`
 
 **Backup Schedules**
 - Fixed scheduled backup invocation so Laravel passes `--scheduled` as a boolean flag instead of `--scheduled=1`
