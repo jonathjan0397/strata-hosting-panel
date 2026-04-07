@@ -22,8 +22,8 @@ class StandaloneDnsController extends Controller
      */
     public function index(): Response
     {
-        $dbZones = DnsZone::whereNull('domain_id')
-            ->with('node:id,name')
+        $dbZones = DnsZone::query()
+            ->with(['node:id,name', 'domain.account.user'])
             ->withCount('records')
             ->orderBy('zone_name')
             ->get()
@@ -65,6 +65,8 @@ class StandaloneDnsController extends Controller
                 'records_count' => $db?->records_count ?? 0,
                 'active'        => $db?->active ?? true,
                 'live'          => true,
+                'type'          => $db?->domain_id ? 'Hosted' : 'Standalone',
+                'owner'         => $this->zoneOwnerLabel($db),
             ];
         });
 
@@ -79,6 +81,8 @@ class StandaloneDnsController extends Controller
                     'records_count' => $db->records_count,
                     'active'        => $db->active,
                     'live'          => false,
+                    'type'          => $db->domain_id ? 'Hosted' : 'Standalone',
+                    'owner'         => $this->zoneOwnerLabel($db),
                 ]);
             }
         }
@@ -132,12 +136,16 @@ class StandaloneDnsController extends Controller
      */
     public function show(DnsZone $zone): Response
     {
-        abort_if($zone->domain_id !== null, 404);
+        $zone->load(['node', 'domain.account.user']);
 
         $records = $zone->records()->orderBy('type')->orderBy('name')->get();
 
         return Inertia::render('Admin/Dns/ServerZoneShow', [
-            'zone'    => $zone->only('id', 'zone_name', 'node_id', 'active'),
+            'zone'    => [
+                ...$zone->only('id', 'zone_name', 'node_id', 'active', 'domain_id'),
+                'type' => $zone->domain_id ? 'Hosted' : 'Standalone',
+                'owner' => $this->zoneOwnerLabel($zone),
+            ],
             'node'    => $zone->node?->only('id', 'name', 'hostname'),
             'records' => $records,
         ]);
@@ -148,20 +156,19 @@ class StandaloneDnsController extends Controller
      */
     public function storeRecord(Request $request, DnsZone $zone): RedirectResponse
     {
-        abort_if($zone->domain_id !== null, 404);
-
         $data = $request->validate([
-            'name'  => ['required', 'string', 'max:255'],
-            'type'  => ['required', 'in:A,AAAA,CNAME,MX,TXT,SRV,CAA,NS'],
-            'ttl'   => ['required', 'integer', 'min:60', 'max:86400'],
-            'value' => ['required', 'string', 'max:4096'],
+            'name'     => ['required', 'string', 'max:255'],
+            'type'     => ['required', 'in:A,AAAA,CNAME,MX,TXT,SRV,CAA,NS'],
+            'ttl'      => ['required', 'integer', 'min:60', 'max:86400'],
+            'value'    => ['required', 'string', 'max:4096'],
+            'priority' => ['nullable', 'integer', 'min:0', 'max:65535'],
         ]);
 
         $client      = AgentClient::for($zone->node);
         $provisioner = new DnsProvisioner($client);
 
         [$success, $error] = $provisioner->addRecord(
-            $zone, $data['name'], $data['type'], $data['ttl'], [$data['value']]
+            $zone, $data['name'], $data['type'], $data['ttl'], [$data['value']], false, $data['priority'] ?? null
         );
 
         if ($success) {
@@ -181,7 +188,6 @@ class StandaloneDnsController extends Controller
     public function destroyRecord(DnsRecord $record): RedirectResponse
     {
         $zone = $record->zone;
-        abort_if($zone->domain_id !== null, 404);
 
         $provisioner = new DnsProvisioner(AgentClient::for($zone->node));
         [$success, $error] = $provisioner->deleteRecord($zone, $record->name, $record->type);
@@ -202,7 +208,19 @@ class StandaloneDnsController extends Controller
      */
     public function destroy(DnsZone $zone): RedirectResponse
     {
-        abort_if($zone->domain_id !== null, 404);
+        if ($zone->domain_id !== null) {
+            $zone->load('domain');
+            [$success, $error] = (new DnsProvisioner(AgentClient::for($zone->node)))->deleteZone($zone->domain);
+
+            if (! $success) {
+                return back()->with('error', "Hosted zone deletion failed and the zone was kept: {$error}");
+            }
+
+            AuditLog::record('dns.hosted_zone_deleted', $zone->domain, ['zone' => $zone->zone_name]);
+
+            return redirect()->route('admin.dns.server.index')
+                ->with('success', "Zone {$zone->zone_name} deleted.");
+        }
 
         try {
             $client   = AgentClient::for($zone->node);
@@ -219,5 +237,21 @@ class StandaloneDnsController extends Controller
 
         return redirect()->route('admin.dns.server.index')
             ->with('success', "Zone {$zone->zone_name} deleted.");
+    }
+
+    private function zoneOwnerLabel(?DnsZone $zone): ?string
+    {
+        if (! $zone?->domain_id) {
+            return null;
+        }
+
+        $account = $zone->domain?->account;
+        if (! $account) {
+            return 'Hosted domain';
+        }
+
+        $email = $account->user?->email;
+
+        return $email ? "{$account->username} ({$email})" : $account->username;
     }
 }

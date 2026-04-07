@@ -47,13 +47,15 @@
 - Managed DNS zones now include nameserver records derived from the primary panel hostname, for example `panel.example.com` -> `ns1.example.com`
 - DNS record writes and deletes are mirrored to other online nodes so successive nodes can act as backup DNS servers for managed zones
 - Scheduled `dns:sync-backup-zones` backfills managed zones to online backup DNS nodes after a node comes online
-- Users can delete their own domains from the domain detail page after a destructive warning; deletion removes the vhost, managed DNS zone, directory privacy settings, and dedicated addon/subdomain document-root files
+- Users can delete their own domains from the domain detail page after a destructive warning; deletion removes the vhost, managed DNS zone, directory privacy settings, dedicated addon/subdomain document-root files, and the panel domain row so the domain can be re-added later
+- Domain create validation now ignores and purges already-deleted domain rows before insert, preventing stale soft-deleted domains from blocking reuse
 - Admin domain list supports bulk deletion while preserving panel records when server cleanup fails
 
 **Databases**
 - Admin per-account database page supports bulk deletion while preserving panel records when remote cleanup fails
 - Database Tools now checks phpMyAdmin/phpPgAdmin availability before showing launch actions, preventing unavailable tool links from falling through to Laravel/nginx 404s
 - Installer now attempts to install phpMyAdmin/phpPgAdmin and configures panel web aliases for `/phpmyadmin/` and `/phppgadmin/`
+- Installer resets the default PHP CLI alternative back to the selected panel PHP version after optional phpMyAdmin/phpPgAdmin packages are installed
 
 **Backup Schedules**
 - Fixed scheduled backup invocation so Laravel passes `--scheduled` as a boolean flag instead of `--scheduled=1`
@@ -63,7 +65,7 @@
 - Scheduler changed from `->dailyAt('02:00')` to `->hourly()` with `--scheduled`; admin UI at Admin → Backup Schedules
 
 **Server DNS Zones**
-- Manage standalone DNS zones not tied to any hosted account (server hostname, custom delegations, etc.)
+- Manage all DNS zones from the server DNS page, including hosted account zones and standalone zones
 - Full record CRUD (A, AAAA, CNAME, MX, TXT, SRV, CAA, NS) via same PowerDNS agent API
 - New migration: `domain_id` and `account_id` made nullable on `dns_zones`; `zone_name` unique index added
 - Admin UI at Admin → Server DNS; routes `admin.dns.server.*`

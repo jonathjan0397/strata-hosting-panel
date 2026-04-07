@@ -7,6 +7,7 @@ use App\Models\Domain;
 use App\Services\DomainProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -38,6 +39,7 @@ class DomainController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $account = $this->account();
+        $this->purgeTrashedDomain($request->input('domain'));
 
         if ($account->isSuspended()) {
             return back()->with('error', 'Your account is suspended.');
@@ -51,7 +53,7 @@ class DomainController extends Controller
         }
 
         $data = $request->validate([
-            'domain'      => ['required', 'string', 'regex:/^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/', 'unique:domains,domain'],
+            'domain'      => ['required', 'string', 'regex:/^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/', Rule::unique('domains', 'domain')->whereNull('deleted_at')],
             'type'        => ['required', 'in:addon,subdomain,parked'],
             'php_version' => ['nullable', 'in:8.1,8.2,8.3'],
         ]);
@@ -74,7 +76,7 @@ class DomainController extends Controller
         [$success, $error] = app(DomainProvisioner::class)->provision($domain);
 
         if (! $success) {
-            $domain->delete();
+            $domain->forceDelete();
             return back()->with('error', "Domain saved but vhost creation failed: {$error}");
         }
 
@@ -111,7 +113,7 @@ class DomainController extends Controller
         }
 
         $domainName = $domain->domain;
-        $domain->delete();
+        $domain->forceDelete();
 
         return redirect()->route('my.domains.index')
             ->with('success', "{$domainName} and its managed DNS/settings were deleted.");
@@ -494,5 +496,16 @@ class DomainController extends Controller
             fn ($extension) => trim($extension, '.'),
             $extensions
         ), fn ($extension) => preg_match('/^[a-z0-9]+$/', $extension))));
+    }
+
+    private function purgeTrashedDomain(mixed $domain): void
+    {
+        if (! is_string($domain) || trim($domain) === '') {
+            return;
+        }
+
+        Domain::onlyTrashed()
+            ->where('domain', strtolower(trim($domain)))
+            ->forceDelete();
     }
 }

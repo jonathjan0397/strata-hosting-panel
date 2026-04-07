@@ -9,6 +9,7 @@ use App\Services\AccountProvisioner;
 use App\Services\DomainProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,8 +47,10 @@ class AdminWebsiteController extends Controller
             return back()->with('error', 'A website is already provisioned for your account.');
         }
 
+        $this->purgeTrashedDomain($request->input('domain'));
+
         $data = $request->validate([
-            'domain'      => ['required', 'string', 'max:253', 'unique:domains,domain', 'regex:/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/'],
+            'domain'      => ['required', 'string', 'max:253', Rule::unique('domains', 'domain')->whereNull('deleted_at'), 'regex:/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/'],
             'php_version' => ['required', 'in:8.1,8.2,8.3,8.4'],
         ]);
 
@@ -95,7 +98,7 @@ class AdminWebsiteController extends Controller
         if (! $ok) {
             $cleanupErrors = [];
 
-            $domain->delete();
+            $domain->forceDelete();
 
             [$accountRemoved, $accountCleanupError] = app(AccountProvisioner::class)->deprovision($account);
             if (! $accountRemoved && $accountCleanupError) {
@@ -133,7 +136,7 @@ class AdminWebsiteController extends Controller
                 continue;
             }
 
-            $domain->delete();
+            $domain->forceDelete();
         }
 
         if ($errors !== []) {
@@ -149,5 +152,16 @@ class AdminWebsiteController extends Controller
 
         return redirect()->route('admin.my-website.index')
             ->with('success', 'Website removed from the server.');
+    }
+
+    private function purgeTrashedDomain(mixed $domain): void
+    {
+        if (! is_string($domain) || trim($domain) === '') {
+            return;
+        }
+
+        \App\Models\Domain::onlyTrashed()
+            ->where('domain', strtolower(trim($domain)))
+            ->forceDelete();
     }
 }
