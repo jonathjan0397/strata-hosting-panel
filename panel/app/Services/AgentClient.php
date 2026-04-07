@@ -652,9 +652,9 @@ class AgentClient
 
         return match ($method) {
             'GET'    => $http->get($url),
-            'POST'   => $http->post($url, $body),
-            'PUT'    => $http->put($url, $body),
-            'PATCH'  => $http->patch($url, $body),
+            'POST'   => $body ? $http->post($url, $body) : $http->withBody('', 'application/json')->post($url),
+            'PUT'    => $body ? $http->put($url, $body) : $http->withBody('', 'application/json')->put($url),
+            'PATCH'  => $body ? $http->patch($url, $body) : $http->withBody('', 'application/json')->patch($url),
             'DELETE' => $body ? $http->withBody(json_encode($body), 'application/json')->delete($url) : $http->delete($url),
             default  => throw new \InvalidArgumentException("Unknown method: {$method}"),
         };
