@@ -142,6 +142,7 @@ Implemented on `main`:
 - domain-level directory privacy with hashed credentials and reprovision-backed auth rules
 - package-gated disk-usage explorer with bounded account-jail scanning
 - file/directory path restore from completed files/full backups
+- Web Disk-style FTPS connection guide backed by jailed FTP accounts
 
 ### 7. Database Breadth
 Status: `in progress`

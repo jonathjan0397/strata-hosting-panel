@@ -265,6 +265,14 @@
                             </template>
                             FTP
                         </NavItem>
+                        <NavItem v-if="hasFeature('web_disk')" :href="route('my.web-disk.index')" :active="$page.url.startsWith('/my/web-disk')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.75h16.5m-16.5 0A2.25 2.25 0 0 1 6 7.5h12a2.25 2.25 0 0 1 2.25 2.25m-16.5 0v6.75A2.25 2.25 0 0 0 6 18.75h12a2.25 2.25 0 0 0 2.25-2.25V9.75M7.5 14.25h.008v.008H7.5v-.008Zm3 0h6" />
+                                </svg>
+                            </template>
+                            Web Disk
+                        </NavItem>
                         <NavItem v-if="hasFeature('file_manager')" :href="route('my.files.index')" :active="$page.url.startsWith('/my/files')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -598,6 +606,7 @@ const navActions = computed(() => {
         addUserAction(items, 'domains', 'Domains', 'Websites', route('my.domains.index'));
         addUserAction(items, 'email', 'Email Delivery', 'Mail', route('my.email.delivery'));
         addUserAction(items, 'file_manager', 'File Manager', 'Files', route('my.files.index'));
+        addUserAction(items, 'web_disk', 'Web Disk', 'Files', route('my.web-disk.index'));
         addUserAction(items, 'databases', 'Databases', 'Data', route('my.databases.index'));
         addUserAction(items, 'backups', 'Backups', 'Files', route('my.backups.index'));
         addUserAction(items, 'metrics', 'Metrics and Logs', 'Diagnostics', route('my.metrics.index'));

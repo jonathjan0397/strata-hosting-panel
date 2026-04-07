@@ -29,6 +29,7 @@ class FeatureList extends Model
             'autoresponders' => 'Autoresponders',
             'databases' => 'Databases',
             'ftp' => 'FTP Accounts',
+            'web_disk' => 'Web Disk',
             'file_manager' => 'File Manager',
             'git' => 'Git Version Control',
             'directory_privacy' => 'Directory Privacy',

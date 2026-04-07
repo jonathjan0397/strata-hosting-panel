@@ -146,7 +146,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | **Email** | Mailboxes, forwarders, autoresponders, DKIM/SPF/DMARC auto-setup, spam filter stats |
 | **DNS** | PowerDNS zone management, full record type support, BIND import/export, server DNS zones |
 | **Databases** | MariaDB create/delete/password, user grants |
-| **FTP** | Pure-FTPd jailed accounts (FTPS enforced) |
+| **FTP / Web Disk** | Pure-FTPd jailed accounts (FTPS enforced), desktop-client connection guide |
 | **File Manager** | Browser-based, upload/download/edit/chmod/compress/extract |
 | **Backups** | Files + databases, per-account schedules, manual trigger, download, remote SFTP/S3 destinations |
 | **Security** | 2FA (TOTP), audit log, fail2ban UI (view jails, unban IPs), SSH key management, UFW firewall rules |

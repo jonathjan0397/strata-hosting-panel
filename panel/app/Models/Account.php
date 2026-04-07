@@ -14,6 +14,7 @@ class Account extends Model
     public const FEATURE_FALLBACKS = [
         'forwarders' => 'email',
         'autoresponders' => 'email',
+        'web_disk' => 'ftp',
     ];
 
     protected $fillable = [

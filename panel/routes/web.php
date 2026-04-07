@@ -37,6 +37,7 @@ use App\Http\Controllers\User\GitController;
 use App\Http\Controllers\User\MetricsController;
 use App\Http\Controllers\User\SpamController as UserSpamController;
 use App\Http\Controllers\User\SshKeyController;
+use App\Http\Controllers\User\WebDiskController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
 use App\Http\Controllers\WebmailController;
@@ -137,6 +138,10 @@ Route::middleware(['auth'])->group(function () {
             Route::post('ftp', [User\FtpController::class, 'store'])->name('ftp.store');
             Route::delete('ftp/{ftpAccount}', [User\FtpController::class, 'destroy'])->name('ftp.destroy');
             Route::put('ftp/{ftpAccount}/password', [User\FtpController::class, 'changePassword'])->name('ftp.password');
+        });
+
+        Route::middleware('account.feature:web_disk')->group(function () {
+            Route::get('web-disk', [WebDiskController::class, 'index'])->name('web-disk.index');
         });
 
         // DNS
