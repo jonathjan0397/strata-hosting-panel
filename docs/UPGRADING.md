@@ -96,3 +96,4 @@ Adjust the backup timestamp and PHP service name if your install differs.
 - Remote node cascade upgrades require the node to have `/usr/sbin/strata-agent-upgrade`, which is installed by current `installer/agent.sh` and by the full installer. Older nodes without that helper should be upgraded once manually by rerunning the agent installer.
 - Local `--file` upgrades cannot be cascaded automatically unless the same build is also available from a trusted GitHub tag or branch URL.
 - The panel and agent version are derived from the release tag, branch name, or the repository `VERSION` file. Node health checks update each node's `agent_version`.
+- The internal remote cascade command is `php artisan strata:nodes-upgrade-agents --target-version <tag>` or `--branch <branch>`. The top-level `/root/strata-upgrade.sh --version <tag>` wrapper handles this for normal upgrades.

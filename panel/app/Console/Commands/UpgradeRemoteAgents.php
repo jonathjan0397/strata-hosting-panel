@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 class UpgradeRemoteAgents extends Command
 {
     protected $signature = 'strata:nodes-upgrade-agents
-        {--version= : GitHub release/tag version to install on remote agents}
+        {--target-version= : GitHub release/tag version to install on remote agents}
         {--branch= : GitHub branch to install on remote agents}
         {--download-url= : Explicit trusted GitHub archive URL}
         {--include-primary : Also ask the primary/local node agent to self-upgrade}';
@@ -18,13 +18,13 @@ class UpgradeRemoteAgents extends Command
 
     public function handle(): int
     {
-        $version = trim((string) $this->option('version'));
+        $version = trim((string) $this->option('target-version'));
         $branch = trim((string) $this->option('branch'));
         $downloadUrl = trim((string) $this->option('download-url'));
 
         $selected = count(array_filter([$version, $branch, $downloadUrl], fn (string $value) => $value !== ''));
         if ($selected !== 1) {
-            $this->error('Choose exactly one of --version, --branch, or --download-url.');
+            $this->error('Choose exactly one of --target-version, --branch, or --download-url.');
             return Command::FAILURE;
         }
 

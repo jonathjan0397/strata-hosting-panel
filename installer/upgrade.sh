@@ -284,7 +284,7 @@ systemctl is-active --quiet strata-queue
 if [[ -n "$SOURCE_VERSION" || -n "$SOURCE_BRANCH" ]]; then
     info "Queuing remote node agent upgrades..."
     if [[ -n "$SOURCE_VERSION" ]]; then
-        "$PHP_BIN" "$INSTALL_DIR/panel/artisan" strata:nodes-upgrade-agents --version="$SOURCE_VERSION" || warn "One or more remote agent upgrades failed to queue."
+        "$PHP_BIN" "$INSTALL_DIR/panel/artisan" strata:nodes-upgrade-agents --target-version="$SOURCE_VERSION" || warn "One or more remote agent upgrades failed to queue."
     else
         "$PHP_BIN" "$INSTALL_DIR/panel/artisan" strata:nodes-upgrade-agents --branch="$SOURCE_BRANCH" || warn "One or more remote agent upgrades failed to queue."
     fi
