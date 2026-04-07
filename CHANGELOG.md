@@ -31,6 +31,7 @@ Public beta target: `v1.0.0-beta.1`.
 - Email Accounts password modal now uses a high-contrast field for readability across glass themes
 - Mail client configuration cards now render directly from page data so secure port guidance is always visible
 - Email Accounts now exposes shared DKIM/OpenDKIM key regeneration for admins, resellers, and users within their domain scope
+- Malware scans now run through the queue with persisted scan history and polling status instead of holding the browser request open
 
 **Accounts**
 - Bulk package reassignment from the admin account list

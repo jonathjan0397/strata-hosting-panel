@@ -193,6 +193,7 @@ Implemented on `main`:
 - admin IP blocker backed by UFW deny-from rules
 - dedicated Fail2Ban administration page with service start/stop/restart, manual bans, and per-jail unbans
 - package-gated ClamAV malware scanner for jailed account paths with optional quarantine
+- queued ClamAV scan execution with persisted scan history and polling status
 - package-gated per-domain ModSecurity directive controls with enforce/detection-only modes
 - package-gated per-domain leech protection with Nginx request limiting and Apache block/redirect directives
 

@@ -71,6 +71,11 @@ class Account extends Model
         return $this->hasMany(FtpAccount::class);
     }
 
+    public function malwareScanJobs(): HasMany
+    {
+        return $this->hasMany(MalwareScanJob::class);
+    }
+
     public function isSuspended(): bool
     {
         return $this->status === 'suspended';
