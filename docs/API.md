@@ -28,6 +28,41 @@ accounts:usage
 catalog:read
 ```
 
+## Webhooks
+
+Admins can configure outbound webhook endpoints from **Admin -> Webhooks**. Webhooks are emitted from audit-backed lifecycle events such as account, migration, backup, package, token, and security actions.
+
+Webhook requests are sent as `POST` with JSON bodies:
+
+```json
+{
+  "id": 123,
+  "event": "account.created",
+  "actor_type": "admin",
+  "subject_type": "App\\Models\\Account",
+  "subject_id": 42,
+  "payload": {},
+  "created_at": "2026-04-07T00:00:00+00:00"
+}
+```
+
+Headers:
+
+```text
+X-Strata-Event: account.created
+X-Strata-Delivery: 123
+X-Strata-Timestamp: <unix timestamp>
+X-Strata-Signature: <hmac-sha256>   # only when a signing secret is configured
+```
+
+Signature input is:
+
+```text
+<timestamp>\n<body>
+```
+
+Endpoints can subscribe to all events by leaving the event list blank, or to specific audit event names such as `account.created` and `account.migration_cutover_complete`.
+
 ## Accounts
 
 ### List Accounts

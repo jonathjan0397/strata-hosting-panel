@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\SecurityController;
 use App\Http\Controllers\Admin\SpamController;
 use App\Http\Controllers\Admin\StandaloneDnsController;
 use App\Http\Controllers\Admin\UpdateController;
+use App\Http\Controllers\Admin\WebhookEndpointController;
 use App\Http\Controllers\Admin\AdminWebsiteController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\User\AutoresponderController;
@@ -298,6 +299,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Audit log
         Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
+        Route::resource('webhooks', WebhookEndpointController::class)->only(['index', 'store', 'update', 'destroy']);
 
         // Email deliverability troubleshooter
         Route::get('deliverability', [DeliverabilityController::class, 'adminIndex'])->name('deliverability.index');

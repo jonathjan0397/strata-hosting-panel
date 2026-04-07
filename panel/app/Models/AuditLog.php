@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use App\Services\WebhookDispatcher;
 
 class AuditLog extends Model
 {
@@ -38,7 +39,7 @@ class AuditLog extends Model
     ): static {
         $actor ??= auth()->user();
 
-        return static::create([
+        $log = static::create([
             'user_id'      => $actor?->id,
             'actor_type'   => $actor?->getRoleNames()->first() ?? 'system',
             'action'       => $action,
@@ -48,5 +49,13 @@ class AuditLog extends Model
             'ip_address'   => request()->ip(),
             'user_agent'   => request()->userAgent(),
         ]);
+
+        try {
+            app(WebhookDispatcher::class)->dispatch($log);
+        } catch (\Throwable) {
+            // Webhook delivery must never break the panel action that produced the audit log.
+        }
+
+        return $log;
     }
 }

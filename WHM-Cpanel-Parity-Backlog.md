@@ -221,6 +221,7 @@ Implemented on `main`:
 - API package and feature-list catalog endpoints for provisioning integrations
 - API account list and detail endpoints for provisioning inventory integrations
 - repo-local API reference for billing and provisioning integrations
+- admin-managed webhook endpoints with HMAC-signed audit-backed lifecycle event delivery
 
 ## Implementation Order
 
