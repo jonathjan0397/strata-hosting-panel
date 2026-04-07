@@ -41,6 +41,7 @@
 **Email**
 - Autoresponders: Dovecot Sieve vacation scripts, per-mailbox, subject + body + active toggle
 - Spam filter stats UI: Rspamd stats page (scanned / spam / ham / actions), per-node
+- Mailbox archive policy: copy incoming messages to the Archive folder through Sieve
 
 **DNS**
 - Zone import: paste BIND-format zone file, SOA/NS skipped, all other record types supported

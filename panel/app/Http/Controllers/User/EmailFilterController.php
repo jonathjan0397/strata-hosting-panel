@@ -25,6 +25,7 @@ class EmailFilterController extends Controller
                 'id' => $emailAccount->id,
                 'email' => $emailAccount->email,
                 'spam_action' => $emailAccount->spam_action ?? 'inbox',
+                'archive_enabled' => $emailAccount->archive_enabled,
                 'domain' => $emailAccount->domain?->only(['id', 'domain']),
             ],
             'filters' => $emailAccount->filters->map(fn (EmailFilter $filter) => [
@@ -78,6 +79,27 @@ class EmailFilterController extends Controller
         }
 
         return back()->with('success', 'Spam policy updated.');
+    }
+
+    public function updateArchivePolicy(Request $request, EmailAccount $emailAccount): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($emailAccount->account_id === $account->id, 403);
+
+        $data = $request->validate([
+            'archive_enabled' => ['nullable', 'boolean'],
+        ]);
+
+        $previous = $emailAccount->archive_enabled;
+        $emailAccount->update(['archive_enabled' => (bool) ($data['archive_enabled'] ?? false)]);
+
+        [$success, $error] = app(MailSieveProvisioner::class)->sync($emailAccount);
+        if (! $success) {
+            $emailAccount->update(['archive_enabled' => $previous]);
+            return back()->with('error', 'Failed to update archive policy: ' . $error);
+        }
+
+        return back()->with('success', 'Archive policy updated.');
     }
 
     public function store(Request $request, EmailAccount $emailAccount): RedirectResponse

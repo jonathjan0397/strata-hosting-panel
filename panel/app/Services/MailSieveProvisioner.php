@@ -25,6 +25,12 @@ class MailSieveProvisioner
         $requires = [];
         $rules = [];
 
+        if ($emailAccount->archive_enabled) {
+            $requires['fileinto'] = true;
+            $requires['copy'] = true;
+            $rules[] = 'fileinto :copy "Archive";';
+        }
+
         if ($emailAccount->spam_action && $emailAccount->spam_action !== 'inbox') {
             $rule = "if anyof (header :contains \"X-Spam-Flag\" \"YES\", header :contains \"X-Spam\" \"Yes\") {\n";
 

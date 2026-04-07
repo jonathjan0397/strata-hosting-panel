@@ -33,6 +33,23 @@
                 </div>
 
                 <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                    <h3 class="mb-2 text-sm font-semibold text-gray-300">Mail Archive</h3>
+                    <p class="mb-4 text-sm text-gray-400">Keep a server-side copy of incoming messages in the mailbox Archive folder before other filters run.</p>
+                    <form @submit.prevent="updateArchivePolicy" class="space-y-4">
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-800 bg-gray-950 p-3 text-sm text-gray-300">
+                            <input v-model="archivePolicyForm.archive_enabled" type="checkbox" class="mt-0.5 rounded border-gray-600 bg-gray-800 text-indigo-600" />
+                            <span>
+                                <span class="block font-medium text-gray-200">Archive incoming mail</span>
+                                <span class="mt-1 block text-xs leading-5 text-gray-500">Messages are copied to <span class="font-mono text-gray-300">Archive</span>; normal delivery, spam, and filter actions continue.</span>
+                            </span>
+                        </label>
+                        <button type="submit" :disabled="archivePolicyForm.processing" class="btn-primary w-full">
+                            {{ archivePolicyForm.processing ? 'Updating...' : 'Update Archive Policy' }}
+                        </button>
+                    </form>
+                </div>
+
+                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                     <h3 class="mb-4 text-sm font-semibold text-gray-300">New Filter</h3>
                     <form @submit.prevent="createFilter" class="space-y-4">
                         <FormField label="Name" :error="createForm.errors.name">
@@ -163,6 +180,9 @@ const editingId = ref(null);
 const spamPolicyForm = useForm({
     spam_action: props.mailbox.spam_action ?? 'inbox',
 });
+const archivePolicyForm = useForm({
+    archive_enabled: props.mailbox.archive_enabled ?? false,
+});
 const createForm = useForm({
     name: '',
     match_field: 'subject',
@@ -194,6 +214,12 @@ function createFilter() {
 
 function updateSpamPolicy() {
     spamPolicyForm.put(route('my.email.spam-policy.update', props.mailbox.id), {
+        preserveScroll: true,
+    });
+}
+
+function updateArchivePolicy() {
+    archivePolicyForm.put(route('my.email.archive-policy.update', props.mailbox.id), {
         preserveScroll: true,
     });
 }

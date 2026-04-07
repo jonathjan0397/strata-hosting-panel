@@ -135,6 +135,7 @@ Implemented on `main`:
 - domain-level default spam policy with optional apply-to-existing mailbox sync
 - user delivery tracking against bounded postfix and dovecot log views
 - bulk mailbox and forwarder CSV import from the per-domain email workspace
+- mailbox-level archive controls that copy incoming mail to an Archive folder through Sieve
 
 ### 6. Files and Developer Tooling
 Status: `in progress`

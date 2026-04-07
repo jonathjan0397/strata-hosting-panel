@@ -121,6 +121,7 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('email/forwarders/{forwarder}', [User\EmailController::class, 'deleteForwarder'])->name('email.forwarder.destroy');
             Route::get('email/mailboxes/{emailAccount}/filters', [EmailFilterController::class, 'index'])->name('email.filters.index');
             Route::put('email/mailboxes/{emailAccount}/spam-policy', [EmailFilterController::class, 'updateSpamPolicy'])->name('email.spam-policy.update');
+            Route::put('email/mailboxes/{emailAccount}/archive-policy', [EmailFilterController::class, 'updateArchivePolicy'])->name('email.archive-policy.update');
             Route::post('email/mailboxes/{emailAccount}/filters', [EmailFilterController::class, 'store'])->name('email.filters.store');
             Route::put('email/filters/{filter}', [EmailFilterController::class, 'update'])->name('email.filters.update');
             Route::delete('email/filters/{filter}', [EmailFilterController::class, 'destroy'])->name('email.filters.destroy');
