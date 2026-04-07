@@ -61,14 +61,25 @@ class MailProvisioner
                 return [false, $response->body()];
             }
 
-            EmailAccount::create([
+            $mailbox = EmailAccount::create([
                 'domain_id'  => $domain->id,
                 'account_id' => $domain->account_id,
                 'node_id'    => $domain->node_id,
                 'email'      => $email,
                 'local_part' => $localPart,
                 'quota_mb'   => $quotaMb,
+                'spam_action' => $domain->mail_spam_action ?? 'inbox',
             ]);
+
+            if ($mailbox->spam_action !== 'inbox') {
+                [$synced, $syncError] = app(MailSieveProvisioner::class)->sync($mailbox);
+
+                if (! $synced) {
+                    AgentClient::for($domain->node)->delete("/mail/mailbox/{$email}");
+                    $mailbox->delete();
+                    return [false, $syncError];
+                }
+            }
 
             return [true, null];
         } catch (\Throwable $e) {

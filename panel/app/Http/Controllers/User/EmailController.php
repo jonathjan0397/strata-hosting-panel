@@ -7,6 +7,7 @@ use App\Models\Domain;
 use App\Models\EmailAccount;
 use App\Models\EmailForwarder;
 use App\Services\MailProvisioner;
+use App\Services\MailSieveProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,7 +31,46 @@ class EmailController extends Controller
             'domain' => $domain,
             'mailboxes' => EmailAccount::where('domain_id', $domain->id)->get(),
             'forwarders' => EmailForwarder::where('domain_id', $domain->id)->get(),
+            'spamActionOptions' => $this->spamActionOptions(),
         ]);
+    }
+
+    public function updateDomainSpamPolicy(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $data = $request->validate([
+            'spam_action' => ['required', 'in:inbox,junk,discard'],
+            'apply_existing' => ['nullable', 'boolean'],
+        ]);
+
+        $previousDomainAction = $domain->mail_spam_action ?? 'inbox';
+        $domain->update(['mail_spam_action' => $data['spam_action']]);
+
+        if (! ($data['apply_existing'] ?? false)) {
+            return back()->with('success', 'Domain spam default updated.');
+        }
+
+        $sieve = app(MailSieveProvisioner::class);
+        $mailboxes = EmailAccount::where('domain_id', $domain->id)->get();
+
+        foreach ($mailboxes as $mailbox) {
+            $previousMailboxAction = $mailbox->spam_action ?? 'inbox';
+            $mailbox->update(['spam_action' => $data['spam_action']]);
+
+            [$success, $error] = $sieve->sync($mailbox);
+
+            if (! $success) {
+                $mailbox->update(['spam_action' => $previousMailboxAction]);
+                $sieve->sync($mailbox);
+                $domain->update(['mail_spam_action' => $previousDomainAction]);
+
+                return back()->with('error', "Failed to apply spam policy to {$mailbox->email}: {$error}");
+            }
+        }
+
+        return back()->with('success', 'Domain spam policy updated and applied to existing mailboxes.');
     }
 
     public function createMailbox(Request $request, Domain $domain): RedirectResponse
@@ -332,5 +372,14 @@ class EmailController extends Controller
         }
 
         return $response;
+    }
+
+    private function spamActionOptions(): array
+    {
+        return [
+            ['value' => 'inbox', 'label' => 'Leave in inbox'],
+            ['value' => 'junk', 'label' => 'Move to Junk'],
+            ['value' => 'discard', 'label' => 'Discard spam'],
+        ];
     }
 }

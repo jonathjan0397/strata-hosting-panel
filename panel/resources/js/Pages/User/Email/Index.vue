@@ -16,6 +16,29 @@
             Mail is not enabled for this domain. Contact your administrator to enable it.
         </div>
 
+        <form v-if="domain.mail_enabled" @submit.prevent="submitDomainSpamPolicy" class="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div class="max-w-2xl">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Domain Spam Policy</p>
+                    <h3 class="mt-1 text-sm font-semibold text-gray-200">Default handling for {{ domain.domain }}</h3>
+                    <p class="mt-1 text-sm text-gray-400">This default is used for new mailboxes. You can also apply it to all current mailboxes on this domain.</p>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_auto] lg:min-w-[28rem]">
+                    <select v-model="domainSpamPolicyForm.spam_action" class="field">
+                        <option v-for="option in spamActionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                    </select>
+                    <button type="submit" :disabled="domainSpamPolicyForm.processing" class="btn-primary">
+                        {{ domainSpamPolicyForm.processing ? 'Updating...' : 'Update Policy' }}
+                    </button>
+                    <label class="flex items-center gap-2 text-xs text-gray-400 sm:col-span-2">
+                        <input v-model="domainSpamPolicyForm.apply_existing" type="checkbox" class="rounded border-gray-700 bg-gray-800 text-indigo-500 focus:ring-indigo-500" />
+                        Apply to existing mailboxes
+                    </label>
+                    <p v-if="domainSpamPolicyForm.errors.spam_action" class="text-xs text-red-400 sm:col-span-2">{{ domainSpamPolicyForm.errors.spam_action }}</p>
+                </div>
+            </div>
+        </form>
+
         <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Mailboxes" :value="mailboxes.length" color="indigo" />
             <StatCard label="Forwarders" :value="forwarders.length" color="emerald" />
@@ -197,12 +220,17 @@ const props = defineProps({
     domain: Object,
     mailboxes: Array,
     forwarders: Array,
+    spamActionOptions: Array,
 });
 
 const mbForm = useForm({ local_part: '', password: '' });
 const fwdForm = useForm({ source: '', destination: '' });
 const mailboxImportForm = useForm({ csv: '' });
 const forwarderImportForm = useForm({ csv: '' });
+const domainSpamPolicyForm = useForm({
+    spam_action: props.domain.mail_spam_action ?? 'inbox',
+    apply_existing: false,
+});
 
 function submitMailbox() {
     mbForm.post(route('my.email.mailbox.store', props.domain.id), {
@@ -225,6 +253,15 @@ function submitMailboxImport() {
 function submitForwarderImport() {
     forwarderImportForm.post(route('my.email.forwarder.import', props.domain.id), {
         onSuccess: () => forwarderImportForm.reset(),
+    });
+}
+
+function submitDomainSpamPolicy() {
+    domainSpamPolicyForm.put(route('my.email.domain-spam-policy.update', props.domain.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            domainSpamPolicyForm.apply_existing = false;
+        },
     });
 }
 </script>

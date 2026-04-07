@@ -119,6 +119,7 @@ Implemented on `main`:
 - user filter management UI inside the existing email workflow
 - user spam activity dashboard backed by Rspamd node stats
 - mailbox-level spam policy controls backed by Sieve rules
+- domain-level default spam policy with optional apply-to-existing mailbox sync
 - user delivery tracking against bounded postfix and dovecot log views
 - bulk mailbox and forwarder CSV import from the per-domain email workspace
 

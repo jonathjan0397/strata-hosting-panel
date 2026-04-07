@@ -99,6 +99,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('email/spam/stats', [UserSpamController::class, 'stats'])->name('email.spam.stats');
             Route::get('email/delivery', [DeliveryController::class, 'index'])->name('email.delivery');
             Route::get('email/delivery/search', [DeliveryController::class, 'search'])->name('email.delivery.search');
+            Route::put('domains/{domain}/email/spam-policy', [User\EmailController::class, 'updateDomainSpamPolicy'])->name('email.domain-spam-policy.update');
             Route::post('domains/{domain}/email/mailboxes', [User\EmailController::class, 'createMailbox'])->name('email.mailbox.store');
             Route::post('domains/{domain}/email/mailboxes/import', [User\EmailController::class, 'importMailboxes'])->name('email.mailbox.import');
             Route::delete('email/mailboxes/{mailbox}', [User\EmailController::class, 'deleteMailbox'])->name('email.mailbox.destroy');
