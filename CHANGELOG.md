@@ -7,6 +7,7 @@
 **Agent**
 - Firewall APIs now require `ufw` to already be installed on the node instead of auto-installing and enabling it during status reads
 - Fail2ban APIs now require `fail2ban-client` to already be installed on the node instead of auto-installing and enabling fail2ban during status reads
+- Fail2Ban administration now has a dedicated admin menu/page under Firewall with jail ban/remove controls and service start/stop/restart actions
 - OS update handler now runs `apt-get update -q` before `apt-get upgrade` to refresh the package index and prevent stale-metadata failures
 
 ### Added — Admin features

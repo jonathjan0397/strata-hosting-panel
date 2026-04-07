@@ -13,7 +13,7 @@ use Inertia\Response;
 
 class SecurityController extends Controller
 {
-    // ── Fail2ban ──────────────────────────────────────────────────────────────
+    // Fail2Ban
 
     public function index(): Response
     {
@@ -24,15 +24,48 @@ class SecurityController extends Controller
         ]);
     }
 
+    public function fail2banIndex(): Response
+    {
+        $nodes = Node::where('status', 'online')->select('id', 'name', 'hostname')->get();
+
+        return Inertia::render('Admin/Security/Fail2Ban', [
+            'nodes' => $nodes,
+        ]);
+    }
+
     public function fail2banStatus(Request $request): JsonResponse
     {
         $node     = Node::findOrFail($request->query('node_id'));
         $response = AgentClient::for($node)->fail2banStatus();
+        $services = AgentClient::for($node)->services();
+        $payload = $response->successful() ? $response->json() : ['jails' => [], 'error' => $response->body()];
+        $payload['service'] = collect($services->successful() ? $services->json() : [])
+            ->firstWhere('name', 'fail2ban');
 
         return response()->json(
-            $response->successful() ? $response->json() : ['jails' => [], 'error' => $response->body()],
+            $payload,
             $response->successful() ? 200 : 502
         );
+    }
+
+    public function ban(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'node_id' => ['required', 'exists:nodes,id'],
+            'jail'    => ['required', 'regex:/^[a-zA-Z0-9_-]+$/'],
+            'ip'      => ['required', 'ip'],
+        ]);
+
+        $node     = Node::findOrFail($data['node_id']);
+        $response = AgentClient::for($node)->fail2banBan($data['jail'], $data['ip']);
+
+        if (! $response->successful()) {
+            return response()->json(['message' => 'Ban failed: ' . $response->body()], 502);
+        }
+
+        AuditLog::record('security.fail2ban_ban', null, ['jail' => $data['jail'], 'ip' => $data['ip'], 'node' => $node->name]);
+
+        return response()->json(['status' => 'ok', 'message' => "{$data['ip']} banned in {$data['jail']}."]);
     }
 
     public function unban(Request $request): JsonResponse
@@ -50,12 +83,39 @@ class SecurityController extends Controller
             return response()->json(['message' => 'Unban failed: ' . $response->body()], 502);
         }
 
-        AuditLog::record('security.unban', null, ['jail' => $data['jail'], 'ip' => $data['ip'], 'node' => $node->name]);
+        AuditLog::record('security.fail2ban_unban', null, ['jail' => $data['jail'], 'ip' => $data['ip'], 'node' => $node->name]);
 
         return response()->json(['status' => 'ok', 'message' => "{$data['ip']} unbanned from {$data['jail']}."]);
     }
 
-    // ── Firewall (UFW) ────────────────────────────────────────────────────────
+    public function fail2banService(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'node_id' => ['required', 'exists:nodes,id'],
+            'action'  => ['required', 'in:start,stop,restart'],
+        ]);
+
+        $node = Node::findOrFail($data['node_id']);
+        $client = AgentClient::for($node);
+        $response = match ($data['action']) {
+            'start' => $client->startService('fail2ban'),
+            'stop' => $client->stopService('fail2ban'),
+            'restart' => $client->restartService('fail2ban'),
+        };
+
+        if (! $response->successful()) {
+            return response()->json(['message' => "Fail2Ban {$data['action']} failed: " . $response->body()], 502);
+        }
+
+        AuditLog::record("security.fail2ban_{$data['action']}", $node, [
+            'service' => 'fail2ban',
+            'node' => $node->name,
+        ]);
+
+        return response()->json(['status' => 'ok', 'message' => "Fail2Ban {$data['action']} completed."]);
+    }
+
+    // Firewall (UFW)
 
     public function firewallIndex(): Response
     {

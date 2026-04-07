@@ -339,15 +339,18 @@ Route::middleware(['auth'])->group(function () {
         Route::get('backups/schedules', [BackupScheduleController::class, 'index'])->name('backups.schedules');
         Route::put('backups/schedules/{account}', [BackupScheduleController::class, 'update'])->name('backups.schedules.update');
 
-        // Security (fail2ban + firewall)
+        // Security
         Route::get('security', [SecurityController::class, 'index'])->name('security.index');
-        Route::get('security/fail2ban', [SecurityController::class, 'fail2banStatus'])->name('security.fail2ban');
-        Route::post('security/unban', [SecurityController::class, 'unban'])->name('security.unban');
         Route::get('security/firewall', [SecurityController::class, 'firewallIndex'])->name('security.firewall');
         Route::get('security/firewall/rules', [SecurityController::class, 'firewallRules'])->name('security.firewall.rules');
         Route::post('security/firewall/rules', [SecurityController::class, 'firewallAdd'])->name('security.firewall.add');
         Route::post('security/firewall/block-ip', [SecurityController::class, 'firewallBlockIp'])->name('security.firewall.block-ip');
         Route::delete('security/firewall/rules', [SecurityController::class, 'firewallDelete'])->name('security.firewall.delete');
+        Route::get('security/fail2ban', [SecurityController::class, 'fail2banIndex'])->name('security.fail2ban.index');
+        Route::get('security/fail2ban/status', [SecurityController::class, 'fail2banStatus'])->name('security.fail2ban.status');
+        Route::post('security/fail2ban/ban', [SecurityController::class, 'ban'])->name('security.fail2ban.ban');
+        Route::post('security/fail2ban/unban', [SecurityController::class, 'unban'])->name('security.fail2ban.unban');
+        Route::post('security/fail2ban/service', [SecurityController::class, 'fail2banService'])->name('security.fail2ban.service');
 
         // OS updates
         Route::get('updates', [UpdateController::class, 'index'])->name('updates.index');

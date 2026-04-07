@@ -80,7 +80,7 @@
                             </template>
                             Remote Backups
                         </NavItem>
-                        <NavItem :href="route('admin.security.index')" :active="$page.url.startsWith('/admin/security') && !$page.url.startsWith('/admin/security/firewall') && !$page.url.startsWith('/admin/security/spam')">
+                        <NavItem :href="route('admin.security.index')" :active="$page.url.startsWith('/admin/security') && !$page.url.startsWith('/admin/security/firewall') && !$page.url.startsWith('/admin/security/fail2ban') && !$page.url.startsWith('/admin/security/spam')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
@@ -95,6 +95,14 @@
                                 </svg>
                             </template>
                             Firewall
+                        </NavItem>
+                        <NavItem :href="route('admin.security.fail2ban.index')" :active="$page.url.startsWith('/admin/security/fail2ban')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm8.25-4.5a8.25 8.25 0 1 1-16.5 0 8.25 8.25 0 0 1 16.5 0Z" />
+                                </svg>
+                            </template>
+                            Fail2Ban
                         </NavItem>
                         <NavItem :href="route('admin.updates.index')" :active="$page.url.startsWith('/admin/updates')">
                             <template #icon>
@@ -623,6 +631,7 @@ const navActions = computed(() => {
             { label: 'Nodes', group: 'Infrastructure', href: route('admin.nodes.index') },
             { label: 'Backups', group: 'System', href: route('admin.backups.index') },
             { label: 'Firewall and IP Blocker', group: 'Security', href: route('admin.security.firewall') },
+            { label: 'Fail2Ban Administration', group: 'Security', href: route('admin.security.fail2ban.index') },
             { label: 'Audit Log', group: 'System', href: route('admin.audit-log.index') },
             { label: 'Webhooks', group: 'System', href: route('admin.webhooks.index') },
         );

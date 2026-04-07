@@ -241,7 +241,7 @@ Admin
 ### Security
 - [x] 2FA (TOTP) for all user levels
 - [x] Audit log (every action logged with user + timestamp)
-- [x] fail2ban integration (admin UI — view jails, banned IPs, one-click unban)
+- [x] fail2ban integration (dedicated admin UI for jail status, manual bans, unbans, and service start/stop/restart)
 - [x] SSH key management (add/remove authorized_keys per account)
 - [x] ClamAV malware scanner for jailed account paths
 - [x] Per-domain ModSecurity controls for installed WAF modules

@@ -425,7 +425,7 @@ class AgentClient
         ]);
     }
 
-    // ── fail2ban ──────────────────────────────────────────────────────────────
+    // fail2ban
 
     public function fail2banStatus(): Response
     {
@@ -437,7 +437,12 @@ class AgentClient
         return $this->post('/fail2ban/unban', ['jail' => $jail, 'ip' => $ip]);
     }
 
-    // ── Firewall (UFW) ────────────────────────────────────────────────────────
+    public function fail2banBan(string $jail, string $ip): Response
+    {
+        return $this->post('/fail2ban/ban', ['jail' => $jail, 'ip' => $ip]);
+    }
+
+    // Firewall (UFW)
 
     public function firewallRules(): Response
     {

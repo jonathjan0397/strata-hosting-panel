@@ -21,7 +21,7 @@ func requireFail2ban() error {
 	return err
 }
 
-// GET /fail2ban/status — returns all jails and their banned IPs.
+// GET /fail2ban/status returns all jails and their banned IPs.
 func handleFail2BanStatus(w http.ResponseWriter, r *http.Request) {
 	if err := requireFail2ban(); err != nil {
 		http.Error(w, "fail2ban is not installed", http.StatusServiceUnavailable)
@@ -43,7 +43,7 @@ func handleFail2BanStatus(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, map[string]any{"jails": jails})
 }
 
-// POST /fail2ban/unban — body: {"jail":"sshd","ip":"1.2.3.4"}
+// POST /fail2ban/unban body: {"jail":"sshd","ip":"1.2.3.4"}
 func handleFail2BanUnban(w http.ResponseWriter, r *http.Request) {
 	if err := requireFail2ban(); err != nil {
 		http.Error(w, "fail2ban is not installed", http.StatusServiceUnavailable)
@@ -65,13 +65,43 @@ func handleFail2BanUnban(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := exec.Command("fail2ban-client", "unbanip", req.Jail, req.IP).CombinedOutput()
+	out, err := exec.Command("fail2ban-client", "set", req.Jail, "unbanip", req.IP).CombinedOutput()
 	if err != nil {
 		http.Error(w, "unban failed: "+strings.TrimSpace(string(out)), http.StatusInternalServerError)
 		return
 	}
 
 	respond(w, http.StatusOK, map[string]string{"status": "unbanned", "ip": req.IP, "jail": req.Jail})
+}
+
+func handleFail2BanBan(w http.ResponseWriter, r *http.Request) {
+	if err := requireFail2ban(); err != nil {
+		http.Error(w, "fail2ban is not installed", http.StatusServiceUnavailable)
+		return
+	}
+
+	var req struct {
+		Jail string `json:"jail"`
+		IP   string `json:"ip"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	jailRe := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	ipRe := regexp.MustCompile(`^[\d.:a-fA-F/]+$`)
+	if !jailRe.MatchString(req.Jail) || !ipRe.MatchString(req.IP) {
+		http.Error(w, "invalid jail or ip", http.StatusBadRequest)
+		return
+	}
+
+	out, err := exec.Command("fail2ban-client", "set", req.Jail, "banip", req.IP).CombinedOutput()
+	if err != nil {
+		http.Error(w, "ban failed: "+strings.TrimSpace(string(out)), http.StatusInternalServerError)
+		return
+	}
+
+	respond(w, http.StatusOK, map[string]string{"status": "banned", "ip": req.IP, "jail": req.Jail})
 }
 
 func parseFail2BanJailList(output string) []string {
