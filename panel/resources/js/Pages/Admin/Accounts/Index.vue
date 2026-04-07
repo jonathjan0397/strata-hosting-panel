@@ -34,12 +34,30 @@
                     <option value="active">Active</option>
                     <option value="suspended">Suspended</option>
                 </select>
+                <div class="ml-auto flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-gray-500">{{ selectedIds.length }} selected</span>
+                    <button type="button" class="rounded-lg border border-amber-700 px-3 py-2 text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-900/20 disabled:opacity-50" :disabled="selectedIds.length === 0" @click="bulkStatus('suspend')">
+                        Suspend
+                    </button>
+                    <button type="button" class="rounded-lg border border-emerald-700 px-3 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-900/20 disabled:opacity-50" :disabled="selectedIds.length === 0" @click="bulkStatus('unsuspend')">
+                        Unsuspend
+                    </button>
+                </div>
             </div>
 
             <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
                 <table class="min-w-full divide-y divide-gray-800">
                     <thead>
                         <tr>
+                            <th class="px-5 py-3 text-left">
+                                <input
+                                    type="checkbox"
+                                    class="rounded border-gray-700 bg-gray-800 text-indigo-500 focus:ring-indigo-500"
+                                    :checked="allVisibleSelected"
+                                    :disabled="accounts.data.length === 0"
+                                    @change="toggleVisible($event.target.checked)"
+                                />
+                            </th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Username</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Email</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Node</th>
@@ -55,6 +73,14 @@
                             :key="account.id"
                             class="transition-colors hover:bg-gray-800/40"
                         >
+                            <td class="px-5 py-3.5">
+                                <input
+                                    v-model="selectedIds"
+                                    type="checkbox"
+                                    class="rounded border-gray-700 bg-gray-800 text-indigo-500 focus:ring-indigo-500"
+                                    :value="account.id"
+                                />
+                            </td>
                             <td class="px-5 py-3.5 text-sm font-mono font-medium text-gray-100">{{ account.username }}</td>
                             <td class="px-5 py-3.5 text-sm text-gray-400">{{ account.user?.email }}</td>
                             <td class="px-5 py-3.5 text-sm text-gray-400">{{ account.node?.name }}</td>
@@ -78,7 +104,7 @@
                             </td>
                         </tr>
                         <tr v-if="accounts.data.length === 0">
-                            <td colspan="7" class="px-5 py-8">
+                            <td colspan="8" class="px-5 py-8">
                                 <EmptyState
                                     title="No accounts found"
                                     description="Adjust the filters or create the first hosting account."
@@ -115,8 +141,11 @@ const props = defineProps({
 
 const search = ref(props.filters?.search ?? '');
 const statusFilter = ref(props.filters?.status ?? '');
+const selectedIds = ref([]);
 const activeCount = computed(() => props.accounts.data.filter((account) => account.status === 'active').length);
 const suspendedCount = computed(() => props.accounts.data.filter((account) => account.status === 'suspended').length);
+const visibleIds = computed(() => props.accounts.data.map((account) => account.id));
+const allVisibleSelected = computed(() => visibleIds.value.length > 0 && visibleIds.value.every((id) => selectedIds.value.includes(id)));
 
 let debounceTimer;
 function debouncedSearch() {
@@ -125,9 +154,30 @@ function debouncedSearch() {
 }
 
 function applyFilters() {
+    selectedIds.value = [];
     router.get(route('admin.accounts.index'), {
         search: search.value || undefined,
         status: statusFilter.value || undefined,
     }, { preserveState: true, replace: true });
+}
+
+function toggleVisible(checked) {
+    selectedIds.value = checked ? [...visibleIds.value] : [];
+}
+
+function bulkStatus(action) {
+    if (selectedIds.value.length === 0) return;
+    const label = action === 'suspend' ? 'suspend' : 'unsuspend';
+    if (!confirm(`${label.charAt(0).toUpperCase() + label.slice(1)} ${selectedIds.value.length} selected account(s)?`)) return;
+
+    router.post(route('admin.accounts.bulk-status'), {
+        account_ids: selectedIds.value,
+        action,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            selectedIds.value = [];
+        },
+    });
 }
 </script>

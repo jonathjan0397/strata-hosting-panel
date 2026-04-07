@@ -141,6 +141,42 @@ class AccountController extends Controller
         return back()->with('success', "Account {$account->username} unsuspended.");
     }
 
+    public function bulkStatus(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'account_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'account_ids.*' => ['integer', 'exists:accounts,id'],
+            'action' => ['required', 'in:suspend,unsuspend'],
+        ]);
+
+        $accounts = Account::whereIn('id', $data['account_ids'])->get();
+        $targetStatus = $data['action'] === 'suspend' ? 'suspended' : 'active';
+        $updated = 0;
+
+        foreach ($accounts as $account) {
+            if ($account->status === $targetStatus) {
+                continue;
+            }
+
+            $account->update([
+                'status' => $targetStatus,
+                'suspended_at' => $targetStatus === 'suspended' ? now() : null,
+            ]);
+
+            $auditAction = $targetStatus === 'suspended' ? 'account.suspended' : 'account.unsuspended';
+            AuditLog::record($auditAction, $account, [
+                'bulk' => true,
+                'action' => $data['action'],
+            ]);
+
+            $updated++;
+        }
+
+        $label = $data['action'] === 'suspend' ? 'suspended' : 'unsuspended';
+
+        return back()->with('success', "{$updated} account(s) {$label}.");
+    }
+
     public function destroy(Account $account): RedirectResponse
     {
         [$success, $error] = app(AccountProvisioner::class)->deprovision($account);

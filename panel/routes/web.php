@@ -239,6 +239,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Accounts
         Route::resource('accounts', AccountController::class)->except(['edit', 'update']);
+        Route::post('accounts/bulk-status', [AccountController::class, 'bulkStatus'])->name('accounts.bulk-status');
         Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])->name('accounts.suspend');
         Route::post('accounts/{account}/unsuspend', [AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
         Route::resource('packages', HostingPackageController::class)->except(['show']);
