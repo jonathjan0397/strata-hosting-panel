@@ -4,7 +4,7 @@
             <PageHeader
                 eyebrow="Platform"
                 title="Account Migrations"
-                description="Prepare accounts for node-to-node migration with tracked full backups and target-node planning."
+                description="Queue tracked node-to-node migration steps and monitor progress from the migration table."
             />
 
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
@@ -12,7 +12,7 @@
                     <div>
                         <h2 class="text-sm font-semibold text-gray-100">Prepare Migration</h2>
                         <p class="mt-1 text-sm text-gray-400">
-                            This creates a full source-node backup and records the target node. Transfer and restore remain explicit follow-up steps.
+                            This queues a full source-node backup and records the target node. Transfer, restore, cutover, and cleanup remain explicit follow-up steps.
                         </p>
                     </div>
                     <form @submit.prevent="prepareMigration" class="grid gap-3 sm:grid-cols-2 lg:min-w-[34rem]">
@@ -119,6 +119,7 @@
                                 >
                                     Cleanup Source
                                 </button>
+                                <span v-else-if="isRunning(migration.status)" class="text-xs text-amber-300">Queued</span>
                                 <span v-else class="text-xs text-gray-600">-</span>
                             </td>
                         </tr>
@@ -217,5 +218,9 @@ function statusClass(status) {
         failed: 'bg-red-900/40 text-red-300',
         complete: 'bg-indigo-900/40 text-indigo-300',
     }[status] ?? 'bg-gray-800 text-gray-300';
+}
+
+function isRunning(status) {
+    return ['backup_running', 'transfer_running', 'restore_running', 'cutover_running', 'source_cleanup_running'].includes(status);
 }
 </script>

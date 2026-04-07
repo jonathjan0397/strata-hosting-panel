@@ -3,23 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessAccountMigrationStep;
 use App\Models\Account;
 use App\Models\AccountMigration;
-use App\Models\AppInstallation;
-use App\Models\AuditLog;
-use App\Models\BackupJob;
-use App\Models\DatabaseGrant;
-use App\Models\DnsZone;
-use App\Models\EmailAccount;
-use App\Models\EmailForwarder;
-use App\Models\FtpAccount;
-use App\Models\HostingDatabase;
 use App\Models\Node;
-use App\Services\AgentClient;
-use App\Services\DomainProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,7 +28,7 @@ class AccountMigrationController extends Controller
             ->paginate(25)
             ->through(function (AccountMigration $migration) {
                 $cutoverBlockers = $migration->account
-                    ? $this->cutoverBlockers($migration->account)
+                    ? ProcessAccountMigrationStep::cutoverBlockers($migration->account)
                     : [];
 
                 return [
@@ -122,50 +111,9 @@ class AccountMigrationController extends Controller
             'status' => 'backup_running',
         ]);
 
-        $backupJob = BackupJob::create([
-            'account_id' => $account->id,
-            'node_id' => $account->node_id,
-            'type' => 'full',
-            'status' => 'running',
-            'trigger' => 'manual',
-        ]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'prepare');
 
-        $migration->update(['backup_job_id' => $backupJob->id]);
-
-        try {
-            $response = AgentClient::for($account->node)->backupCreate($account->username, 'full');
-        } catch (\Throwable $e) {
-            $backupJob->update(['status' => 'failed', 'error' => $e->getMessage()]);
-            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
-
-            return back()->with('error', 'Migration backup failed: ' . $e->getMessage());
-        }
-
-        if (! $response->successful()) {
-            $error = $response->body();
-            $backupJob->update(['status' => 'failed', 'error' => $error]);
-            $migration->update(['status' => 'failed', 'error' => $error, 'completed_at' => now()]);
-
-            return back()->with('error', 'Migration backup failed: ' . $error);
-        }
-
-        $result = $response->json();
-        $backupJob->update([
-            'status' => 'complete',
-            'filename' => $result['filename'] ?? null,
-            'size_bytes' => $result['size_bytes'] ?? null,
-        ]);
-        $migration->update(['status' => 'backup_ready']);
-
-        AuditLog::record('account.migration_backup_ready', $account, [
-            'migration_id' => $migration->id,
-            'source_node_id' => $account->node_id,
-            'target_node_id' => $targetNode->id,
-            'backup_job_id' => $backupJob->id,
-            'filename' => $backupJob->filename,
-        ]);
-
-        return back()->with('success', "Migration backup is ready for {$account->username}. Transfer/restore can proceed from the migration queue.");
+        return back()->with('success', "Migration backup for {$account->username} was queued. Refresh the migration queue for progress.");
     }
 
     public function transfer(AccountMigration $migration): RedirectResponse
@@ -185,64 +133,9 @@ class AccountMigrationController extends Controller
         }
 
         $migration->update(['status' => 'transfer_running', 'error' => null]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'transfer');
 
-        $targetBackup = BackupJob::create([
-            'account_id' => $migration->account_id,
-            'node_id' => $migration->target_node_id,
-            'filename' => $migration->backupJob->filename,
-            'type' => $migration->backupJob->type,
-            'status' => 'running',
-            'trigger' => 'manual',
-        ]);
-
-        try {
-            $download = AgentClient::for($migration->sourceNode)->backupDownload(
-                $migration->account->username,
-                $migration->backupJob->filename
-            );
-
-            if (! $download->successful()) {
-                throw new \RuntimeException($download->body());
-            }
-
-            $upload = AgentClient::for($migration->targetNode)->backupUpload(
-                $migration->account->username,
-                $migration->backupJob->filename,
-                $download->body()
-            );
-
-            if (! $upload->successful()) {
-                throw new \RuntimeException($upload->body());
-            }
-        } catch (\Throwable $e) {
-            $targetBackup->update(['status' => 'failed', 'error' => $e->getMessage()]);
-            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
-
-            return back()->with('error', 'Migration transfer failed: ' . $e->getMessage());
-        }
-
-        $result = $upload->json();
-        $targetBackup->update([
-            'status' => 'complete',
-            'filename' => $result['filename'] ?? $migration->backupJob->filename,
-            'size_bytes' => $result['size_bytes'] ?? $migration->backupJob->size_bytes,
-        ]);
-
-        $migration->update([
-            'status' => 'transfer_ready',
-            'target_backup_job_id' => $targetBackup->id,
-        ]);
-
-        AuditLog::record('account.migration_transfer_ready', $migration->account, [
-            'migration_id' => $migration->id,
-            'source_node_id' => $migration->source_node_id,
-            'target_node_id' => $migration->target_node_id,
-            'source_backup_job_id' => $migration->backup_job_id,
-            'target_backup_job_id' => $targetBackup->id,
-            'filename' => $targetBackup->filename,
-        ]);
-
-        return back()->with('success', "Migration backup transferred to {$migration->targetNode->name}.");
+        return back()->with('success', "Migration backup transfer to {$migration->targetNode->name} was queued.");
     }
 
     public function restore(AccountMigration $migration): RedirectResponse
@@ -262,43 +155,9 @@ class AccountMigrationController extends Controller
         }
 
         $migration->update(['status' => 'restore_running', 'error' => null]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'restore');
 
-        try {
-            $provision = AgentClient::for($migration->targetNode)->provisionAccount([
-                'username' => $migration->account->username,
-                'php_version' => $migration->account->php_version,
-            ]);
-
-            if (! $provision->successful()) {
-                throw new \RuntimeException($provision->json('message') ?? $provision->body());
-            }
-
-            $restore = AgentClient::for($migration->targetNode)->backupRestore(
-                $migration->account->username,
-                $migration->targetBackupJob->filename
-            );
-
-            if (! $restore->successful()) {
-                throw new \RuntimeException($restore->body());
-            }
-        } catch (\Throwable $e) {
-            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
-
-            return back()->with('error', 'Migration restore failed: ' . $e->getMessage());
-        }
-
-        $migration->update(['status' => 'restored', 'completed_at' => now()]);
-
-        AuditLog::record('account.migration_restored', $migration->account, [
-            'migration_id' => $migration->id,
-            'source_node_id' => $migration->source_node_id,
-            'target_node_id' => $migration->target_node_id,
-            'target_backup_job_id' => $migration->target_backup_job_id,
-            'filename' => $migration->targetBackupJob->filename,
-            'source_retained' => true,
-        ]);
-
-        return back()->with('success', "Migration archive restored on {$migration->targetNode->name}. Source account is still retained for cutover validation.");
+        return back()->with('success', "Migration archive restore on {$migration->targetNode->name} was queued. Source account is still retained for cutover validation.");
     }
 
     public function cutover(AccountMigration $migration): RedirectResponse
@@ -313,7 +172,7 @@ class AccountMigrationController extends Controller
             return back()->with('error', 'Migration is missing account or node metadata.');
         }
 
-        $blockers = $this->cutoverBlockers($migration->account);
+        $blockers = ProcessAccountMigrationStep::cutoverBlockers($migration->account);
         if ($blockers !== []) {
             return back()->with('error', 'Automatic cutover is blocked until service re-provisioning is added for: ' . implode(', ', $blockers) . '.');
         }
@@ -322,55 +181,10 @@ class AccountMigrationController extends Controller
             return back()->with('error', 'Target node must be online before cutover.');
         }
 
-        $account = $migration->account;
-        $sourceNodeId = $migration->source_node_id;
-        $targetNodeId = $migration->target_node_id;
-        $domainIds = $account->domains->pluck('id')->all();
-
         $migration->update(['status' => 'cutover_running', 'error' => null]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'cutover');
 
-        try {
-            DB::transaction(function () use ($account, $domainIds, $targetNodeId) {
-                $account->update(['node_id' => $targetNodeId]);
-
-                if ($domainIds !== []) {
-                    $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $targetNodeId]);
-                    DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $targetNodeId]);
-                }
-            });
-
-            foreach ($account->domains()->with('node', 'account')->get() as $domain) {
-                [$synced, $error] = app(DomainProvisioner::class)->reprovision($domain);
-                if (! $synced) {
-                    throw new \RuntimeException("{$domain->domain}: {$error}");
-                }
-            }
-        } catch (\Throwable $e) {
-            DB::transaction(function () use ($account, $domainIds, $sourceNodeId) {
-                $account->update(['node_id' => $sourceNodeId]);
-
-                if ($domainIds !== []) {
-                    $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $sourceNodeId]);
-                    DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $sourceNodeId]);
-                }
-            });
-
-            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
-
-            return back()->with('error', 'Migration cutover failed and panel ownership was rolled back: ' . $e->getMessage());
-        }
-
-        $migration->update(['status' => 'complete', 'completed_at' => now()]);
-
-        AuditLog::record('account.migration_cutover_complete', $account->refresh(), [
-            'migration_id' => $migration->id,
-            'source_node_id' => $sourceNodeId,
-            'target_node_id' => $targetNodeId,
-            'domains_reprovisioned' => count($domainIds),
-            'source_retained' => true,
-        ]);
-
-        return back()->with('success', "Account {$account->username} cut over to {$migration->targetNode->name}. Source node data is retained for manual cleanup.");
+        return back()->with('success', "Cutover for {$migration->account->username} was queued. Source node data will be retained for manual cleanup.");
     }
 
     public function cleanupSource(AccountMigration $migration): RedirectResponse
@@ -390,41 +204,8 @@ class AccountMigrationController extends Controller
         }
 
         $migration->update(['status' => 'source_cleanup_running', 'error' => null]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'cleanup_source');
 
-        try {
-            $response = AgentClient::for($migration->sourceNode)->deprovisionAccount($migration->account->username);
-
-            if (! $response->successful()) {
-                throw new \RuntimeException($response->json('message') ?? $response->body());
-            }
-        } catch (\Throwable $e) {
-            $migration->update(['status' => 'complete', 'error' => 'Source cleanup failed: ' . $e->getMessage()]);
-
-            return back()->with('error', 'Source cleanup failed; cutover remains complete: ' . $e->getMessage());
-        }
-
-        $migration->update(['status' => 'source_cleaned', 'error' => null]);
-
-        AuditLog::record('account.migration_source_cleaned', $migration->account, [
-            'migration_id' => $migration->id,
-            'source_node_id' => $migration->source_node_id,
-            'target_node_id' => $migration->target_node_id,
-        ]);
-
-        return back()->with('success', "Source node data for {$migration->account->username} was cleaned up.");
-    }
-
-    private function cutoverBlockers(Account $account): array
-    {
-        $checks = [
-            'mailboxes' => EmailAccount::where('account_id', $account->id)->count(),
-            'forwarders' => EmailForwarder::where('account_id', $account->id)->count(),
-            'FTP accounts' => FtpAccount::where('account_id', $account->id)->count(),
-            'databases' => HostingDatabase::where('account_id', $account->id)->count(),
-            'database grants' => DatabaseGrant::where('account_id', $account->id)->count(),
-            'app installs' => AppInstallation::where('account_id', $account->id)->count(),
-        ];
-
-        return array_keys(array_filter($checks, fn (int $count) => $count > 0));
+        return back()->with('success', "Source node cleanup for {$migration->account->username} was queued.");
     }
 }

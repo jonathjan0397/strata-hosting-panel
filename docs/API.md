@@ -162,7 +162,7 @@ Returns disk, bandwidth, domain, mailbox, and database usage/limits.
 
 ## Migrations
 
-Migration endpoints expose the same conservative account-transfer workflow as the admin UI. These operations are synchronous today and should be called with long HTTP timeouts.
+Migration endpoints expose the same conservative account-transfer workflow as the admin UI. Write actions enqueue queue-worker jobs and return `202 Accepted` with the current migration payload. Poll `GET /api/v1/migrations/{id}` for progress.
 
 Automatic cutover remains limited to static/domain-only accounts. If an account has mailboxes, forwarders, FTP users, databases, database grants, or app installs, the API returns cutover blockers instead of forcing an unsafe move.
 
@@ -209,7 +209,7 @@ Request body:
 }
 ```
 
-Creates a full source-node backup and returns the migration in `backup_ready` status if successful.
+Queues a full source-node backup and returns the migration in `backup_running` status.
 
 ### Transfer Backup
 
@@ -219,7 +219,7 @@ POST /api/v1/migrations/{id}/transfer
 
 Ability: `migrations:write`
 
-Transfers the prepared archive to the target node and returns `transfer_ready` on success.
+Queues transfer of the prepared archive to the target node and returns `transfer_running`.
 
 ### Restore Target
 
@@ -229,7 +229,7 @@ POST /api/v1/migrations/{id}/restore
 
 Ability: `migrations:write`
 
-Provisions the target account, restores the transferred archive, and returns `restored`.
+Queues target account provisioning and archive restore, then returns `restore_running`.
 
 ### Cut Over
 
@@ -239,7 +239,7 @@ POST /api/v1/migrations/{id}/cutover
 
 Ability: `migrations:write`
 
-Moves panel ownership to the target node and reprovisions vhosts. If automatic cutover is unsafe, the response is `409` with a `blockers` array.
+Queues panel ownership movement to the target node and vhost reprovisioning. If automatic cutover is unsafe, the response is `409` with a `blockers` array.
 
 ### Cleanup Source
 
@@ -249,7 +249,7 @@ POST /api/v1/migrations/{id}/cleanup-source
 
 Ability: `migrations:write`
 
-Runs source-node cleanup after a completed cutover. Cleanup failures do not undo the completed target cutover.
+Queues source-node cleanup after a completed cutover. Cleanup failures do not undo the completed target cutover.
 
 ## Catalog
 

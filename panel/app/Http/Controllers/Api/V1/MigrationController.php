@@ -3,23 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessAccountMigrationStep;
 use App\Models\Account;
 use App\Models\AccountMigration;
-use App\Models\AppInstallation;
-use App\Models\AuditLog;
 use App\Models\BackupJob;
-use App\Models\DatabaseGrant;
-use App\Models\DnsZone;
-use App\Models\EmailAccount;
-use App\Models\EmailForwarder;
-use App\Models\FtpAccount;
-use App\Models\HostingDatabase;
 use App\Models\Node;
-use App\Services\AgentClient;
-use App\Services\DomainProvisioner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class MigrationController extends Controller
 {
@@ -87,45 +77,9 @@ class MigrationController extends Controller
             'status' => 'backup_running',
         ]);
 
-        $backupJob = BackupJob::create([
-            'account_id' => $account->id,
-            'node_id' => $account->node_id,
-            'type' => 'full',
-            'status' => 'running',
-            'trigger' => 'manual',
-        ]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'prepare', 'api.account_migration');
 
-        $migration->update(['backup_job_id' => $backupJob->id]);
-
-        try {
-            $response = AgentClient::for($account->node)->backupCreate($account->username, 'full');
-            if (! $response->successful()) {
-                throw new \RuntimeException($response->body());
-            }
-        } catch (\Throwable $e) {
-            $backupJob->update(['status' => 'failed', 'error' => $e->getMessage()]);
-            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
-
-            return response()->json(['error' => 'Migration backup failed: ' . $e->getMessage()], 502);
-        }
-
-        $result = $response->json();
-        $backupJob->update([
-            'status' => 'complete',
-            'filename' => $result['filename'] ?? null,
-            'size_bytes' => $result['size_bytes'] ?? null,
-        ]);
-        $migration->update(['status' => 'backup_ready']);
-
-        AuditLog::record('api.account_migration_backup_ready', $account, [
-            'migration_id' => $migration->id,
-            'source_node_id' => $account->node_id,
-            'target_node_id' => $targetNode->id,
-            'backup_job_id' => $backupJob->id,
-            'filename' => $backupJob->filename,
-        ]);
-
-        return response()->json($this->payload($migration->load($this->relationships())), 201);
+        return response()->json($this->payload($migration->load($this->relationships())), 202);
     }
 
     public function transfer(AccountMigration $migration): JsonResponse
@@ -146,51 +100,9 @@ class MigrationController extends Controller
 
         $migration->update(['status' => 'transfer_running', 'error' => null]);
 
-        $targetBackup = BackupJob::create([
-            'account_id' => $migration->account_id,
-            'node_id' => $migration->target_node_id,
-            'filename' => $migration->backupJob->filename,
-            'type' => $migration->backupJob->type,
-            'status' => 'running',
-            'trigger' => 'manual',
-        ]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'transfer', 'api.account_migration');
 
-        try {
-            $download = AgentClient::for($migration->sourceNode)->backupDownload($migration->account->username, $migration->backupJob->filename);
-            if (! $download->successful()) {
-                throw new \RuntimeException($download->body());
-            }
-
-            $upload = AgentClient::for($migration->targetNode)->backupUpload($migration->account->username, $migration->backupJob->filename, $download->body());
-            if (! $upload->successful()) {
-                throw new \RuntimeException($upload->body());
-            }
-        } catch (\Throwable $e) {
-            $targetBackup->update(['status' => 'failed', 'error' => $e->getMessage()]);
-            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
-
-            return response()->json(['error' => 'Migration transfer failed: ' . $e->getMessage()], 502);
-        }
-
-        $result = $upload->json();
-        $targetBackup->update([
-            'status' => 'complete',
-            'filename' => $result['filename'] ?? $migration->backupJob->filename,
-            'size_bytes' => $result['size_bytes'] ?? $migration->backupJob->size_bytes,
-        ]);
-
-        $migration->update([
-            'status' => 'transfer_ready',
-            'target_backup_job_id' => $targetBackup->id,
-        ]);
-
-        AuditLog::record('api.account_migration_transfer_ready', $migration->account, [
-            'migration_id' => $migration->id,
-            'target_backup_job_id' => $targetBackup->id,
-            'filename' => $targetBackup->filename,
-        ]);
-
-        return response()->json($this->payload($migration->load($this->relationships())));
+        return response()->json($this->payload($migration->load($this->relationships())), 202);
     }
 
     public function restore(AccountMigration $migration): JsonResponse
@@ -211,34 +123,9 @@ class MigrationController extends Controller
 
         $migration->update(['status' => 'restore_running', 'error' => null]);
 
-        try {
-            $provision = AgentClient::for($migration->targetNode)->provisionAccount([
-                'username' => $migration->account->username,
-                'php_version' => $migration->account->php_version,
-            ]);
-            if (! $provision->successful()) {
-                throw new \RuntimeException($provision->json('message') ?? $provision->body());
-            }
+        ProcessAccountMigrationStep::dispatch($migration->id, 'restore', 'api.account_migration');
 
-            $restore = AgentClient::for($migration->targetNode)->backupRestore($migration->account->username, $migration->targetBackupJob->filename);
-            if (! $restore->successful()) {
-                throw new \RuntimeException($restore->body());
-            }
-        } catch (\Throwable $e) {
-            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
-
-            return response()->json(['error' => 'Migration restore failed: ' . $e->getMessage()], 502);
-        }
-
-        $migration->update(['status' => 'restored', 'completed_at' => now()]);
-
-        AuditLog::record('api.account_migration_restored', $migration->account, [
-            'migration_id' => $migration->id,
-            'target_backup_job_id' => $migration->target_backup_job_id,
-            'source_retained' => true,
-        ]);
-
-        return response()->json($this->payload($migration->load($this->relationships())));
+        return response()->json($this->payload($migration->load($this->relationships())), 202);
     }
 
     public function cutover(AccountMigration $migration): JsonResponse
@@ -253,7 +140,7 @@ class MigrationController extends Controller
             return response()->json(['error' => 'Migration is missing account or node metadata.'], 422);
         }
 
-        $blockers = $this->cutoverBlockers($migration->account);
+        $blockers = ProcessAccountMigrationStep::cutoverBlockers($migration->account);
         if ($blockers !== []) {
             return response()->json(['error' => 'Automatic cutover is blocked.', 'blockers' => $blockers], 409);
         }
@@ -262,55 +149,10 @@ class MigrationController extends Controller
             return response()->json(['error' => 'Target node must be online before cutover.'], 422);
         }
 
-        $account = $migration->account;
-        $sourceNodeId = $migration->source_node_id;
-        $targetNodeId = $migration->target_node_id;
-        $domainIds = $account->domains->pluck('id')->all();
-
         $migration->update(['status' => 'cutover_running', 'error' => null]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'cutover', 'api.account_migration');
 
-        try {
-            DB::transaction(function () use ($account, $domainIds, $targetNodeId) {
-                $account->update(['node_id' => $targetNodeId]);
-
-                if ($domainIds !== []) {
-                    $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $targetNodeId]);
-                    DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $targetNodeId]);
-                }
-            });
-
-            foreach ($account->domains()->with('node', 'account')->get() as $domain) {
-                [$synced, $error] = app(DomainProvisioner::class)->reprovision($domain);
-                if (! $synced) {
-                    throw new \RuntimeException("{$domain->domain}: {$error}");
-                }
-            }
-        } catch (\Throwable $e) {
-            DB::transaction(function () use ($account, $domainIds, $sourceNodeId) {
-                $account->update(['node_id' => $sourceNodeId]);
-
-                if ($domainIds !== []) {
-                    $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $sourceNodeId]);
-                    DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $sourceNodeId]);
-                }
-            });
-
-            $migration->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
-
-            return response()->json(['error' => 'Migration cutover failed and panel ownership was rolled back: ' . $e->getMessage()], 502);
-        }
-
-        $migration->update(['status' => 'complete', 'completed_at' => now()]);
-
-        AuditLog::record('api.account_migration_cutover_complete', $account->refresh(), [
-            'migration_id' => $migration->id,
-            'source_node_id' => $sourceNodeId,
-            'target_node_id' => $targetNodeId,
-            'domains_reprovisioned' => count($domainIds),
-            'source_retained' => true,
-        ]);
-
-        return response()->json($this->payload($migration->load($this->relationships())));
+        return response()->json($this->payload($migration->load($this->relationships())), 202);
     }
 
     public function cleanupSource(AccountMigration $migration): JsonResponse
@@ -331,26 +173,9 @@ class MigrationController extends Controller
 
         $migration->update(['status' => 'source_cleanup_running', 'error' => null]);
 
-        try {
-            $response = AgentClient::for($migration->sourceNode)->deprovisionAccount($migration->account->username);
-            if (! $response->successful()) {
-                throw new \RuntimeException($response->json('message') ?? $response->body());
-            }
-        } catch (\Throwable $e) {
-            $migration->update(['status' => 'complete', 'error' => 'Source cleanup failed: ' . $e->getMessage()]);
+        ProcessAccountMigrationStep::dispatch($migration->id, 'cleanup_source', 'api.account_migration');
 
-            return response()->json(['error' => 'Source cleanup failed; cutover remains complete: ' . $e->getMessage()], 502);
-        }
-
-        $migration->update(['status' => 'source_cleaned', 'error' => null]);
-
-        AuditLog::record('api.account_migration_source_cleaned', $migration->account, [
-            'migration_id' => $migration->id,
-            'source_node_id' => $migration->source_node_id,
-            'target_node_id' => $migration->target_node_id,
-        ]);
-
-        return response()->json($this->payload($migration->load($this->relationships())));
+        return response()->json($this->payload($migration->load($this->relationships())), 202);
     }
 
     private function relationships(): array
@@ -368,7 +193,7 @@ class MigrationController extends Controller
     private function payload(AccountMigration $migration): array
     {
         $account = $migration->account;
-        $blockers = $account ? $this->cutoverBlockers($account) : [];
+        $blockers = $account ? ProcessAccountMigrationStep::cutoverBlockers($account) : [];
 
         return [
             'id' => $migration->id,
@@ -416,17 +241,4 @@ class MigrationController extends Controller
         ] : null;
     }
 
-    private function cutoverBlockers(Account $account): array
-    {
-        $checks = [
-            'mailboxes' => EmailAccount::where('account_id', $account->id)->count(),
-            'forwarders' => EmailForwarder::where('account_id', $account->id)->count(),
-            'FTP accounts' => FtpAccount::where('account_id', $account->id)->count(),
-            'databases' => HostingDatabase::where('account_id', $account->id)->count(),
-            'database grants' => DatabaseGrant::where('account_id', $account->id)->count(),
-            'app installs' => AppInstallation::where('account_id', $account->id)->count(),
-        ];
-
-        return array_keys(array_filter($checks, fn (int $count) => $count > 0));
-    }
 }

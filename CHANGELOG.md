@@ -17,6 +17,9 @@
 **API**
 - Account migration workflow endpoints for list/detail/prepare/transfer/restore/cutover/source cleanup
 
+**Migrations**
+- Migration prepare, transfer, restore, cutover, and source cleanup actions now run through the queue worker with migration-row progress tracking
+
 **Backup Schedules**
 - Per-account backup schedule configuration: frequency (disabled / daily / weekly), time (HH:MM), day of week (weekly only)
 - New migration: `backup_schedule`, `backup_time`, `backup_day` columns on `accounts` table

@@ -94,6 +94,7 @@ Implemented on `main`:
 - explicit post-cutover source-node cleanup action with failure isolation from the completed cutover state
 - migration queue cutover-blocker visibility for accounts that need manual service re-provisioning
 - API migration workflow endpoints for list, detail, prepare, transfer, restore, cutover, and source cleanup
+- queued migration execution for prepare, transfer, restore, cutover, and source cleanup with migration-row progress tracking
 
 ### 4. Metrics and Logs
 Status: `in progress`
