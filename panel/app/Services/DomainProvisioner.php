@@ -264,6 +264,11 @@ class DomainProvisioner
             $parts[] = $modSecurityDirective;
         }
 
+        $leechDirective = $this->buildLeechProtectionDirective($domain, $webServer);
+        if ($leechDirective) {
+            $parts[] = $leechDirective;
+        }
+
         return implode("\n\n", array_filter($parts));
     }
 
@@ -291,6 +296,57 @@ class DomainProvisioner
             'modsecurity on;',
             'modsecurity_rules \'SecRuleEngine ' . ($mode === 'detection_only' ? 'DetectionOnly' : 'On') . '\';',
         ]);
+    }
+
+    private function buildLeechProtectionDirective(Domain $domain, string $webServer): ?string
+    {
+        $config = $domain->leech_protection ?? [];
+        if (! ($config['enabled'] ?? false)) {
+            return null;
+        }
+
+        $path = $this->normalizeProtectedPath($config['path'] ?? null);
+        if (! $path) {
+            return null;
+        }
+
+        $limit = max(1, min(120, (int) ($config['requests_per_minute'] ?? 30)));
+        $redirectUrl = trim((string) ($config['redirect_url'] ?? ''));
+        $returnCode = $redirectUrl !== '' && filter_var($redirectUrl, FILTER_VALIDATE_URL) ? 302 : 429;
+
+        if ($webServer === 'apache') {
+            $conditions = [
+                'RewriteEngine On',
+                'RewriteCond %{REQUEST_URI} ^' . preg_quote($path, '#') . '(/|$) [NC]',
+            ];
+
+            if ($redirectUrl !== '') {
+                $conditions[] = 'RewriteRule ^ ' . $redirectUrl . ' [R=302,L]';
+            } else {
+                $conditions[] = 'RewriteRule ^ - [R=429,L]';
+            }
+
+            $conditions[] = '# Leech threshold: ' . $limit . ' requests/minute. Enforce precise per-client rate limits at the WAF/proxy layer.';
+
+            return implode("\n", $conditions);
+        }
+
+        $zone = 'strata_leech_' . substr(sha1($domain->domain . $path), 0, 12);
+        $parts = [
+            'limit_req_zone $binary_remote_addr zone=' . $zone . ':10m rate=' . $limit . 'r/m;',
+            'location ^~ ' . rtrim($path, '/') . '/ {',
+            '    limit_req zone=' . $zone . ' burst=' . max(1, (int) ceil($limit / 4)) . ' nodelay;',
+        ];
+
+        if ($returnCode === 302) {
+            $parts[] = '    error_page 503 =302 ' . $redirectUrl . ';';
+        } else {
+            $parts[] = '    limit_req_status 429;';
+        }
+
+        $parts[] = '}';
+
+        return implode("\n", $parts);
     }
 
     private function buildForceHttpsDirective(Domain $domain, string $webServer): ?string

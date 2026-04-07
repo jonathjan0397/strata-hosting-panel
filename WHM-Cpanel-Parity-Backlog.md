@@ -185,6 +185,7 @@ Implemented on `main`:
 - admin IP blocker backed by UFW deny-from rules
 - package-gated ClamAV malware scanner for jailed account paths with optional quarantine
 - package-gated per-domain ModSecurity directive controls with enforce/detection-only modes
+- package-gated per-domain leech protection with Nginx request limiting and Apache block/redirect directives
 
 ### 9. UX and Navigation
 Status: `in progress`

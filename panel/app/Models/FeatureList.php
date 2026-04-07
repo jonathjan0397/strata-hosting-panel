@@ -35,6 +35,7 @@ class FeatureList extends Model
             'directory_privacy' => 'Directory Privacy',
             'hotlink_protection' => 'Hotlink Protection',
             'modsecurity' => 'ModSecurity WAF',
+            'leech_protection' => 'Leech Protection',
             'malware_scanner' => 'Malware Scanner',
             'disk_usage' => 'Disk Usage',
             'backups' => 'Backups',

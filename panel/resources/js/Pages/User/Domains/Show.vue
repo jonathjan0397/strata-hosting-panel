@@ -339,6 +339,50 @@
             </form>
         </div>
 
+        <div v-if="canManageLeechProtection" class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <div class="mb-4 flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-300 mb-1">Leech Protection</h3>
+                    <p class="text-xs text-gray-500">
+                        Rate-limit repeated access to a protected path. Nginx uses per-IP request limiting; Apache emits block/redirect rules and should be paired with a WAF/proxy for precise throttling.
+                    </p>
+                </div>
+                <span
+                    :class="domain.leech_protection?.enabled ? 'border-emerald-700 bg-emerald-900/30 text-emerald-300' : 'border-gray-700 bg-gray-800 text-gray-400'"
+                    class="rounded-full border px-2.5 py-1 text-xs font-semibold"
+                >
+                    {{ domain.leech_protection?.enabled ? 'Enabled' : 'Disabled' }}
+                </span>
+            </div>
+
+            <form @submit.prevent="leechForm.put(route('my.domains.leech.update', domain.id), { preserveScroll: true })" class="grid gap-4 lg:grid-cols-4">
+                <label class="flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300 lg:col-span-4">
+                    <input v-model="leechForm.enabled" type="checkbox" class="rounded border-gray-700 bg-gray-800 text-indigo-600" />
+                    Enable leech protection for this domain
+                </label>
+                <div>
+                    <label class="mb-1 block text-xs text-gray-400">Protected path</label>
+                    <input v-model="leechForm.path" type="text" class="field w-full font-mono" placeholder="/members" :disabled="!leechForm.enabled" />
+                    <p v-if="leechForm.errors.path" class="mt-0.5 text-xs text-red-400">{{ leechForm.errors.path }}</p>
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs text-gray-400">Requests/minute</label>
+                    <input v-model.number="leechForm.requests_per_minute" type="number" min="1" max="120" class="field w-full" :disabled="!leechForm.enabled" />
+                    <p v-if="leechForm.errors.requests_per_minute" class="mt-0.5 text-xs text-red-400">{{ leechForm.errors.requests_per_minute }}</p>
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs text-gray-400">Redirect URL</label>
+                    <input v-model="leechForm.redirect_url" type="url" class="field w-full" placeholder="Optional" :disabled="!leechForm.enabled" />
+                    <p v-if="leechForm.errors.redirect_url" class="mt-0.5 text-xs text-red-400">{{ leechForm.errors.redirect_url }}</p>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" :disabled="leechForm.processing" class="btn-primary w-full">
+                        {{ leechForm.processing ? 'Saving...' : 'Save Protection' }}
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <!-- Custom Nginx/Apache Directives -->
         <div class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <h3 class="text-sm font-semibold text-gray-300 mb-1">Custom Directives</h3>
@@ -376,6 +420,7 @@ const props = defineProps({
     canManagePrivacy: Boolean,
     canManageHotlinkProtection: Boolean,
     canManageModSecurity: Boolean,
+    canManageLeechProtection: Boolean,
 });
 
 const showCertUpload = ref(false);
@@ -416,6 +461,14 @@ const modSecurityConfig = props.domain.modsecurity ?? {};
 const modSecurityForm = useForm({
     enabled: modSecurityConfig.enabled ?? false,
     mode: modSecurityConfig.mode ?? 'on',
+});
+
+const leechConfig = props.domain.leech_protection ?? {};
+const leechForm = useForm({
+    enabled: leechConfig.enabled ?? false,
+    path: leechConfig.path ?? '/members',
+    requests_per_minute: leechConfig.requests_per_minute ?? 30,
+    redirect_url: leechConfig.redirect_url ?? '',
 });
 
 const directivesForm = useForm({

@@ -150,7 +150,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | **File Manager** | Browser-based, upload/download/edit/chmod/compress/extract |
 | **Backups** | Files + databases, per-account schedules, manual trigger, download, remote SFTP/S3 destinations |
 | **Metrics** | Resource usage, log viewer/downloads, recent traffic summaries, 30-day stored traffic history |
-| **Security** | 2FA (TOTP), audit log, fail2ban UI (view jails, unban IPs), SSH key management, UFW firewall rules, jailed ClamAV malware scans, per-domain ModSecurity controls |
+| **Security** | 2FA (TOTP), audit log, fail2ban UI (view jails, unban IPs), SSH key management, UFW firewall rules, jailed ClamAV malware scans, per-domain ModSecurity and leech protection controls |
 | **Admin Tools** | Browser SSH terminal, email deliverability troubleshooter, OS update management, backup schedules |
 | **Multi-node** | Remote nodes via Go agent (HMAC auth), health monitoring, per-node service management |
 | **Billing API** | REST provisioning API (create/suspend/terminate/usage), Bearer token auth, outbound webhooks |

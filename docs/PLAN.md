@@ -242,6 +242,7 @@ Admin
 - [x] SSH key management (add/remove authorized_keys per account)
 - [x] ClamAV malware scanner for jailed account paths
 - [x] Per-domain ModSecurity controls for installed WAF modules
+- [x] Per-domain leech protection controls
 
 ### Admin Tools
 - [x] Browser-based SSH terminal (per-node, xterm.js)

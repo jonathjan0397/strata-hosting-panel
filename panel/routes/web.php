@@ -100,6 +100,10 @@ Route::middleware(['auth'])->group(function () {
             Route::put('domains/{domain}/modsecurity', [User\DomainController::class, 'updateModSecurity'])->name('domains.modsecurity.update');
         });
 
+        Route::middleware(['account.feature:domains', 'account.feature:leech_protection'])->group(function () {
+            Route::put('domains/{domain}/leech-protection', [User\DomainController::class, 'updateLeechProtection'])->name('domains.leech.update');
+        });
+
         // Email (per-domain)
         Route::middleware('account.feature:email')->group(function () {
             Route::get('domains/{domain}/email', [User\EmailController::class, 'index'])->name('email.domain');

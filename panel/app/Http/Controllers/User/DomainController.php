@@ -95,6 +95,7 @@ class DomainController extends Controller
             'canManagePrivacy' => $account->hasFeature('directory_privacy'),
             'canManageHotlinkProtection' => $account->hasFeature('hotlink_protection'),
             'canManageModSecurity' => $account->hasFeature('modsecurity'),
+            'canManageLeechProtection' => $account->hasFeature('leech_protection'),
         ]);
     }
 
@@ -415,6 +416,47 @@ class DomainController extends Controller
         return $success
             ? back()->with('success', $data['enabled'] ? 'ModSecurity updated.' : 'ModSecurity disabled.')
             : back()->with('error', "ModSecurity update failed and was rolled back: {$error}");
+    }
+
+    public function updateLeechProtection(Request $request, Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+        abort_unless($account->hasFeature('leech_protection'), 403);
+
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'path' => ['required_if:enabled,true', 'nullable', 'string', 'regex:/^\/[A-Za-z0-9._\/-]+$/', 'not_in:/', 'max:255'],
+            'requests_per_minute' => ['required_if:enabled,true', 'nullable', 'integer', 'min:1', 'max:120'],
+            'redirect_url' => ['nullable', 'url', 'max:2048'],
+        ]);
+
+        if (($data['path'] ?? null) && str_contains($data['path'], '..')) {
+            return back()->with('error', 'Protected paths cannot contain parent directory traversal.');
+        }
+
+        $previousConfig = $domain->leech_protection;
+        $domain->update([
+            'leech_protection' => $data['enabled']
+                ? [
+                    'enabled' => true,
+                    'path' => rtrim($data['path'], '/'),
+                    'requests_per_minute' => (int) $data['requests_per_minute'],
+                    'redirect_url' => $data['redirect_url'] ?? null,
+                ]
+                : null,
+        ]);
+
+        [$success, $error] = app(DomainProvisioner::class)->reprovision($domain);
+
+        if (! $success) {
+            $domain->update(['leech_protection' => $previousConfig]);
+            app(DomainProvisioner::class)->reprovision($domain->fresh());
+        }
+
+        return $success
+            ? back()->with('success', $data['enabled'] ? 'Leech protection updated.' : 'Leech protection disabled.')
+            : back()->with('error', "Leech protection update failed and was rolled back: {$error}");
     }
 
     private function parseDomainList(string $value): array
