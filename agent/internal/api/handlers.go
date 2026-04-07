@@ -79,7 +79,13 @@ func serviceAction(w http.ResponseWriter, r *http.Request, action string) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	respond(w, http.StatusOK, map[string]string{"status": action + "ed", "service": name})
+	status := map[string]string{
+		"start":   "started",
+		"stop":    "stopped",
+		"restart": "restarted",
+		"reload":  "reloaded",
+	}[action]
+	respond(w, http.StatusOK, map[string]string{"status": status, "service": name})
 }
 
 // ── Logs ──────────────────────────────────────────────────────────────────────
