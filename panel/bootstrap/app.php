@@ -3,6 +3,7 @@
 use App\Console\Commands\AppsCheckUpdates;
 use App\Console\Commands\BackupRun;
 use App\Console\Commands\LicenseSync;
+use App\Console\Commands\MetricsAggregateTraffic;
 use App\Console\Commands\NodeHealthCheck;
 use App\Console\Commands\SslRenew;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -33,6 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Check all app installations for available updates daily at 01:00; auto-apply where enabled.
         $schedule->command(AppsCheckUpdates::class, ['--apply' => true])->dailyAt('01:00');
+
+        // Aggregate recent web traffic into daily metrics after log rotation settles.
+        $schedule->command(MetricsAggregateTraffic::class, ['--days' => 30])->dailyAt('02:20');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [

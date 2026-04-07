@@ -4,6 +4,7 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\AccountTrafficMetric;
 use App\Models\Domain;
 use App\Models\EmailAccount;
 use App\Models\FtpAccount;
@@ -46,6 +47,7 @@ class MetricsController extends Controller
                     'ssl_enabled' => $domain->ssl_enabled,
                 ])
                 ->values(),
+            'trafficHistory' => $this->trafficHistory($account),
             'logTypes' => $this->logTypes(),
         ]);
     }
@@ -245,5 +247,52 @@ class MetricsController extends Controller
         }
 
         return $bytes . ' B';
+    }
+
+    private function trafficHistory(Account $account): array
+    {
+        $metrics = AccountTrafficMetric::query()
+            ->where('account_id', $account->id)
+            ->where('date', '>=', now()->subDays(29)->toDateString())
+            ->orderBy('date')
+            ->get();
+
+        $byDay = $metrics
+            ->groupBy(fn (AccountTrafficMetric $metric) => $metric->date->toDateString())
+            ->map(fn ($rows) => [
+                'date' => $rows->first()->date->toDateString(),
+                'requests' => $rows->sum('requests'),
+                'bandwidth_bytes' => $rows->sum('bandwidth_bytes'),
+                'bandwidth_human' => $this->formatBytes((int) $rows->sum('bandwidth_bytes')),
+                'status_2xx' => $rows->sum('status_2xx'),
+                'status_3xx' => $rows->sum('status_3xx'),
+                'status_4xx' => $rows->sum('status_4xx'),
+                'status_5xx' => $rows->sum('status_5xx'),
+            ]);
+
+        $history = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $date = now()->subDays($i)->toDateString();
+            $history[] = $byDay[$date] ?? [
+                'date' => $date,
+                'requests' => 0,
+                'bandwidth_bytes' => 0,
+                'bandwidth_human' => '0 B',
+                'status_2xx' => 0,
+                'status_3xx' => 0,
+                'status_4xx' => 0,
+                'status_5xx' => 0,
+            ];
+        }
+
+        return [
+            'days' => $history,
+            'totals' => [
+                'requests' => array_sum(array_column($history, 'requests')),
+                'bandwidth_bytes' => array_sum(array_column($history, 'bandwidth_bytes')),
+                'bandwidth_human' => $this->formatBytes((int) array_sum(array_column($history, 'bandwidth_bytes'))),
+                'errors' => array_sum(array_column($history, 'status_4xx')) + array_sum(array_column($history, 'status_5xx')),
+            ],
+        ];
     }
 }

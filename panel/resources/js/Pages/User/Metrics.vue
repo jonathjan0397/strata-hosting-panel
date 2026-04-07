@@ -99,6 +99,41 @@
                     </div>
                 </div>
 
+                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5 xl:col-span-2">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-300">30-Day Traffic History</h3>
+                            <p class="mt-1 text-xs text-gray-500">Stored daily snapshots aggregated from domain access logs.</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-right">
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-500">Requests</p>
+                                <p class="text-lg font-semibold text-gray-100">{{ trafficHistory.totals.requests }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-500">Bandwidth</p>
+                                <p class="text-lg font-semibold text-gray-100">{{ trafficHistory.totals.bandwidth_human }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 grid items-end gap-1" :style="{ gridTemplateColumns: 'repeat(30, minmax(0, 1fr))' }">
+                        <div
+                            v-for="day in trafficHistory.days"
+                            :key="day.date"
+                            class="group flex min-h-32 flex-col justify-end gap-1"
+                            :title="`${day.date}: ${day.requests} requests, ${day.bandwidth_human}`"
+                        >
+                            <div class="rounded-t bg-indigo-500/70 transition-colors group-hover:bg-indigo-400" :style="{ height: `${barHeight(day.requests)}px` }"></div>
+                            <span class="truncate text-center text-[10px] text-gray-600">{{ shortDate(day.date) }}</span>
+                        </div>
+                    </div>
+
+                    <div v-if="trafficHistory.totals.requests === 0" class="mt-4 rounded-lg border border-dashed border-gray-700 px-4 py-5 text-sm text-gray-500">
+                        No stored traffic snapshots yet. The scheduled aggregator runs daily; admins can also run <code>php artisan metrics:aggregate-traffic</code>.
+                    </div>
+                </div>
+
                 <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                     <h3 class="mb-4 text-sm font-semibold text-gray-300">Log Viewer</h3>
                     <div class="grid gap-4 md:grid-cols-2">
@@ -179,6 +214,7 @@ const props = defineProps({
     summary: Object,
     domains: Array,
     logTypes: Array,
+    trafficHistory: Object,
 });
 
 const selectedType = ref(props.logTypes[0]?.value ?? 'access');
@@ -191,6 +227,7 @@ const traffic = ref(null);
 const trafficError = ref('');
 const trafficLoading = ref(false);
 const canDownloadLog = computed(() => selectedType.value === 'php' || selectedDomainId.value);
+const maxHistoryRequests = computed(() => Math.max(...(props.trafficHistory?.days ?? []).map((day) => day.requests), 1));
 
 async function loadLog() {
     loading.value = true;
@@ -251,6 +288,15 @@ function downloadLog() {
         domain_id: selectedType.value === 'php' ? null : selectedDomainId.value,
         lines: 300,
     });
+}
+
+function barHeight(requests) {
+    if (requests <= 0) return 4;
+    return Math.max(8, Math.round((requests / maxHistoryRequests.value) * 112));
+}
+
+function shortDate(date) {
+    return date.slice(5);
 }
 
 onMounted(() => {

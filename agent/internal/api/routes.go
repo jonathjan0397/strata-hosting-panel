@@ -143,6 +143,9 @@ func Routes() chi.Router {
 	r.Post("/files/{username}/extract", handleFileExtract)
 	r.Post("/files/{username}/upload", handleFileUpload)
 
+	// Metrics (jailed to account log directory)
+	r.Get("/metrics/{username}/traffic", handleTrafficSummary)
+
 	// Git repository management (jailed to /var/www/{username}/)
 	r.Get("/git/{username}/status", handleGitStatus)
 	r.Post("/git/{username}/init", handleGitInit)

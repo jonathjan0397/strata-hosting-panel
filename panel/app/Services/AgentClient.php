@@ -276,6 +276,11 @@ class AgentClient
         return $this->get("/files/{$username}/tail?path=" . urlencode($path) . "&lines={$lines}");
     }
 
+    public function trafficSummary(string $username, string $path, int $days = 30): Response
+    {
+        return $this->get("/metrics/{$username}/traffic?path=" . urlencode($path) . "&days={$days}");
+    }
+
     public function fileWrite(string $username, string $path, string $content): Response
     {
         return $this->post("/files/{$username}/write", ['path' => $path, 'content' => $content]);

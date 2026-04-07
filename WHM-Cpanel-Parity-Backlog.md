@@ -109,6 +109,7 @@ Implemented on `main`:
 - bounded PHP error log tailing
 - bounded recent log downloads from the Metrics workspace
 - recent access-log traffic summaries with request, bandwidth, status-code, method, and top-path breakdowns
+- scheduled daily traffic aggregation with 30-day stored request/bandwidth history
 
 ## Phase 2: cPanel Daily-Use Parity
 

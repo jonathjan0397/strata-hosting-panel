@@ -162,6 +162,7 @@ Admin
 - [x] Assign accounts to nodes
 - [x] System user + PHP-FPM pool provisioning on agent
 - [x] Reseller management with quota allocation
+- [x] Per-account 30-day traffic history from scheduled access-log aggregation
 
 ### Domain Management
 - [x] Add/remove domains and subdomains
