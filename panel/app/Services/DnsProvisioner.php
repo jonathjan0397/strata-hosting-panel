@@ -6,6 +6,7 @@ use App\Models\Domain;
 use App\Models\DnsRecord;
 use App\Models\DnsZone;
 use App\Models\Node;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Throwable;
 
@@ -361,7 +362,7 @@ class DnsProvisioner
             $client = AgentClient::for($node);
 
             $zoneResponse = $client->createDnsZone($zone->zone_name);
-            if (! $zoneResponse->successful()) {
+            if (! $this->zoneProvisionResponseIsUsable($zoneResponse)) {
                 return [false, "Backup DNS zone sync failed on {$node->name}: " . $zoneResponse->body()];
             }
 
@@ -398,5 +399,18 @@ class DnsProvisioner
             ->where('status', 'online')
             ->orderBy('id')
             ->get();
+    }
+
+    public static function zoneProvisionResponseIsUsable(Response $response): bool
+    {
+        if ($response->successful()) {
+            return true;
+        }
+
+        $body = strtolower(trim($response->body()));
+
+        return str_contains($body, 'status 409')
+            || str_contains($body, 'already exists')
+            || str_contains($body, 'conflict');
     }
 }

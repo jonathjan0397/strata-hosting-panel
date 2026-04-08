@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\DnsZone;
 use App\Models\Node;
 use App\Services\AgentClient;
+use App\Services\DnsProvisioner;
 use Illuminate\Console\Command;
 
 class SyncBackupDnsZones extends Command
@@ -39,7 +40,7 @@ class SyncBackupDnsZones extends Command
                 $client = AgentClient::for($node);
                 $zoneResponse = $client->createDnsZone($zone->zone_name);
 
-                if (! $zoneResponse->successful()) {
+                if (! DnsProvisioner::zoneProvisionResponseIsUsable($zoneResponse)) {
                     $errors++;
                     $this->warn("Zone {$zone->zone_name} failed on {$node->name}: {$zoneResponse->body()}");
                     continue;
