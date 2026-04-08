@@ -11,6 +11,7 @@ use App\Services\AccountProvisioner;
 use App\Services\DomainProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -108,14 +109,18 @@ class AdminWebsiteController extends Controller
                 ->with('success', 'Website setup was queued. Refresh this page in a moment.');
         }
 
-        $account = Account::create([
-            'user_id'     => $request->user()->id,
-            'node_id'     => $node->id,
-            'username'    => $this->uniqueUsernameForDomain($data['domain']),
-            'php_version' => $data['php_version'],
-            'status'      => 'provisioning',
-            'provisioning_error' => null,
-        ]);
+        try {
+            $account = Account::create([
+                'user_id'     => $request->user()->id,
+                'node_id'     => $node->id,
+                'username'    => $this->uniqueUsernameForDomain($data['domain']),
+                'php_version' => $data['php_version'],
+                'status'      => 'provisioning',
+                'provisioning_error' => null,
+            ]);
+        } catch (QueryException $exception) {
+            return back()->with('error', 'Website setup could not start because the generated system username is already in use. Please retry once; if it happens again, remove any stale website account and try again.');
+        }
 
         ProvisionAdminWebsite::dispatch(
             $account->id,
@@ -191,7 +196,7 @@ class AdminWebsiteController extends Controller
         $username = $base;
         $suffix = 1;
 
-        while (Account::where('username', $username)->exists()) {
+        while (Account::withTrashed()->where('username', $username)->exists()) {
             $username = $base . $suffix++;
         }
 
