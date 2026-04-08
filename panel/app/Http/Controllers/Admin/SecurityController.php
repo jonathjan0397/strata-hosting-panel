@@ -8,6 +8,7 @@ use App\Models\Node;
 use App\Services\AgentClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Throwable;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,23 +36,31 @@ class SecurityController extends Controller
 
     public function fail2banStatus(Request $request): JsonResponse
     {
-        $node     = Node::findOrFail($request->query('node_id'));
-        $response = AgentClient::for($node)->fail2banStatus();
-        $configResponse = AgentClient::for($node)->fail2banConfig();
-        $services = AgentClient::for($node)->services();
-        $payload = $response->successful() ? $response->json() : ['jails' => [], 'error' => $response->body()];
-        if ($configResponse->successful()) {
-            $payload['config'] = $configResponse->json();
-        } else {
-            $payload['config_error'] = $configResponse->body();
-        }
-        $payload['service'] = collect($services->successful() ? $services->json() : [])
-            ->firstWhere('name', 'fail2ban');
+        $node = Node::findOrFail($request->query('node_id'));
 
-        return response()->json(
-            $payload,
-            $response->successful() ? 200 : 502
-        );
+        try {
+            $response = AgentClient::for($node)->fail2banStatus();
+            $configResponse = AgentClient::for($node)->fail2banConfig();
+            $services = AgentClient::for($node)->services();
+            $payload = $response->successful() ? $response->json() : ['jails' => [], 'error' => $response->body()];
+            if ($configResponse->successful()) {
+                $payload['config'] = $configResponse->json();
+            } else {
+                $payload['config_error'] = $configResponse->body();
+            }
+            $payload['service'] = collect($services->successful() ? $services->json() : [])
+                ->firstWhere('name', 'fail2ban');
+
+            return response()->json(
+                $payload,
+                $response->successful() ? 200 : 502
+            );
+        } catch (Throwable $e) {
+            return response()->json([
+                'jails' => [],
+                'error' => 'Fail2Ban status request failed: ' . $e->getMessage(),
+            ], 502);
+        }
     }
 
     public function ban(Request $request): JsonResponse
@@ -62,8 +71,13 @@ class SecurityController extends Controller
             'ip'      => ['required', 'ip'],
         ]);
 
-        $node     = Node::findOrFail($data['node_id']);
-        $response = AgentClient::for($node)->fail2banBan($data['jail'], $data['ip']);
+        $node = Node::findOrFail($data['node_id']);
+
+        try {
+            $response = AgentClient::for($node)->fail2banBan($data['jail'], $data['ip']);
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Ban failed: ' . $e->getMessage()], 502);
+        }
 
         if (! $response->successful()) {
             return response()->json(['message' => 'Ban failed: ' . $response->body()], 502);
@@ -82,8 +96,13 @@ class SecurityController extends Controller
             'ip'      => ['required', 'ip'],
         ]);
 
-        $node     = Node::findOrFail($data['node_id']);
-        $response = AgentClient::for($node)->fail2banUnban($data['jail'], $data['ip']);
+        $node = Node::findOrFail($data['node_id']);
+
+        try {
+            $response = AgentClient::for($node)->fail2banUnban($data['jail'], $data['ip']);
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Unban failed: ' . $e->getMessage()], 502);
+        }
 
         if (! $response->successful()) {
             return response()->json(['message' => 'Unban failed: ' . $response->body()], 502);
@@ -102,12 +121,17 @@ class SecurityController extends Controller
         ]);
 
         $node = Node::findOrFail($data['node_id']);
-        $client = AgentClient::for($node);
-        $response = match ($data['action']) {
-            'start' => $client->startService('fail2ban'),
-            'stop' => $client->stopService('fail2ban'),
-            'restart' => $client->restartService('fail2ban'),
-        };
+
+        try {
+            $client = AgentClient::for($node);
+            $response = match ($data['action']) {
+                'start' => $client->startService('fail2ban'),
+                'stop' => $client->stopService('fail2ban'),
+                'restart' => $client->restartService('fail2ban'),
+            };
+        } catch (Throwable $e) {
+            return response()->json(['message' => "Fail2Ban {$data['action']} failed: " . $e->getMessage()], 502);
+        }
 
         if (! $response->successful()) {
             return response()->json(['message' => "Fail2Ban {$data['action']} failed: " . $response->body()], 502);
@@ -138,16 +162,23 @@ class SecurityController extends Controller
         ]);
 
         $node = Node::findOrFail($data['node_id']);
-        $response = AgentClient::for($node)->fail2banUpdateConfig([
-            'defaults' => $data['defaults'],
-            'jails' => collect($data['jails'])->map(fn ($jail) => [
-                'name' => $jail['name'],
-                'enabled' => (bool) $jail['enabled'],
-                'maxretry' => $jail['maxretry'] ?? null,
-                'findtime' => $jail['findtime'] ?? null,
-                'bantime' => $jail['bantime'] ?? null,
-            ])->values()->all(),
-        ]);
+
+        try {
+            $response = AgentClient::for($node)->fail2banUpdateConfig([
+                'defaults' => $data['defaults'],
+                'jails' => collect($data['jails'])->map(fn ($jail) => [
+                    'name' => $jail['name'],
+                    'enabled' => (bool) $jail['enabled'],
+                    'maxretry' => $jail['maxretry'] ?? null,
+                    'findtime' => $jail['findtime'] ?? null,
+                    'bantime' => $jail['bantime'] ?? null,
+                ])->values()->all(),
+            ]);
+        } catch (Throwable $e) {
+            return response()->json([
+                'message' => 'Fail2Ban settings update failed: ' . $e->getMessage(),
+            ], 502);
+        }
 
         if (! $response->successful()) {
             return response()->json([
