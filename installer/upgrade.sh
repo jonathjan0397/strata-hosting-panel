@@ -127,9 +127,10 @@ restore_backup() {
     systemctl stop strata-queue 2>/dev/null
     systemctl stop strata-agent 2>/dev/null
     systemctl stop strata-webdav 2>/dev/null
-    rm -rf "$INSTALL_DIR/panel" "$INSTALL_DIR/agent-src"
+    rm -rf "$INSTALL_DIR/panel" "$INSTALL_DIR/agent-src" "$INSTALL_DIR/installer"
     cp -a "$BACKUP_DIR/panel" "$INSTALL_DIR/panel"
     [[ -d "$BACKUP_DIR/agent-src" ]] && cp -a "$BACKUP_DIR/agent-src" "$INSTALL_DIR/agent-src"
+    [[ -d "$BACKUP_DIR/installer" ]] && cp -a "$BACKUP_DIR/installer" "$INSTALL_DIR/installer"
     [[ -f "$BACKUP_DIR/VERSION" ]] && cp -a "$BACKUP_DIR/VERSION" "$INSTALL_DIR/VERSION"
     if [[ -n "$OLD_AGENT" && -f "$OLD_AGENT" ]]; then
         cp -a "$OLD_AGENT" /usr/sbin/strata-agent
@@ -193,6 +194,7 @@ mkdir -p "$BACKUP_DIR"
 info "Creating rollback backup at $BACKUP_DIR..."
 cp -a "$INSTALL_DIR/panel" "$BACKUP_DIR/panel"
 [[ -d "$INSTALL_DIR/agent-src" ]] && cp -a "$INSTALL_DIR/agent-src" "$BACKUP_DIR/agent-src"
+[[ -d "$INSTALL_DIR/installer" ]] && cp -a "$INSTALL_DIR/installer" "$BACKUP_DIR/installer"
 [[ -f "$INSTALL_DIR/VERSION" ]] && cp -a "$INSTALL_DIR/VERSION" "$BACKUP_DIR/VERSION"
 if [[ -f /usr/sbin/strata-agent ]]; then
     OLD_AGENT="$BACKUP_DIR/strata-agent"
@@ -234,18 +236,20 @@ systemctl stop strata-agent 2>/dev/null || true
 systemctl stop strata-webdav 2>/dev/null || true
 
 info "Installing new source while preserving runtime state..."
-rm -rf "$INSTALL_DIR/panel.new" "$INSTALL_DIR/agent-src.new"
+rm -rf "$INSTALL_DIR/panel.new" "$INSTALL_DIR/agent-src.new" "$INSTALL_DIR/installer.new"
 cp -a "$extract_dir/panel" "$INSTALL_DIR/panel.new"
 cp -a "$extract_dir/agent" "$INSTALL_DIR/agent-src.new"
+cp -a "$extract_dir/installer" "$INSTALL_DIR/installer.new"
 cp "$extract_dir/VERSION" "$INSTALL_DIR/VERSION.new" 2>/dev/null || echo "$target_version" > "$INSTALL_DIR/VERSION.new"
 
 rm -rf "$INSTALL_DIR/panel.new/.env" "$INSTALL_DIR/panel.new/storage"
 cp -a "$INSTALL_DIR/panel/.env" "$INSTALL_DIR/panel.new/.env"
 cp -a "$INSTALL_DIR/panel/storage" "$INSTALL_DIR/panel.new/storage"
 
-rm -rf "$INSTALL_DIR/panel" "$INSTALL_DIR/agent-src"
+rm -rf "$INSTALL_DIR/panel" "$INSTALL_DIR/agent-src" "$INSTALL_DIR/installer"
 mv "$INSTALL_DIR/panel.new" "$INSTALL_DIR/panel"
 mv "$INSTALL_DIR/agent-src.new" "$INSTALL_DIR/agent-src"
+mv "$INSTALL_DIR/installer.new" "$INSTALL_DIR/installer"
 mv "$INSTALL_DIR/VERSION.new" "$INSTALL_DIR/VERSION"
 if [[ -f "$extract_dir/installer/agent-upgrade.sh" ]]; then
     install -m 755 "$extract_dir/installer/agent-upgrade.sh" /usr/sbin/strata-agent-upgrade
