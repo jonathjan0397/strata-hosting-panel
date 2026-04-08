@@ -127,7 +127,7 @@ class AdminWebsiteController extends Controller
             strtolower($data['domain']),
             $request->user()->id,
             true,
-            true,
+            false,
         );
 
         AuditLog::record('admin_website.provisioning_queued', $account, [

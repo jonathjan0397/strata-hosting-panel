@@ -185,7 +185,7 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
@@ -202,13 +202,56 @@ const form = reactive({
 const errors = reactive({})
 const loading = ref(false)
 const confirmRemove = ref(false)
+let refreshTimer = null
+
+function stopPolling() {
+    if (refreshTimer) {
+        clearTimeout(refreshTimer)
+        refreshTimer = null
+    }
+}
+
+function scheduleRefresh() {
+    stopPolling()
+
+    if (props.account?.status !== 'provisioning') {
+        return
+    }
+
+    refreshTimer = setTimeout(() => {
+        router.reload({
+            only: ['account', 'primaryNode'],
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                scheduleRefresh()
+            },
+        })
+    }, 3000)
+}
+
+watch(() => props.account?.status, () => {
+    scheduleRefresh()
+})
+
+onMounted(() => {
+    scheduleRefresh()
+})
+
+onBeforeUnmount(() => {
+    stopPolling()
+})
 
 function submit() {
     errors.domain = null
     loading.value = true
     router.post(route('admin.my-website.provision'), form, {
+        preserveScroll: true,
         onError: (e) => Object.assign(errors, e),
-        onFinish: () => { loading.value = false },
+        onFinish: () => {
+            loading.value = false
+            scheduleRefresh()
+        },
     })
 }
 
