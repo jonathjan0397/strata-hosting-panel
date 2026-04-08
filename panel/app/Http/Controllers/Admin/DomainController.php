@@ -96,12 +96,18 @@ class DomainController extends Controller
 
         return Inertia::render('Admin/Domains/Show', [
             'domain' => $domain,
+            'canIssueWildcardSsl' => app(DomainProvisioner::class)->supportsWildcardSsl($domain),
         ]);
     }
 
     public function issueSSL(Domain $domain): RedirectResponse
     {
-        [$success, $error] = app(DomainProvisioner::class)->issueSSL($domain);
+        $data = request()->validate([
+            'wildcard' => ['nullable', 'boolean'],
+        ]);
+
+        $wildcard = (bool) ($data['wildcard'] ?? false);
+        [$success, $error] = app(DomainProvisioner::class)->issueSSL($domain, $wildcard);
 
         if (! $success) {
             return back()->with('error', "SSL issuance failed: {$error}");
@@ -109,10 +115,13 @@ class DomainController extends Controller
 
         AuditLog::record('domain.ssl_issued', $domain, [
             'domain'  => $domain->domain,
+            'wildcard' => $wildcard,
             'success' => true,
         ]);
 
-        return back()->with('success', "SSL certificate issued for {$domain->domain}.");
+        return back()->with('success', $wildcard
+            ? "Wildcard SSL certificate issued for {$domain->domain} and *.{$domain->domain}."
+            : "SSL certificate issued for {$domain->domain}.");
     }
 
     public function destroy(Domain $domain): RedirectResponse

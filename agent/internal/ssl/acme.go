@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -36,21 +37,35 @@ func Paths(domain string) CertPaths {
 	}
 }
 
-// Issue requests a certificate via acme.sh using the Nginx webroot challenge.
-// The Nginx vhost must already exist and be serving the domain on port 80.
+// Issue requests a certificate via acme.sh.
+// Standard certs use the Nginx webroot challenge; wildcard certs use PowerDNS.
 func Issue(req IssueRequest) (*CertPaths, error) {
 	certDir := CertDir(req.Domain)
 	if err := os.MkdirAll(certDir, 0700); err != nil {
 		return nil, fmt.Errorf("mkdir cert dir: %w", err)
 	}
 
-	args := []string{"--issue", "--nginx", "-d", req.Domain}
+	args := []string{"--issue", "-d", req.Domain, "--keylength", "4096", "--force"}
+	env := append(os.Environ(), "HOME=/root")
 	if req.Wildcard {
-		args = append(args, "-d", "*."+req.Domain)
+		pdnsURL := strings.TrimSpace(os.Getenv("STRATA_PDNS_URL"))
+		pdnsToken := strings.TrimSpace(os.Getenv("STRATA_PDNS_API_KEY"))
+		if pdnsURL == "" || pdnsToken == "" {
+			return nil, fmt.Errorf("wildcard SSL requires STRATA_PDNS_URL and STRATA_PDNS_API_KEY")
+		}
+
+		args = append(args, "--dns", "dns_pdns", "-d", "*."+req.Domain)
+		env = append(env,
+			"PDNS_Url="+pdnsURL,
+			"PDNS_ServerId=localhost",
+			"PDNS_Token="+pdnsToken,
+		)
+	} else {
+		args = append(args, "--nginx")
 	}
 
 	cmd := exec.Command(acmeBin, args...)
-	cmd.Env = append(os.Environ(), "HOME=/root")
+	cmd.Env = env
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("acme.sh issue failed: %w\n%s", err, string(out))
 	}
@@ -59,10 +74,10 @@ func Issue(req IssueRequest) (*CertPaths, error) {
 
 	installArgs := []string{
 		"--install-cert", "-d", req.Domain,
-		"--cert-file",      paths.CertFile,
-		"--key-file",       paths.KeyFile,
+		"--cert-file", paths.CertFile,
+		"--key-file", paths.KeyFile,
 		"--fullchain-file", paths.ChainFile,
-		"--reloadcmd",      "systemctl reload nginx",
+		"--reloadcmd", "systemctl reload nginx",
 	}
 	installCmd := exec.Command(acmeBin, installArgs...)
 	installCmd.Env = append(os.Environ(), "HOME=/root")

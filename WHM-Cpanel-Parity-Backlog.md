@@ -210,6 +210,7 @@ Implemented on `main`:
 - malware quarantine listing and permanent cleanup inside the account jail
 - package-gated per-domain ModSecurity directive controls with enforce/detection-only modes
 - package-gated per-domain leech protection with Nginx request limiting and Apache block/redirect directives
+- managed-DNS wildcard Let's Encrypt issuance and renewal for hosted domains
 
 ### 9. UX and Navigation
 Status: `in progress`

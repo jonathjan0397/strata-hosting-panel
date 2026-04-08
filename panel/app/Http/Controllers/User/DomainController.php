@@ -94,6 +94,7 @@ class DomainController extends Controller
         return Inertia::render('User/Domains/Show', [
             'domain'      => $domain,
             'phpVersions' => ['8.1', '8.2', '8.3'],
+            'canIssueWildcardSsl' => app(DomainProvisioner::class)->supportsWildcardSsl($domain),
             'canManagePrivacy' => $account->hasFeature('directory_privacy'),
             'canManageHotlinkProtection' => $account->hasFeature('hotlink_protection'),
             'canManageModSecurity' => $account->hasFeature('modsecurity'),
@@ -124,10 +125,17 @@ class DomainController extends Controller
         $account = $this->account();
         abort_unless($domain->account_id === $account->id, 403);
 
-        [$success, $error] = app(DomainProvisioner::class)->issueSSL($domain);
+        $data = request()->validate([
+            'wildcard' => ['nullable', 'boolean'],
+        ]);
+
+        $wildcard = (bool) ($data['wildcard'] ?? false);
+        [$success, $error] = app(DomainProvisioner::class)->issueSSL($domain, $wildcard);
 
         return $success
-            ? back()->with('success', "SSL certificate issued for {$domain->domain}.")
+            ? back()->with('success', $wildcard
+                ? "Wildcard SSL certificate issued for {$domain->domain} and *.{$domain->domain}."
+                : "SSL certificate issued for {$domain->domain}.")
             : back()->with('error', "SSL issuance failed: {$error}");
     }
 

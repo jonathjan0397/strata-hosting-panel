@@ -86,6 +86,9 @@
                         <span class="text-sm text-emerald-400 font-medium">Active</span>
                         <span class="text-xs text-gray-500 ml-1">via {{ domain.ssl_provider }}</span>
                     </div>
+                    <p v-if="domain.ssl_wildcard" class="mb-4 text-xs text-sky-400">
+                        Covers {{ domain.domain }} and *.{{ domain.domain }}
+                    </p>
                     <dl class="space-y-2 text-sm">
                         <div class="flex justify-between">
                             <dt class="text-gray-500">Expires</dt>
@@ -99,16 +102,25 @@
                 <template v-else>
                     <p class="text-sm text-gray-400 mb-4">No SSL certificate issued.</p>
                     <form @submit.prevent="issueSSL">
+                        <label v-if="canIssueWildcardSsl" class="mb-4 flex items-start gap-3 rounded-lg border border-gray-800 bg-gray-950 px-3 py-3 text-sm text-gray-300">
+                            <input v-model="wildcard" type="checkbox" class="mt-1 rounded border-gray-700 bg-gray-800 text-emerald-500" />
+                            <span>
+                                <span class="block font-semibold text-gray-200">Issue wildcard certificate</span>
+                                <span class="mt-1 block text-xs text-gray-500">Use managed DNS validation to cover both {{ domain.domain }} and *.{{ domain.domain }}.</span>
+                            </span>
+                        </label>
                         <button
                             type="submit"
                             :disabled="issuingSSL"
                             class="rounded-lg bg-emerald-700/30 px-4 py-2 text-sm font-medium text-emerald-400 hover:bg-emerald-700/50 disabled:opacity-50 transition-colors"
                         >
                             <span v-if="issuingSSL">Issuing…</span>
-                            <span v-else>Issue Let's Encrypt Certificate</span>
+                            <span v-else>{{ wildcard ? "Issue Let's Encrypt Wildcard" : "Issue Let's Encrypt Certificate" }}</span>
                         </button>
                         <p class="mt-2 text-xs text-gray-500">
-                            DNS must point to this server before issuing.
+                            {{ canIssueWildcardSsl
+                                ? 'HTTP validation is used by default. Enable wildcard to use managed DNS validation.'
+                                : 'DNS must point to this server before issuing.' }}
                         </p>
                     </form>
                 </template>
@@ -123,9 +135,10 @@ import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 
-const props = defineProps({ domain: Object });
+const props = defineProps({ domain: Object, canIssueWildcardSsl: Boolean });
 
 const issuingSSL = ref(false);
+const wildcard = ref(false);
 
 const expiresSoon = computed(() => {
     if (!props.domain.ssl_expires_at) return false;
@@ -135,7 +148,7 @@ const expiresSoon = computed(() => {
 
 function issueSSL() {
     issuingSSL.value = true;
-    router.post(route('admin.domains.ssl', props.domain.id), {}, {
+    router.post(route('admin.domains.ssl', props.domain.id), { wildcard: wildcard.value }, {
         onFinish: () => { issuingSSL.value = false; },
     });
 }

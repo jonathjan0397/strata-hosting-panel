@@ -35,7 +35,7 @@ class SslRenew extends Command
         foreach ($domains as $domain) {
             $this->line("  Renewing {$domain->domain}…");
 
-            [$ok, $error] = $provisioner->issueSSL($domain);
+            [$ok, $error] = $provisioner->issueSSL($domain, (bool) $domain->ssl_wildcard);
 
             if ($ok) {
                 $renewed++;

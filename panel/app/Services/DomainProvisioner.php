@@ -184,10 +184,16 @@ class DomainProvisioner
     /**
      * Issue an SSL certificate and update the vhost.
      */
-    public function issueSSL(Domain $domain): array
+    public function issueSSL(Domain $domain, bool $wildcard = false): array
     {
         try {
-            $response = AgentClient::for($domain->node)->issueSSL($domain->domain);
+            if ($wildcard && ! $this->supportsWildcardSsl($domain)) {
+                return [false, 'Wildcard SSL requires a managed DNS zone for this domain.'];
+            }
+
+            $response = AgentClient::for($domain->node)->issueSSL($domain->domain, [
+                'wildcard' => $wildcard,
+            ]);
 
             if (! $response->successful()) {
                 return [false, $response->body()];
@@ -208,7 +214,8 @@ class DomainProvisioner
 
             $domain->update([
                 'ssl_enabled'    => true,
-                'ssl_provider'   => 'letsencrypt',
+                'ssl_wildcard'   => $wildcard,
+                'ssl_provider'   => $wildcard ? 'letsencrypt-wildcard' : 'letsencrypt',
                 'ssl_expires_at' => now()->addDays(90),
             ]);
 
@@ -216,6 +223,11 @@ class DomainProvisioner
         } catch (\Throwable $e) {
             return [false, $e->getMessage()];
         }
+    }
+
+    public function supportsWildcardSsl(Domain $domain): bool
+    {
+        return DnsZone::where('domain_id', $domain->id)->exists();
     }
 
     /**
@@ -249,6 +261,7 @@ class DomainProvisioner
 
             $domain->update([
                 'ssl_enabled'    => true,
+                'ssl_wildcard'   => false,
                 'ssl_provider'   => 'custom',
                 'ssl_expires_at' => $expires,
             ]);

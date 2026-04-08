@@ -241,7 +241,7 @@ Admin
 ### SSL
 - [x] Let's Encrypt via acme.sh
 - [x] Auto-renew
-- [ ] Wildcard cert support (requires DNS challenge — post v1.0)
+- [x] Wildcard cert support for managed DNS zones via PowerDNS-backed DNS challenge
 - [x] Custom cert upload
 
 ### Backups

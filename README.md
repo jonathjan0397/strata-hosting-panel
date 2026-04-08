@@ -202,6 +202,7 @@ Remote node installs and upgrades apply the same PowerDNS SOA defaults automatic
 | **Backups** | Files + databases, schedules, manual trigger, download, path restore, remote SFTP/S3 destinations, cPanel/CWP archive import conversion |
 | **Metrics** | Resource usage, log viewer/downloads, recent traffic summaries, 30-day stored traffic history, CSV traffic exports |
 | **Security** | 2FA, audit log, dedicated Admin Security sidebar for Firewall and Fail2Ban administration, SSH keys, UFW firewall rules, ClamAV malware scans with daily/weekly scheduling and quarantine cleanup, per-domain ModSecurity and leech protection controls |
+| **SSL** | Webroot Let's Encrypt issuance plus managed-DNS wildcard certificates and renewal for hosted zones |
 | **UI / Accessibility** | Glassmorphism app shell with persisted Smoky Gray, Aurora Teal, Ember Gold, and Violet Bloom theme preferences |
 | **Admin Tools** | Browser SSH terminal, email deliverability troubleshooter, OS update management, backup schedules, audited client-panel access, bulk operations |
 | **Multi-node** | Remote nodes via Go agent with HMAC auth, health monitoring, per-node service management, conservative account migration workflow with reset-required service cutover, competitor-backup import staging |

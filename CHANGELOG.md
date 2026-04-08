@@ -132,6 +132,7 @@ Public beta target: `v1.0.0-beta.2`.
 - ClamAV malware scanner for jailed account paths with optional quarantine
 - Per-domain ModSecurity controls with blocking or detection-only mode
 - Per-domain leech protection controls
+- Managed-DNS wildcard Let's Encrypt issuance and renewal for hosted domains
 
 **Backups**
 - Remote backup destinations: SFTP (scp/SSH key) and S3-compatible; admin-configurable; auto-push to all active destinations after each backup is created

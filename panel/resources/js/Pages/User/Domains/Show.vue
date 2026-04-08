@@ -50,6 +50,9 @@
                     <span class="inline-flex items-center gap-1.5 text-sm text-emerald-400">
                         <span class="h-2 w-2 rounded-full bg-emerald-400"></span> Certificate active
                     </span>
+                    <p v-if="domain.ssl_wildcard" class="mt-1 text-xs text-sky-400">
+                        Covers {{ domain.domain }} and *.{{ domain.domain }}
+                    </p>
                     <p v-if="domain.ssl_expires_at" class="mt-1 text-xs text-gray-500">
                         Expires {{ new Date(domain.ssl_expires_at).toLocaleDateString() }}
                     </p>
@@ -76,13 +79,23 @@
                 <!-- Let's Encrypt -->
                 <div v-if="!domain.ssl_enabled" class="mb-4">
                     <p class="text-sm text-gray-400 mb-3">Issue a free Let's Encrypt certificate.</p>
-                    <ConfirmButton
-                        :href="route('my.domains.ssl', domain.id)"
-                        method="post"
-                        label="Issue SSL"
-                        color="indigo"
-                        :confirm-message="`Issue SSL certificate for ${domain.domain}?`"
-                    />
+                    <form @submit.prevent="submitIssueSsl" class="space-y-3">
+                        <label v-if="canIssueWildcardSsl" class="flex items-start gap-3 rounded-lg border border-gray-800 bg-gray-950 px-3 py-3 text-sm text-gray-300">
+                            <input v-model="sslForm.wildcard" type="checkbox" class="mt-1 rounded border-gray-700 bg-gray-800 text-indigo-600" />
+                            <span>
+                                <span class="block font-semibold text-gray-200">Issue wildcard certificate</span>
+                                <span class="mt-1 block text-xs text-gray-500">Use managed DNS validation to cover both {{ domain.domain }} and *.{{ domain.domain }}.</span>
+                            </span>
+                        </label>
+                        <button type="submit" :disabled="sslForm.processing" class="btn-primary text-xs">
+                            {{ sslForm.processing ? 'Issuing...' : (sslForm.wildcard ? 'Issue Wildcard SSL' : 'Issue SSL') }}
+                        </button>
+                        <p class="text-xs text-gray-500">
+                            {{ canIssueWildcardSsl
+                                ? 'HTTP validation is used by default. Enable wildcard to use managed DNS validation.'
+                                : 'DNS must point to this server before issuing.' }}
+                        </p>
+                    </form>
                 </div>
 
                 <!-- Custom cert upload -->
@@ -437,6 +450,7 @@ import PageHeader from '@/Components/PageHeader.vue';
 const props = defineProps({
     domain:      Object,
     phpVersions: Array,
+    canIssueWildcardSsl: Boolean,
     canManagePrivacy: Boolean,
     canManageHotlinkProtection: Boolean,
     canManageModSecurity: Boolean,
@@ -462,6 +476,10 @@ const redirectForm = useForm({
 
 const forceHttpsForm = useForm({
     force_https: props.domain.force_https ?? false,
+});
+
+const sslForm = useForm({
+    wildcard: false,
 });
 
 const privacyForm = useForm({
@@ -501,6 +519,12 @@ function submitPhp() {
 
 function submitForceHttps() {
     forceHttpsForm.put(route('my.domains.force-https', props.domain.id), {
+        preserveScroll: true,
+    });
+}
+
+function submitIssueSsl() {
+    sslForm.post(route('my.domains.ssl', props.domain.id), {
         preserveScroll: true,
     });
 }
