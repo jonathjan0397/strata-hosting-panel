@@ -28,15 +28,7 @@ class DomainProvisioner
                 return [false, $response->json('message') ?? $response->body()];
             }
 
-            if (! DnsZone::where('domain_id', $domain->id)->exists()) {
-                [$dnsCreated, $dnsError] = (new DnsProvisioner(AgentClient::for($domain->node)))->createZone($domain);
-                if (! $dnsCreated) {
-                    AgentClient::for($domain->node)->removeDomain($domain->domain);
-                    return [false, 'DNS zone provisioning failed: ' . $dnsError];
-                }
-            }
-
-            [$mailEnabled, $mailError] = $this->ensureMailStack($domain->fresh());
+            [$mailEnabled, $mailError] = $this->ensureMailProvisioned($domain->fresh());
             if (! $mailEnabled) {
                 (new DnsProvisioner(AgentClient::for($domain->node)))->deleteZone($domain);
                 AgentClient::for($domain->node)->removeDomain($domain->domain);
@@ -143,8 +135,15 @@ class DomainProvisioner
         return [empty($errors), implode('; ', $errors) ?: null];
     }
 
-    private function ensureMailStack(Domain $domain): array
+    public function ensureMailProvisioned(Domain $domain): array
     {
+        if (! DnsZone::where('domain_id', $domain->id)->exists()) {
+            [$dnsCreated, $dnsError] = (new DnsProvisioner(AgentClient::for($domain->node)))->createZone($domain);
+            if (! $dnsCreated) {
+                return [false, 'DNS zone provisioning failed: ' . $dnsError];
+            }
+        }
+
         if ($domain->mail_enabled) {
             (new DnsProvisioner(AgentClient::for($domain->node)))->addMailRecords($domain);
             return [true, null];

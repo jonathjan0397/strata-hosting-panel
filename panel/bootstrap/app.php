@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\AppsCheckUpdates;
+use App\Console\Commands\BackfillMailDns;
 use App\Console\Commands\BackupRun;
 use App\Console\Commands\ConfigureSnappyMail;
 use App\Console\Commands\LicenseSync;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withCommands([
+        BackfillMailDns::class,
         ConfigureSnappyMail::class,
         UpgradeRemoteAgents::class,
     ])
