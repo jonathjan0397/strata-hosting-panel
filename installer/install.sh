@@ -65,7 +65,7 @@ cleanup() {
     echo ""
 
     # Stop and remove Strata services
-    for svc in strata-agent strata-queue; do
+    for svc in strata-agent strata-webdav strata-queue; do
         systemctl stop    "$svc" 2>/dev/null || true
         systemctl disable "$svc" 2>/dev/null || true
         rm -f "/etc/systemd/system/${svc}.service"
@@ -88,8 +88,10 @@ SQLEOF
     rm -rf "${WEBMAIL_DIR:-/var/www/webmail}"
     rm -rf "${WEBMAIL_DATA:-/var/lib/snappymail}"
     rm -rf /etc/strata-agent
+    rm -rf /etc/strata-webdav
     rm -rf /etc/strata-panel
     rm -f  /usr/sbin/strata-agent
+    rm -f  /usr/sbin/strata-webdav
     rm -f  /root/.my.cnf
 
     # Remove the strata system user
@@ -928,6 +930,10 @@ GOOS=linux GOARCH=amd64 go build \
     -o /usr/sbin/strata-agent \
     .
 chmod 755 /usr/sbin/strata-agent
+GOOS=linux GOARCH=amd64 go build \
+    -o /usr/sbin/strata-webdav \
+    ./cmd/strata-webdav
+chmod 755 /usr/sbin/strata-webdav
 success "strata-agent built."
 
 # ── Step 15. Agent TLS cert ───────────────────────────────────────────────────
@@ -971,6 +977,34 @@ systemctl daemon-reload
 systemctl enable strata-agent
 systemctl restart strata-agent
 success "strata-agent running."
+
+info "Installing Strata Web Disk systemd service…"
+mkdir -p /etc/strata-webdav
+touch /etc/strata-webdav/accounts.json
+chmod 600 /etc/strata-webdav/accounts.json
+cat > /etc/systemd/system/strata-webdav.service <<EOF
+[Unit]
+Description=Strata Web Disk WebDAV Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/strata-webdav
+Restart=always
+RestartSec=5
+Environment=STRATA_WEBDAV_PORT=2078
+Environment=STRATA_WEBDAV_ACCOUNTS=/etc/strata-webdav/accounts.json
+Environment=STRATA_TLS_CERT=/etc/strata-agent/tls/cert.pem
+Environment=STRATA_TLS_KEY=/etc/strata-agent/tls/key.pem
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable strata-webdav
+systemctl restart strata-webdav
+success "Strata Web Disk running."
 
 cat > /etc/strata-agent/mysql.cnf <<EOF
 [client]
@@ -1109,8 +1143,10 @@ EOF
     # Switch agent to use panel TLS cert now that it exists (browser-trusted)
     sed -i "s|STRATA_TLS_CERT=.*|STRATA_TLS_CERT=/etc/strata-panel/tls/fullchain.pem|" /etc/systemd/system/strata-agent.service
     sed -i "s|STRATA_TLS_KEY=.*|STRATA_TLS_KEY=/etc/strata-panel/tls/privkey.pem|" /etc/systemd/system/strata-agent.service
-    systemctl daemon-reload && systemctl restart strata-agent
-    success "Agent switched to panel TLS certificate."
+    sed -i "s|STRATA_TLS_CERT=.*|STRATA_TLS_CERT=/etc/strata-panel/tls/fullchain.pem|" /etc/systemd/system/strata-webdav.service
+    sed -i "s|STRATA_TLS_KEY=.*|STRATA_TLS_KEY=/etc/strata-panel/tls/privkey.pem|" /etc/systemd/system/strata-webdav.service
+    systemctl daemon-reload && systemctl restart strata-agent strata-webdav
+    success "Agent and Web Disk switched to panel TLS certificate."
 
 else
     info "Configuring Nginx for $PANEL_DOMAIN…"
@@ -1235,8 +1271,10 @@ EOF
     # Switch agent to use panel TLS cert now that it exists (browser-trusted)
     sed -i "s|STRATA_TLS_CERT=.*|STRATA_TLS_CERT=/etc/strata-panel/tls/fullchain.pem|" /etc/systemd/system/strata-agent.service
     sed -i "s|STRATA_TLS_KEY=.*|STRATA_TLS_KEY=/etc/strata-panel/tls/privkey.pem|" /etc/systemd/system/strata-agent.service
-    systemctl daemon-reload && systemctl restart strata-agent
-    success "Agent switched to panel TLS certificate."
+    sed -i "s|STRATA_TLS_CERT=.*|STRATA_TLS_CERT=/etc/strata-panel/tls/fullchain.pem|" /etc/systemd/system/strata-webdav.service
+    sed -i "s|STRATA_TLS_KEY=.*|STRATA_TLS_KEY=/etc/strata-panel/tls/privkey.pem|" /etc/systemd/system/strata-webdav.service
+    systemctl daemon-reload && systemctl restart strata-agent strata-webdav
+    success "Agent and Web Disk switched to panel TLS certificate."
 fi
 
 # ── Step 19. Firewall (UFW) ───────────────────────────────────────────────────
@@ -1256,6 +1294,7 @@ ufw allow 465/tcp comment "SMTPS"               >/dev/null
 ufw allow 587/tcp comment "SMTP submission"     >/dev/null
 ufw allow 993/tcp comment "IMAPS"               >/dev/null
 ufw allow 995/tcp comment "POP3S"               >/dev/null
+ufw allow 2078/tcp comment "Strata Web Disk"    >/dev/null
 ufw allow 8743/tcp comment "Strata agent (shell/WebSocket)" >/dev/null
 ufw --force enable >/dev/null
 success "Firewall enabled."
@@ -1575,7 +1614,7 @@ read -rp "This will PERMANENTLY remove Strata Hosting Panel and all its data. Ty
 [[ "\$_CONFIRM" == "YES" ]] || { echo "Aborted."; exit 0; }
 
 echo "[*] Stopping services…"
-for svc in strata-agent strata-queue; do
+for svc in strata-agent strata-webdav strata-queue; do
     systemctl stop    "\$svc" 2>/dev/null || true
     systemctl disable "\$svc" 2>/dev/null || true
     rm -f "/etc/systemd/system/\${svc}.service"
@@ -1596,8 +1635,10 @@ rm -rf '${INSTALL_DIR}'
 rm -rf '${WEBMAIL_DIR}'
 rm -rf '${WEBMAIL_DATA}'
 rm -rf /etc/strata-agent
+rm -rf /etc/strata-webdav
 rm -rf /etc/strata-panel
 rm -f  /usr/sbin/strata-agent
+rm -f  /usr/sbin/strata-webdav
 rm -f  /root/.my.cnf
 
 echo "[*] Removing system user '${PANEL_USER}'…"

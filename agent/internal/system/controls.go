@@ -22,6 +22,7 @@ var AllowedServiceControls = map[string]bool{
 	"mysql":            true,
 	"postgresql":       true,
 	"pure-ftpd":        true,
+	"strata-webdav":    true,
 	"fail2ban":         true,
 	"clamav-daemon":    true,
 	"clamav-freshclam": true,
@@ -43,7 +44,7 @@ func GetServiceStatuses() []ServiceStatus {
 		"postfix", "dovecot", "rspamd", "opendkim",
 		"pdns", "mariadb", "mysql", "postgresql", "pure-ftpd", "fail2ban",
 		"clamav-daemon", "clamav-freshclam",
-		"redis", "redis-server",
+		"strata-webdav", "redis", "redis-server",
 	}
 
 	result := make([]ServiceStatus, 0, len(services))

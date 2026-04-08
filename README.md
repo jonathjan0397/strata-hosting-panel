@@ -188,7 +188,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | **Email** | Shared Email Accounts workspace for admins/resellers/users, scoped mail-domain enablement, mailboxes, password changes, forwarders, secure client port guide, autoresponders, shared OpenDKIM key regeneration, DKIM/SPF/DMARC setup, Domain Key Manager, SPF Manager, filters, spam policies, archive controls, delivery tracking, bulk import |
 | **DNS** | Automatic DNS zone provisioning for hosted domains, primary-hostname-derived nameserver records, backup-node DNS mirroring, public-IP default web/mail record sets, PowerDNS zone management, full record type support, BIND import/export, server DNS zones |
 | **Databases** | MariaDB/PostgreSQL create/delete/password, user grants, remote MariaDB host grants, phpMyAdmin/phpPgAdmin launch guide with availability checks |
-| **FTP / Web Disk** | Pure-FTPd jailed accounts with FTPS enforced, desktop-client connection guide |
+| **FTP / Web Disk** | Pure-FTPd jailed accounts with FTPS enforced, plus dedicated WebDAV-over-HTTPS Web Disk accounts on port 2078 |
 | **File Manager** | Browser-based upload/download/edit/chmod/compress/extract |
 | **Backups** | Files + databases, schedules, manual trigger, download, path restore, remote SFTP/S3 destinations, cPanel/CWP archive import conversion |
 | **Metrics** | Resource usage, log viewer/downloads, recent traffic summaries, 30-day stored traffic history |

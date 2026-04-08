@@ -35,6 +35,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Mail client configuration cards now render directly from page data so secure port guidance is always visible
 - Email Accounts now exposes shared DKIM/OpenDKIM key regeneration for admins, resellers, and users within their domain scope
 - Malware scans now run through the queue with persisted scan history and polling status instead of holding the browser request open
+- Web Disk now uses a dedicated WebDAV-over-HTTPS service on port 2078 with per-account credentials instead of only FTPS connection guidance
 
 **Accounts**
 - Bulk package reassignment from the admin account list

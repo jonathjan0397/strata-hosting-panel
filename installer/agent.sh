@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  Strata Agent — Child Node Installer
-#  Installs only strata-agent on a Debian 11/12 server.
+#  Installs strata-agent and Strata Web Disk on a Debian 11/12/13 server.
 #  Run as root or any sudo-capable user on the child node AFTER adding it in the panel.
 #
 #  Usage:
@@ -29,8 +29,8 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
-[[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" ]] \
-    || die "Debian 11 or 12 required."
+[[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" || "$DEBIAN_VERSION" == "13" ]] \
+    || die "Debian 11, 12, or 13 required."
 
 # Accept env vars or prompt
 HMAC_SECRET="${STRATA_HMAC_SECRET:-}"
@@ -73,6 +73,10 @@ GOOS=linux GOARCH=amd64 go build \
     -o /usr/sbin/strata-agent \
     ./main.go
 chmod 755 /usr/sbin/strata-agent
+GOOS=linux GOARCH=amd64 go build \
+    -o /usr/sbin/strata-webdav \
+    ./cmd/strata-webdav
+chmod 755 /usr/sbin/strata-webdav
 install -m 755 /tmp/strata-src/installer/agent-upgrade.sh /usr/sbin/strata-agent-upgrade
 rm -rf /tmp/strata-src
 success "Agent binary installed."
@@ -120,15 +124,43 @@ systemctl daemon-reload
 systemctl enable --now strata-agent
 success "strata-agent running on port ${AGENT_PORT}."
 
+mkdir -p /etc/strata-webdav
+touch /etc/strata-webdav/accounts.json
+chmod 600 /etc/strata-webdav/accounts.json
+cat > /etc/systemd/system/strata-webdav.service <<EOF
+[Unit]
+Description=Strata Web Disk WebDAV Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/strata-webdav
+Restart=always
+RestartSec=5
+Environment=STRATA_WEBDAV_PORT=2078
+Environment=STRATA_WEBDAV_ACCOUNTS=/etc/strata-webdav/accounts.json
+Environment=STRATA_TLS_CERT=/etc/strata-agent/tls/cert.pem
+Environment=STRATA_TLS_KEY=/etc/strata-agent/tls/key.pem
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now strata-webdav
+success "strata-webdav running on port 2078."
+
 # Firewall: allow agent port from anywhere (panel will connect from primary IP)
 if command -v ufw &>/dev/null; then
     ufw allow "${AGENT_PORT}/tcp" comment "strata-agent" >/dev/null 2>&1 || true
+    ufw allow "2078/tcp" comment "Strata Web Disk" >/dev/null 2>&1 || true
 fi
 
 echo ""
 echo -e "${BOLD}${GREEN}strata-agent installed successfully.${NC}"
 echo ""
 echo -e "  ${BOLD}Port:${NC}          ${AGENT_PORT}"
+echo -e "  ${BOLD}Web Disk:${NC}      2078/tcp"
 echo -e "  ${BOLD}TLS fingerprint:${NC} ${FINGERPRINT}"
 echo -e "  ${BOLD}Log:${NC}           journalctl -u strata-agent -f"
 echo ""

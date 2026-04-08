@@ -34,6 +34,7 @@ The utility replaces application source code but preserves runtime state:
 - `/opt/strata-panel/panel/storage`
 - `/etc/strata-panel`
 - `/etc/strata-agent`
+- `/etc/strata-webdav`
 - existing TLS certificates and service secrets
 - hosted account data under `/var/www`
 - databases and mail data
@@ -43,15 +44,15 @@ The utility replaces application source code but preserves runtime state:
 The upgrade process:
 
 - creates a timestamped rollback backup in `/opt/strata-panel-backups/<timestamp>`
-- stops `strata-agent` and `strata-queue`
+- stops `strata-agent`, `strata-webdav`, and `strata-queue`
 - installs the new panel and agent source
 - restores `.env` and `storage`
 - runs Composer install
 - runs Laravel migrations
 - builds frontend assets
-- rebuilds `/usr/sbin/strata-agent`
+- rebuilds `/usr/sbin/strata-agent` and `/usr/sbin/strata-webdav`
 - resets panel permissions
-- restarts `strata-agent`, `strata-queue`, PHP-FPM, and the web server
+- restarts `strata-agent`, `strata-webdav`, `strata-queue`, PHP-FPM, and the web server
 - runs health checks
 - queues matching agent upgrades for online remote nodes when upgrading from `--version` or `--branch`
 

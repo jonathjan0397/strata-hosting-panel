@@ -171,6 +171,9 @@ Route::middleware(['auth'])->group(function () {
 
         Route::middleware('account.feature:web_disk')->group(function () {
             Route::get('web-disk', [WebDiskController::class, 'index'])->name('web-disk.index');
+            Route::post('web-disk', [WebDiskController::class, 'store'])->name('web-disk.store');
+            Route::delete('web-disk/{webDavAccount}', [WebDiskController::class, 'destroy'])->name('web-disk.destroy');
+            Route::put('web-disk/{webDavAccount}/password', [WebDiskController::class, 'changePassword'])->name('web-disk.password');
         });
 
         // DNS

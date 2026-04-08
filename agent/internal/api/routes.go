@@ -100,6 +100,11 @@ func Routes() chi.Router {
 	r.Delete("/ftp/accounts/{username}", handleFTPDelete)
 	r.Put("/ftp/accounts/{username}/password", handleFTPPassword)
 
+	// WebDAV account management (Strata Web Disk)
+	r.Post("/webdav/accounts", handleWebDAVCreate)
+	r.Delete("/webdav/accounts/{username}", handleWebDAVDelete)
+	r.Put("/webdav/accounts/{username}/password", handleWebDAVPassword)
+
 	// Backups
 	r.Post("/backups/{username}", handleBackupCreate)
 	r.Get("/backups/{username}", handleBackupList)

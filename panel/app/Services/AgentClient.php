@@ -261,6 +261,24 @@ class AgentClient
 
     // ── File manager ──────────────────────────────────────────────────────────
 
+    public function createWebDavAccount(array $data): Response
+    {
+        return $this->post('/webdav/accounts', $data);
+    }
+
+    public function deleteWebDavAccount(string $username): Response
+    {
+        return $this->delete("/webdav/accounts/{$username}");
+    }
+
+    public function changeWebDavPassword(string $username, string $password, string $homeDir): Response
+    {
+        return $this->put("/webdav/accounts/{$username}/password", [
+            'password' => $password,
+            'home_dir' => $homeDir,
+        ]);
+    }
+
     public function fileList(string $username, string $path = '/'): Response
     {
         return $this->get("/files/{$username}?path=" . urlencode($path));

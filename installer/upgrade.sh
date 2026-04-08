@@ -15,6 +15,7 @@ ROLLBACK_ON_FAIL=1
 KEEP_WORKDIR=0
 BACKUP_DIR=""
 OLD_AGENT=""
+OLD_WEBDAV=""
 WORKDIR=""
 FAILED=0
 
@@ -125,6 +126,7 @@ restore_backup() {
     set +e
     systemctl stop strata-queue 2>/dev/null
     systemctl stop strata-agent 2>/dev/null
+    systemctl stop strata-webdav 2>/dev/null
     rm -rf "$INSTALL_DIR/panel" "$INSTALL_DIR/agent-src"
     cp -a "$BACKUP_DIR/panel" "$INSTALL_DIR/panel"
     [[ -d "$BACKUP_DIR/agent-src" ]] && cp -a "$BACKUP_DIR/agent-src" "$INSTALL_DIR/agent-src"
@@ -132,6 +134,10 @@ restore_backup() {
     if [[ -n "$OLD_AGENT" && -f "$OLD_AGENT" ]]; then
         cp -a "$OLD_AGENT" /usr/sbin/strata-agent
         chmod 755 /usr/sbin/strata-agent
+    fi
+    if [[ -n "$OLD_WEBDAV" && -f "$OLD_WEBDAV" ]]; then
+        cp -a "$OLD_WEBDAV" /usr/sbin/strata-webdav
+        chmod 755 /usr/sbin/strata-webdav
     fi
     set_permissions
     "$PHP_BIN" "$INSTALL_DIR/panel/artisan" optimize:clear >/dev/null 2>&1
@@ -142,6 +148,7 @@ restore_backup() {
     systemctl restart nginx 2>/dev/null || true
     systemctl restart apache2 2>/dev/null || true
     systemctl restart strata-agent 2>/dev/null
+    systemctl restart strata-webdav 2>/dev/null
     systemctl restart strata-queue 2>/dev/null
     set -e
 
@@ -191,6 +198,10 @@ if [[ -f /usr/sbin/strata-agent ]]; then
     OLD_AGENT="$BACKUP_DIR/strata-agent"
     cp -a /usr/sbin/strata-agent "$OLD_AGENT"
 fi
+if [[ -f /usr/sbin/strata-webdav ]]; then
+    OLD_WEBDAV="$BACKUP_DIR/strata-webdav"
+    cp -a /usr/sbin/strata-webdav "$OLD_WEBDAV"
+fi
 success "Rollback backup created."
 
 if [[ -n "$SOURCE_FILE" ]]; then
@@ -220,6 +231,7 @@ fi
 info "Stopping Strata services..."
 systemctl stop strata-queue 2>/dev/null || true
 systemctl stop strata-agent 2>/dev/null || true
+systemctl stop strata-webdav 2>/dev/null || true
 
 info "Installing new source while preserving runtime state..."
 rm -rf "$INSTALL_DIR/panel.new" "$INSTALL_DIR/agent-src.new"
@@ -283,13 +295,48 @@ GOOS=linux GOARCH=amd64 go build \
     -o /usr/sbin/strata-agent \
     .
 chmod 755 /usr/sbin/strata-agent
+GOOS=linux GOARCH=amd64 go build \
+    -o /usr/sbin/strata-webdav \
+    ./cmd/strata-webdav
+chmod 755 /usr/sbin/strata-webdav
+
+mkdir -p /etc/strata-webdav
+touch /etc/strata-webdav/accounts.json
+chmod 600 /etc/strata-webdav/accounts.json
+if [[ ! -f /etc/systemd/system/strata-webdav.service ]]; then
+    cert_path="/etc/strata-agent/tls/cert.pem"
+    key_path="/etc/strata-agent/tls/key.pem"
+    [[ -f /etc/strata-panel/tls/fullchain.pem ]] && cert_path="/etc/strata-panel/tls/fullchain.pem"
+    [[ -f /etc/strata-panel/tls/privkey.pem ]] && key_path="/etc/strata-panel/tls/privkey.pem"
+    cat > /etc/systemd/system/strata-webdav.service <<EOF
+[Unit]
+Description=Strata Web Disk WebDAV Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/strata-webdav
+Restart=always
+RestartSec=5
+Environment=STRATA_WEBDAV_PORT=2078
+Environment=STRATA_WEBDAV_ACCOUNTS=/etc/strata-webdav/accounts.json
+Environment=STRATA_TLS_CERT=${cert_path}
+Environment=STRATA_TLS_KEY=${key_path}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
 
 set_permissions
 repair_mail_permissions
 
 info "Restarting services..."
 systemctl daemon-reload
+systemctl enable strata-webdav >/dev/null 2>&1 || true
 systemctl restart strata-agent
+systemctl restart strata-webdav
 systemctl restart strata-queue
 systemctl restart php8.4-fpm 2>/dev/null || systemctl restart php-fpm 2>/dev/null || true
 systemctl reload nginx 2>/dev/null || systemctl restart nginx 2>/dev/null || true
@@ -297,6 +344,7 @@ systemctl reload apache2 2>/dev/null || systemctl restart apache2 2>/dev/null ||
 
 info "Running health checks..."
 systemctl is-active --quiet strata-agent
+systemctl is-active --quiet strata-webdav
 systemctl is-active --quiet strata-queue
 "$PHP_BIN" "$INSTALL_DIR/panel/artisan" about --only=environment >/dev/null
 "$PHP_BIN" "$INSTALL_DIR/panel/artisan" route:list >/dev/null

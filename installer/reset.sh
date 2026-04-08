@@ -45,7 +45,7 @@ echo ""
 
 # ── 1. Stop and disable all Strata services ───────────────────────────────────
 step "Stopping services…"
-for svc in strata-agent strata-queue pdns pure-ftpd redis-server \
+for svc in strata-agent strata-webdav strata-queue pdns pure-ftpd redis-server \
            postfix dovecot rspamd opendkim fail2ban nginx apache2; do
     if systemctl list-units --full -all 2>/dev/null | grep -q "^${svc}\.service"; then
         systemctl stop    "$svc" 2>/dev/null || true
@@ -55,6 +55,7 @@ done
 
 # Remove Strata systemd unit files
 rm -f /etc/systemd/system/strata-agent.service
+rm -f /etc/systemd/system/strata-webdav.service
 rm -f /etc/systemd/system/strata-queue.service
 systemctl daemon-reload
 ok "Services stopped."
@@ -104,8 +105,10 @@ ok "Packages purged."
 step "Removing Strata files…"
 rm -rf /opt/strata-panel
 rm -rf /etc/strata-agent
+rm -rf /etc/strata-webdav
 rm -rf /etc/strata-panel
 rm -f  /usr/sbin/strata-agent
+rm -f  /usr/sbin/strata-webdav
 rm -f  /root/.my.cnf
 rm -f  /root/strata-credentials.txt
 rm -f  /root/strata-uninstall.sh

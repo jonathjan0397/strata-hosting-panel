@@ -212,6 +212,7 @@ Admin
 - [x] Create/delete FTP accounts
 - [x] Jailed to account directory
 - [x] FTPS (TLS) enforced (Pure-FTPd TLS configured in installer)
+- [x] Web Disk via dedicated WebDAV-over-HTTPS service with per-account credentials
 
 ### PHP
 - [x] Per-account PHP version selection (8.1 / 8.2 / 8.3)

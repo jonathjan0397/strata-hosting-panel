@@ -5,7 +5,9 @@ VERSION="${1:-}"
 DOWNLOAD_URL="${2:-}"
 WORKDIR="$(mktemp -d /tmp/strata-agent-upgrade.XXXXXX)"
 BACKUP="/usr/sbin/strata-agent.backup.$(date +%Y%m%d-%H%M%S)"
+WEBDAV_BACKUP="/usr/sbin/strata-webdav.backup.$(date +%Y%m%d-%H%M%S)"
 NEW_BINARY="/usr/sbin/strata-agent.new"
+NEW_WEBDAV_BINARY="/usr/sbin/strata-webdav.new"
 export PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 cleanup() {
@@ -17,6 +19,11 @@ rollback() {
         cp -a "$BACKUP" /usr/sbin/strata-agent
         chmod 755 /usr/sbin/strata-agent
         systemctl restart strata-agent 2>/dev/null || true
+    fi
+    if [[ -f "$WEBDAV_BACKUP" ]]; then
+        cp -a "$WEBDAV_BACKUP" /usr/sbin/strata-webdav
+        chmod 755 /usr/sbin/strata-webdav
+        systemctl restart strata-webdav 2>/dev/null || true
     fi
 }
 
@@ -59,20 +66,56 @@ GOOS=linux GOARCH=amd64 go build \
     -o "$NEW_BINARY" \
     .
 chmod 755 "$NEW_BINARY"
+GOOS=linux GOARCH=amd64 go build \
+    -o "$NEW_WEBDAV_BINARY" \
+    ./cmd/strata-webdav
+chmod 755 "$NEW_WEBDAV_BINARY"
 
 if [[ -f /usr/sbin/strata-agent ]]; then
     cp -a /usr/sbin/strata-agent "$BACKUP"
 fi
+if [[ -f /usr/sbin/strata-webdav ]]; then
+    cp -a /usr/sbin/strata-webdav "$WEBDAV_BACKUP"
+fi
 
 mv "$NEW_BINARY" /usr/sbin/strata-agent
+mv "$NEW_WEBDAV_BINARY" /usr/sbin/strata-webdav
 if id vmail >/dev/null 2>&1; then
     mkdir -p /var/mail/vhosts
     chown vmail:vmail /var/mail/vhosts
     chmod 0750 /var/mail/vhosts
     find /var/mail/vhosts -mindepth 1 -maxdepth 1 -type d -exec chown -R vmail:vmail {} \; -exec chmod 0750 {} \; 2>/dev/null || true
 fi
+mkdir -p /etc/strata-webdav
+touch /etc/strata-webdav/accounts.json
+chmod 600 /etc/strata-webdav/accounts.json
+if [[ ! -f /etc/systemd/system/strata-webdav.service ]]; then
+    cat > /etc/systemd/system/strata-webdav.service <<EOF
+[Unit]
+Description=Strata Web Disk WebDAV Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/strata-webdav
+Restart=always
+RestartSec=5
+Environment=STRATA_WEBDAV_PORT=2078
+Environment=STRATA_WEBDAV_ACCOUNTS=/etc/strata-webdav/accounts.json
+Environment=STRATA_TLS_CERT=/etc/strata-agent/tls/cert.pem
+Environment=STRATA_TLS_KEY=/etc/strata-agent/tls/key.pem
+
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
+systemctl daemon-reload
+systemctl enable strata-webdav >/dev/null 2>&1 || true
 systemctl restart strata-agent
+systemctl restart strata-webdav
 sleep 2
 systemctl is-active --quiet strata-agent
+systemctl is-active --quiet strata-webdav
 
-echo "strata-agent upgraded to ${VERSION}"
+echo "strata-agent and strata-webdav upgraded to ${VERSION}"

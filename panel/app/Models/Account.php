@@ -71,6 +71,11 @@ class Account extends Model
         return $this->hasMany(FtpAccount::class);
     }
 
+    public function webDavAccounts(): HasMany
+    {
+        return $this->hasMany(WebDavAccount::class);
+    }
+
     public function malwareScanJobs(): HasMany
     {
         return $this->hasMany(MalwareScanJob::class);
