@@ -150,7 +150,15 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y pure-ftpd pure-ftpd-common \
     postfix postfix-mysql dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-mysql \
     opendkim opendkim-tools
 
-id -u vmail >/dev/null 2>&1 || useradd -r -u 5000 -g mail -d /var/mail/vhosts -s /usr/sbin/nologin vmail
+if ! getent group vmail >/dev/null 2>&1; then
+    groupadd -g 5000 vmail 2>/dev/null || groupadd vmail
+fi
+if ! id -u vmail >/dev/null 2>&1; then
+    useradd -u 5000 -g vmail -d /var/mail/vhosts -s /usr/sbin/nologin vmail 2>/dev/null \
+        || useradd -g vmail -d /var/mail/vhosts -s /usr/sbin/nologin vmail
+else
+    usermod -g vmail -d /var/mail/vhosts vmail 2>/dev/null || true
+fi
 mkdir -p /var/mail/vhosts /etc/strata-agent/tls
 chown -R vmail:vmail /var/mail/vhosts
 chmod 0750 /var/mail/vhosts
