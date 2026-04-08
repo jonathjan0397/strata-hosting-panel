@@ -37,6 +37,10 @@ gen_hex()  { openssl rand -hex "${1:-32}"; }
 HMAC_SECRET="${STRATA_HMAC_SECRET:-}"
 NODE_ID="${STRATA_NODE_ID:-}"
 HOSTNAME_FQDN="${STRATA_NODE_HOSTNAME:-$(hostname -f 2>/dev/null || hostname)}"
+HOSTNAME_PARENT_DOMAIN="${HOSTNAME_FQDN#*.}"
+if [[ "$HOSTNAME_PARENT_DOMAIN" == "$HOSTNAME_FQDN" || -z "$HOSTNAME_PARENT_DOMAIN" ]]; then
+    HOSTNAME_PARENT_DOMAIN="$HOSTNAME_FQDN"
+fi
 WEB_SERVER="${STRATA_WEB_SERVER:-nginx}"
 AGENT_PORT="${STRATA_PORT:-8743}"
 REQUESTED_DB_PASSWORD="${STRATA_DB_ROOT_PASSWORD:-}"
@@ -167,6 +171,7 @@ webserver-address=127.0.0.1
 webserver-port=8053
 webserver-allow-from=127.0.0.1,::1
 local-address=0.0.0.0
+default-soa-content=ns1.${HOSTNAME_PARENT_DOMAIN} hostmaster.${HOSTNAME_PARENT_DOMAIN} 0 10800 3600 604800 3600
 EOF
 systemctl enable --now pdns
 

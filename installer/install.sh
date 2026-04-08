@@ -501,6 +501,7 @@ webserver=yes
 webserver-address=127.0.0.1
 webserver-port=8053
 webserver-allow-from=127.0.0.1
+default-soa-content=ns1.${HOSTNAME_PARENT_DOMAIN} hostmaster.${HOSTNAME_PARENT_DOMAIN} 0 10800 3600 604800 3600
 
 # Logging
 log-dns-queries=no
