@@ -6,8 +6,8 @@ DOWNLOAD_URL="${2:-}"
 WORKDIR="$(mktemp -d /tmp/strata-agent-upgrade.XXXXXX)"
 BACKUP="/usr/sbin/strata-agent.backup.$(date +%Y%m%d-%H%M%S)"
 WEBDAV_BACKUP="/usr/sbin/strata-webdav.backup.$(date +%Y%m%d-%H%M%S)"
-NEW_BINARY="/usr/sbin/strata-agent.new"
-NEW_WEBDAV_BINARY="/usr/sbin/strata-webdav.new"
+NEW_BINARY="$WORKDIR/strata-agent"
+NEW_WEBDAV_BINARY="$WORKDIR/strata-webdav"
 export PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 install_rspamd_if_missing() {
@@ -68,6 +68,32 @@ enabled = true
 EOF
 }
 
+detect_goarch() {
+    case "$(uname -m)" in
+        x86_64|amd64) echo "amd64" ;;
+        aarch64|arm64) echo "arm64" ;;
+        armv7l) echo "arm" ;;
+        *)
+            echo "unsupported architecture: $(uname -m)" >&2
+            exit 1
+            ;;
+    esac
+}
+
+validate_binary() {
+    local path="$1"
+
+    [[ -s "$path" ]] || {
+        echo "binary validation failed: $path is empty" >&2
+        exit 1
+    }
+
+    file "$path" | grep -Eq 'ELF .* executable' || {
+        echo "binary validation failed: $path is not a native executable" >&2
+        exit 1
+    }
+}
+
 cleanup() {
     rm -rf "$WORKDIR"
 }
@@ -100,6 +126,7 @@ trap cleanup EXIT
 command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 1; }
 command -v tar >/dev/null 2>&1 || { echo "tar is required." >&2; exit 1; }
 command -v go >/dev/null 2>&1 || { echo "go is required." >&2; exit 1; }
+command -v file >/dev/null 2>&1 || { echo "file is required." >&2; exit 1; }
 
 case "$DOWNLOAD_URL" in
     https://github.com/jonathjan0397/strata-hosting-panel/archive/refs/tags/*.tar.gz|\
@@ -119,15 +146,18 @@ tar -xzf "$WORKDIR/source.tar.gz" -C "$WORKDIR/src" --strip-components=1
 
 cd "$WORKDIR/src/agent"
 go mod tidy
-GOOS=linux GOARCH=amd64 go build \
+GOARCH_TARGET="$(detect_goarch)"
+GOOS=linux GOARCH="$GOARCH_TARGET" go build \
     -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=${VERSION}" \
     -o "$NEW_BINARY" \
     .
 chmod 755 "$NEW_BINARY"
-GOOS=linux GOARCH=amd64 go build \
+GOOS=linux GOARCH="$GOARCH_TARGET" go build \
     -o "$NEW_WEBDAV_BINARY" \
     ./cmd/strata-webdav
 chmod 755 "$NEW_WEBDAV_BINARY"
+validate_binary "$NEW_BINARY"
+validate_binary "$NEW_WEBDAV_BINARY"
 
 if [[ -f /usr/sbin/strata-agent ]]; then
     cp -a /usr/sbin/strata-agent "$BACKUP"
@@ -136,8 +166,8 @@ if [[ -f /usr/sbin/strata-webdav ]]; then
     cp -a /usr/sbin/strata-webdav "$WEBDAV_BACKUP"
 fi
 
-mv "$NEW_BINARY" /usr/sbin/strata-agent
-mv "$NEW_WEBDAV_BINARY" /usr/sbin/strata-webdav
+install -m 755 "$NEW_BINARY" /usr/sbin/strata-agent
+install -m 755 "$NEW_WEBDAV_BINARY" /usr/sbin/strata-webdav
 install_rspamd_if_missing
 repair_fail2ban_defaults
 if id vmail >/dev/null 2>&1; then

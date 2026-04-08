@@ -95,6 +95,22 @@ need_command() {
     command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
 }
 
+detect_goarch() {
+    case "$(uname -m)" in
+        x86_64|amd64) echo "amd64" ;;
+        aarch64|arm64) echo "arm64" ;;
+        armv7l) echo "arm" ;;
+        *) die "Unsupported architecture: $(uname -m)" ;;
+    esac
+}
+
+validate_binary() {
+    local path="$1"
+
+    [[ -s "$path" ]] || die "Binary validation failed: $path is empty."
+    file "$path" | grep -Eq 'ELF .* executable' || die "Binary validation failed: $path is not a native executable."
+}
+
 set_permissions() {
     if id "$PANEL_USER" >/dev/null 2>&1; then
         chown -R "$PANEL_USER:$PANEL_GROUP" "$INSTALL_DIR/panel" 2>/dev/null || chown -R "$PANEL_USER:$PANEL_USER" "$INSTALL_DIR/panel"
@@ -213,6 +229,7 @@ need_command curl
 need_command composer
 need_command npm
 need_command go
+need_command file
 
 info "Using PHP: $PHP_BIN"
 info "Install path: $INSTALL_DIR"
@@ -329,15 +346,22 @@ info "Caching Laravel config/routes/views..."
 info "Building strata-agent..."
 cd "$INSTALL_DIR/agent-src"
 go mod tidy
-GOOS=linux GOARCH=amd64 go build \
+GOARCH_TARGET="$(detect_goarch)"
+NEW_AGENT="$WORKDIR/strata-agent"
+NEW_WEBDAV="$WORKDIR/strata-webdav"
+GOOS=linux GOARCH="$GOARCH_TARGET" go build \
     -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=${target_version}" \
-    -o /usr/sbin/strata-agent \
+    -o "$NEW_AGENT" \
     .
-chmod 755 /usr/sbin/strata-agent
-GOOS=linux GOARCH=amd64 go build \
-    -o /usr/sbin/strata-webdav \
+chmod 755 "$NEW_AGENT"
+GOOS=linux GOARCH="$GOARCH_TARGET" go build \
+    -o "$NEW_WEBDAV" \
     ./cmd/strata-webdav
-chmod 755 /usr/sbin/strata-webdav
+chmod 755 "$NEW_WEBDAV"
+validate_binary "$NEW_AGENT"
+validate_binary "$NEW_WEBDAV"
+install -m 755 "$NEW_AGENT" /usr/sbin/strata-agent
+install -m 755 "$NEW_WEBDAV" /usr/sbin/strata-webdav
 
 mkdir -p /etc/strata-webdav
 touch /etc/strata-webdav/accounts.json
