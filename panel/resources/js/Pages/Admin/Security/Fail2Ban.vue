@@ -4,7 +4,7 @@
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h1 class="text-lg font-semibold text-gray-100">Fail2Ban Administration</h1>
-                    <p class="mt-0.5 text-sm text-gray-400">Manage Fail2Ban service state, jails, manual bans, and unbans per node.</p>
+                    <p class="mt-0.5 text-sm text-gray-400">Manage service state, default jails for exposed services, and ban behavior per node.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <button @click="serviceAction('start')" :disabled="serviceBusy || !selectedNodeId" class="btn-primary">Start</button>
@@ -16,7 +16,7 @@
             <div class="flex flex-wrap items-center gap-3">
                 <select v-model="selectedNodeId" class="field w-72" @change="loadStatus">
                     <option value="">Select a node</option>
-                    <option v-for="n in nodes" :key="n.id" :value="n.id">{{ n.name }} ({{ n.hostname }})</option>
+                    <option v-for="n in nodes" :key="n.id" :value="String(n.id)">{{ n.name }} ({{ n.hostname }})</option>
                 </select>
                 <button @click="loadStatus" :disabled="loading || !selectedNodeId" class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 disabled:opacity-50">
                     {{ loading ? 'Loading...' : 'Refresh' }}
@@ -30,7 +30,65 @@
             </div>
 
             <div v-if="message" class="rounded-xl border border-emerald-700/40 bg-emerald-900/20 px-4 py-2.5 text-sm text-emerald-300">{{ message }}</div>
-            <div v-if="error" class="rounded-xl border border-red-700/40 bg-red-900/20 px-4 py-2.5 text-sm text-red-300">{{ error }}</div>
+            <div v-if="error" class="rounded-xl border border-red-700/40 bg-red-900/20 px-4 py-2.5 text-sm text-red-300 whitespace-pre-wrap">{{ error }}</div>
+
+            <section v-if="selectedNodeId" class="rounded-xl border border-gray-800 bg-gray-900 p-5 space-y-5">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-300">Jail Defaults</h2>
+                    <p class="mt-1 text-xs text-gray-500">These defaults apply across the managed jails. Per-jail overrides are optional.</p>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-3">
+                    <div>
+                        <label class="mb-1 block text-xs text-gray-500">Ban Time (seconds)</label>
+                        <input v-model.number="config.defaults.bantime" type="number" min="1" class="field w-full" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs text-gray-500">Find Time (seconds)</label>
+                        <input v-model.number="config.defaults.findtime" type="number" min="1" class="field w-full" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs text-gray-500">Max Retry</label>
+                        <input v-model.number="config.defaults.maxretry" type="number" min="1" class="field w-full" />
+                    </div>
+                </div>
+
+                <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-950/40">
+                    <div class="grid grid-cols-[minmax(0,1.5fr)_100px_repeat(3,minmax(0,1fr))] gap-3 border-b border-gray-800 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <div>Jail</div>
+                        <div>Enabled</div>
+                        <div>Max Retry</div>
+                        <div>Find Time</div>
+                        <div>Ban Time</div>
+                    </div>
+                    <div v-for="jail in config.jails" :key="jail.name" class="grid grid-cols-[minmax(0,1.5fr)_100px_repeat(3,minmax(0,1fr))] gap-3 border-b border-gray-800 px-4 py-3 last:border-b-0">
+                        <div>
+                            <p class="text-sm font-medium text-gray-200">{{ jail.label || jail.name }}</p>
+                            <p class="mt-1 text-xs" :class="jail.available ? 'text-gray-500' : 'text-amber-300'">
+                                {{ jail.available ? jail.name : `${jail.name} is not available on this node` }}
+                            </p>
+                        </div>
+                        <div class="flex items-center">
+                            <input v-model="jail.enabled" type="checkbox" class="h-4 w-4 rounded border-gray-700 bg-gray-900 text-indigo-500" :disabled="!jail.available" />
+                        </div>
+                        <div>
+                            <input :value="nullableNumber(jail.maxretry)" type="number" min="1" class="field w-full" placeholder="Default" @input="setNullableNumber(jail, 'maxretry', $event.target.value)" />
+                        </div>
+                        <div>
+                            <input :value="nullableNumber(jail.findtime)" type="number" min="1" class="field w-full" placeholder="Default" @input="setNullableNumber(jail, 'findtime', $event.target.value)" />
+                        </div>
+                        <div>
+                            <input :value="nullableNumber(jail.bantime)" type="number" min="1" class="field w-full" placeholder="Default" @input="setNullableNumber(jail, 'bantime', $event.target.value)" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button @click="saveConfig" :disabled="configBusy || !config.jails.length" class="btn-primary">
+                        {{ configBusy ? 'Saving...' : 'Save Fail2Ban Settings' }}
+                    </button>
+                </div>
+            </section>
 
             <section v-if="selectedNodeId" class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <div class="mb-4">
@@ -93,23 +151,28 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
     nodes: { type: Array, default: () => [] },
 });
 
-const selectedNodeId = ref(props.nodes[0]?.id ?? '');
+const selectedNodeId = ref(props.nodes[0]?.id ? String(props.nodes[0].id) : '');
 const jails = ref([]);
 const service = ref(null);
 const loading = ref(false);
 const serviceBusy = ref(false);
+const configBusy = ref(false);
 const banBusy = ref(false);
 const error = ref('');
 const message = ref('');
 const banForm = ref({ jail: '', ip: '' });
 const unbanForm = ref({});
+const config = ref({
+    defaults: { bantime: 3600, findtime: 600, maxretry: 10 },
+    jails: [],
+});
 
 async function loadStatus() {
     if (!selectedNodeId.value) return;
@@ -120,16 +183,20 @@ async function loadStatus() {
             headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         });
         const data = await res.json();
+        service.value = data.service ?? null;
         if (!res.ok || data.error) {
             error.value = data.error ?? 'Failed to fetch Fail2Ban status.';
             jails.value = [];
-            service.value = data.service ?? null;
         } else {
             jails.value = data.jails ?? [];
-            service.value = data.service ?? null;
             if (!banForm.value.jail && jails.value[0]) {
                 banForm.value.jail = jails.value[0].name;
             }
+        }
+        if (data.config) {
+            config.value = normalizeConfig(data.config);
+        } else if (data.config_error) {
+            error.value = error.value ? `${error.value}\n${data.config_error}` : data.config_error;
         }
     } catch (e) {
         error.value = 'Network error: ' + e.message;
@@ -138,11 +205,45 @@ async function loadStatus() {
     }
 }
 
+function normalizeConfig(raw) {
+    return {
+        defaults: {
+            bantime: Number(raw?.defaults?.bantime ?? 3600),
+            findtime: Number(raw?.defaults?.findtime ?? 600),
+            maxretry: Number(raw?.defaults?.maxretry ?? 10),
+        },
+        jails: (raw?.jails ?? []).map((jail) => ({
+            name: jail.name,
+            label: jail.label ?? jail.name,
+            enabled: Boolean(jail.enabled),
+            available: Boolean(jail.available),
+            maxretry: jail.maxretry ?? null,
+            findtime: jail.findtime ?? null,
+            bantime: jail.bantime ?? null,
+        })),
+    };
+}
+
+async function saveConfig() {
+    configBusy.value = true;
+    await postJson(route('admin.security.fail2ban.config'), {
+        node_id: Number(selectedNodeId.value),
+        defaults: config.value.defaults,
+        jails: config.value.jails,
+    }, (data) => {
+        message.value = data.message ?? 'Fail2Ban settings saved.';
+        if (data.config) {
+            config.value = normalizeConfig(data.config);
+        }
+    });
+    configBusy.value = false;
+}
+
 async function banIp() {
     if (!banForm.value.jail || !banForm.value.ip) return;
     banBusy.value = true;
     await postJson(route('admin.security.fail2ban.ban'), {
-        node_id: selectedNodeId.value,
+        node_id: Number(selectedNodeId.value),
         jail: banForm.value.jail,
         ip: banForm.value.ip,
     }, () => {
@@ -155,7 +256,7 @@ async function banIp() {
 async function unbanIp(jail, ip) {
     if (!ip) return;
     await postJson(route('admin.security.fail2ban.unban'), {
-        node_id: selectedNodeId.value,
+        node_id: Number(selectedNodeId.value),
         jail,
         ip,
     }, () => {
@@ -168,7 +269,7 @@ async function serviceAction(action) {
     if (!selectedNodeId.value) return;
     serviceBusy.value = true;
     await postJson(route('admin.security.fail2ban.service'), {
-        node_id: selectedNodeId.value,
+        node_id: Number(selectedNodeId.value),
         action,
     }, () => {
         message.value = `Fail2Ban ${action} completed.`;
@@ -191,7 +292,7 @@ async function postJson(url, payload, onSuccess) {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-            error.value = data.message ?? 'Request failed.';
+            error.value = data.message ?? data.error ?? 'Request failed.';
             return;
         }
         onSuccess?.(data);
@@ -199,6 +300,15 @@ async function postJson(url, payload, onSuccess) {
     } catch (e) {
         error.value = 'Network error: ' + e.message;
     }
+}
+
+function nullableNumber(value) {
+    return value ?? '';
+}
+
+function setNullableNumber(jail, field, raw) {
+    const value = String(raw).trim();
+    jail[field] = value === '' ? null : Number(value);
 }
 
 onMounted(() => {

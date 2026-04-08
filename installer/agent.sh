@@ -459,6 +459,12 @@ for rule in 22/tcp 53/tcp 53/udp 80/tcp 443/tcp 25/tcp 465/tcp 587/tcp 993/tcp 9
 done
 ufw --force enable >/dev/null 2>&1 || true
 cat > /etc/fail2ban/jail.d/strata-defaults.local <<'EOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 10
+backend = systemd
+
 [sshd]
 enabled = true
 maxretry = 10
@@ -478,6 +484,20 @@ maxretry = 10
 [nginx-http-auth]
 enabled = true
 maxretry = 10
+
+[pure-ftpd]
+enabled = true
+maxretry = 10
+
+[apache-auth]
+enabled = true
+maxretry = 10
+
+[recidive]
+enabled = true
+bantime = 86400
+findtime = 86400
+maxretry = 5
 EOF
 systemctl enable --now fail2ban
 

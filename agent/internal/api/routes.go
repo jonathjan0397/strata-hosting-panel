@@ -123,6 +123,8 @@ func Routes() chi.Router {
 
 	// fail2ban
 	r.Get("/fail2ban/status", handleFail2BanStatus)
+	r.Get("/fail2ban/config", handleFail2BanConfig)
+	r.Post("/fail2ban/config", handleFail2BanConfigUpdate)
 	r.Post("/fail2ban/ban", handleFail2BanBan)
 	r.Post("/fail2ban/unban", handleFail2BanUnban)
 

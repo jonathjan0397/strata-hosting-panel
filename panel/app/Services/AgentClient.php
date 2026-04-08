@@ -476,6 +476,16 @@ class AgentClient
         return $this->get('/fail2ban/status');
     }
 
+    public function fail2banConfig(): Response
+    {
+        return $this->get('/fail2ban/config');
+    }
+
+    public function fail2banUpdateConfig(array $config): Response
+    {
+        return $this->post('/fail2ban/config', $config);
+    }
+
     public function fail2banUnban(string $jail, string $ip): Response
     {
         return $this->post('/fail2ban/unban', ['jail' => $jail, 'ip' => $ip]);

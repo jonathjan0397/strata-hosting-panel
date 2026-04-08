@@ -37,8 +37,14 @@ class SecurityController extends Controller
     {
         $node     = Node::findOrFail($request->query('node_id'));
         $response = AgentClient::for($node)->fail2banStatus();
+        $configResponse = AgentClient::for($node)->fail2banConfig();
         $services = AgentClient::for($node)->services();
         $payload = $response->successful() ? $response->json() : ['jails' => [], 'error' => $response->body()];
+        if ($configResponse->successful()) {
+            $payload['config'] = $configResponse->json();
+        } else {
+            $payload['config_error'] = $configResponse->body();
+        }
         $payload['service'] = collect($services->successful() ? $services->json() : [])
             ->firstWhere('name', 'fail2ban');
 
@@ -113,6 +119,53 @@ class SecurityController extends Controller
         ]);
 
         return response()->json(['status' => 'ok', 'message' => "Fail2Ban {$data['action']} completed."]);
+    }
+
+    public function fail2banUpdateConfig(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'node_id' => ['required', 'exists:nodes,id'],
+            'defaults' => ['required', 'array'],
+            'defaults.bantime' => ['required', 'integer', 'min:1'],
+            'defaults.findtime' => ['required', 'integer', 'min:1'],
+            'defaults.maxretry' => ['required', 'integer', 'min:1'],
+            'jails' => ['required', 'array', 'min:1'],
+            'jails.*.name' => ['required', 'regex:/^[a-zA-Z0-9_-]+$/'],
+            'jails.*.enabled' => ['required', 'boolean'],
+            'jails.*.maxretry' => ['nullable', 'integer', 'min:1'],
+            'jails.*.findtime' => ['nullable', 'integer', 'min:1'],
+            'jails.*.bantime' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $node = Node::findOrFail($data['node_id']);
+        $response = AgentClient::for($node)->fail2banUpdateConfig([
+            'defaults' => $data['defaults'],
+            'jails' => collect($data['jails'])->map(fn ($jail) => [
+                'name' => $jail['name'],
+                'enabled' => (bool) $jail['enabled'],
+                'maxretry' => $jail['maxretry'] ?? null,
+                'findtime' => $jail['findtime'] ?? null,
+                'bantime' => $jail['bantime'] ?? null,
+            ])->values()->all(),
+        ]);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'message' => 'Fail2Ban settings update failed: ' . $response->body(),
+            ], 502);
+        }
+
+        AuditLog::record('security.fail2ban_config_updated', $node, [
+            'node' => $node->name,
+            'defaults' => $data['defaults'],
+            'jails' => $data['jails'],
+        ]);
+
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'Fail2Ban settings saved.',
+            'config' => $response->json(),
+        ]);
     }
 
     // Firewall (UFW)

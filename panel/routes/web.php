@@ -380,6 +380,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('security/firewall/rules', [SecurityController::class, 'firewallDelete'])->name('security.firewall.delete');
         Route::get('security/fail2ban', [SecurityController::class, 'fail2banIndex'])->name('security.fail2ban.index');
         Route::get('security/fail2ban/status', [SecurityController::class, 'fail2banStatus'])->name('security.fail2ban.status');
+        Route::post('security/fail2ban/config', [SecurityController::class, 'fail2banUpdateConfig'])->name('security.fail2ban.config');
         Route::post('security/fail2ban/ban', [SecurityController::class, 'ban'])->name('security.fail2ban.ban');
         Route::post('security/fail2ban/unban', [SecurityController::class, 'unban'])->name('security.fail2ban.unban');
         Route::post('security/fail2ban/service', [SecurityController::class, 'fail2banService'])->name('security.fail2ban.service');

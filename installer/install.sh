@@ -1319,13 +1319,29 @@ enabled  = true
 port     = http,https
 maxretry = 10
 logpath  = %(nginx_error_log)s
+
+[pure-ftpd]
+enabled  = true
+port     = ftp,ftp-data,ftps,30000:50000
+maxretry = 10
+
+[apache-auth]
+enabled  = true
+port     = http,https
+maxretry = 10
+
+[recidive]
+enabled  = true
+bantime  = 86400
+findtime = 86400
+maxretry = 5
 EOF
 
 systemctl enable --now fail2ban
 if compgen -G "/var/lib/clamav/daily.*" >/dev/null; then
     systemctl restart clamav-daemon || warn "clamav-daemon did not restart â€” clamscan can still run on demand."
 fi
-success "fail2ban configured (SSH, Postfix/Postfix SASL, Dovecot, Nginx jails active; 10 retries before ban)."
+success "fail2ban configured (SSH, mail, FTP, web auth, and recidive jails active by default)."
 
 # ── Step 21. Register primary node ───────────────────────────────────────────
 info "Registering primary node in panel database…"
