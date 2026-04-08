@@ -389,6 +389,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('updates', [UpdateController::class, 'index'])->name('updates.index');
         Route::get('updates/available', [UpdateController::class, 'available'])->name('updates.available');
         Route::post('updates/apply', [UpdateController::class, 'apply'])->name('updates.apply');
+        Route::post('updates/panel-upgrade', [UpdateController::class, 'panelUpgrade'])->name('updates.panel-upgrade');
 
         // API tokens (billing integration)
         Route::get('api-tokens', [ApiTokenController::class, 'index'])->name('api-tokens.index');
