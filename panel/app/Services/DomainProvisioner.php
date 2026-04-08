@@ -52,11 +52,7 @@ class DomainProvisioner
                 return [false, $fileError];
             }
 
-            $payload = $this->buildPayload($domain, [
-                'ssl_enabled' => $domain->ssl_enabled,
-                'ssl_cert'    => $domain->ssl_enabled ? "/etc/strata-panel/certs/{$domain->domain}/cert.pem" : null,
-                'ssl_key'     => $domain->ssl_enabled ? "/etc/strata-panel/certs/{$domain->domain}/key.pem" : null,
-            ]);
+            $payload = $this->buildPayload($domain, $this->resolvedSslOverride($domain));
 
             $response = AgentClient::for($domain->node)->createDomain(array_filter($payload, fn($v) => $v !== null));
 
@@ -157,6 +153,11 @@ class DomainProvisioner
         (new DnsProvisioner(AgentClient::for($domain->node)))->addMailRecords($domain->fresh());
 
         return [true, null];
+    }
+
+    public function hasUsableSsl(Domain $domain): bool
+    {
+        return $this->resolvedSslOverride($domain)['ssl_enabled'];
     }
 
     /**
@@ -277,6 +278,45 @@ class DomainProvisioner
         ];
 
         return array_merge($base, $override);
+    }
+
+    private function resolvedSslOverride(Domain $domain): array
+    {
+        if (! $domain->ssl_enabled) {
+            return [
+                'ssl_enabled' => false,
+                'ssl_cert' => null,
+                'ssl_key' => null,
+            ];
+        }
+
+        $provider = $domain->ssl_provider ?: 'letsencrypt';
+        $paths = match ($provider) {
+            'custom' => [
+                'cert' => "/etc/strata-agent/certs/{$domain->domain}/cert.pem",
+                'key' => "/etc/strata-agent/certs/{$domain->domain}/key.pem",
+            ],
+            default => [
+                'cert' => "/etc/ssl/strata/{$domain->domain}/fullchain.pem",
+                'key' => "/etc/ssl/strata/{$domain->domain}/privkey.pem",
+            ],
+        };
+
+        if ($domain->node?->is_primary) {
+            if (! is_file($paths['cert']) || ! is_file($paths['key'])) {
+                return [
+                    'ssl_enabled' => false,
+                    'ssl_cert' => null,
+                    'ssl_key' => null,
+                ];
+            }
+        }
+
+        return [
+            'ssl_enabled' => true,
+            'ssl_cert' => $paths['cert'],
+            'ssl_key' => $paths['key'],
+        ];
     }
 
     /**
@@ -418,7 +458,7 @@ class DomainProvisioner
 
     private function buildForceHttpsDirective(Domain $domain, string $webServer): ?string
     {
-        if (! $domain->force_https || ! $domain->ssl_enabled) {
+        if (! $domain->force_https || ! $this->resolvedSslOverride($domain)['ssl_enabled']) {
             return null;
         }
 

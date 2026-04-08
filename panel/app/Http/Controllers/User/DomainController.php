@@ -157,8 +157,8 @@ class DomainController extends Controller
             'force_https' => ['required', 'boolean'],
         ]);
 
-        if ($data['force_https'] && ! $domain->ssl_enabled) {
-            return back()->with('error', 'Force HTTPS requires an active SSL certificate first.');
+        if ($data['force_https'] && ! app(DomainProvisioner::class)->hasUsableSsl($domain)) {
+            return back()->with('error', 'Force HTTPS requires an installed SSL certificate first.');
         }
 
         $previous = $domain->force_https;
