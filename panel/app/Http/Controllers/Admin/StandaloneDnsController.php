@@ -124,6 +124,16 @@ class StandaloneDnsController extends Controller
             : back()->with('error', $output ?: 'Backup DNS sync failed.');
     }
 
+    public function syncZoneBackups(DnsZone $zone): RedirectResponse
+    {
+        $exitCode = Artisan::call('dns:sync-backup-zones', ['--zone' => $zone->zone_name]);
+        $output = trim(Artisan::output());
+
+        return $exitCode === 0
+            ? back()->with('success', $output ?: "Backup DNS sync completed for {$zone->zone_name}.")
+            : back()->with('error', $output ?: "Backup DNS sync failed for {$zone->zone_name}.");
+    }
+
     /**
      * Create a new standalone DNS zone on a node.
      */

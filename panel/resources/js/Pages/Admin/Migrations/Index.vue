@@ -80,6 +80,15 @@
                                 <p v-if="migration.status === 'restored' && migration.cutover_blockers?.length" class="mt-1 max-w-sm text-xs text-amber-300">
                                     Cutover blocked: {{ migration.cutover_blockers.join(', ') }}
                                 </p>
+                                <details v-if="migration.status === 'restored' && migration.remediation?.length" class="mt-2 max-w-md">
+                                    <summary class="cursor-pointer text-xs text-indigo-300">Show remediation checklist</summary>
+                                    <div class="mt-2 space-y-2 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3">
+                                        <div v-for="item in migration.remediation" :key="item.label" class="text-xs text-amber-100/90">
+                                            <p class="font-semibold">{{ item.label }}: {{ item.count }}</p>
+                                            <p class="mt-0.5 text-amber-100/70">{{ item.action }}</p>
+                                        </div>
+                                    </div>
+                                </details>
                             </td>
                             <td class="px-5 py-3.5 text-xs text-gray-500">
                                 <p>{{ migration.created_at }}</p>

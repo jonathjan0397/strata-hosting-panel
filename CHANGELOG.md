@@ -39,6 +39,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Malware Scanner now lists quarantined files and lets users permanently delete quarantined items from their account jail
 - Web Disk now uses a dedicated WebDAV-over-HTTPS service on port 2078 with per-account credentials instead of only FTPS connection guidance
 - Admin Mail Queue diagnostics can inspect Postfix queues, flush deferred delivery, and delete stuck queued messages from online nodes
+- Admin Mail Queue diagnostics can search recent Postfix/Dovecot delivery logs by mailbox, domain, queue ID, or error text
 - Metrics now exports historical traffic reports as CSV by date and domain
 
 **Accounts**
@@ -53,11 +54,13 @@ Public beta target: `v1.0.0-beta.2`.
 **Migrations**
 - Migration prepare, transfer, restore, cutover, and source cleanup actions now run through the queue worker with migration-row progress tracking
 - Migration cutover now reassigns and re-provisions credentialless email forwarders on the target node instead of blocking solely because forwarders exist
+- Migration rows now show a remediation checklist for blocked services that require fresh credentials or manual verification
 
 **Backups**
 - Admin backup list supports bulk deletion while preserving panel records when node cleanup fails
 - Admin competitor-backup import queue converts supported cPanel/CWP `.tar.gz` and `.tgz` archives into normal Strata full-backup jobs for restore
 - Competitor backup imports now detect and preview domains, DNS zone files, mailbox names, and forwarders when present in cPanel/CWP archives
+- Completed competitor backup imports can queue a restore directly from the import queue
 - Manual backup creation, full restore, and path restore now run through the queue worker with restore status/error tracking instead of holding browser requests open
 
 **Domains**
@@ -68,6 +71,7 @@ Public beta target: `v1.0.0-beta.2`.
 - DNS record writes and deletes are mirrored to other online nodes so successive nodes can act as backup DNS servers for managed zones
 - Scheduled `dns:sync-backup-zones` backfills managed zones to online backup DNS nodes after a node comes online
 - Admin DNS Zones now shows nameserver cluster health and can trigger backup DNS synchronization on demand
+- Individual hosted or standalone DNS zones can trigger a targeted backup-DNS repair sync from the zone detail page
 - Users can delete their own domains from the domain detail page after a destructive warning; deletion removes the vhost, managed DNS zone, directory privacy settings, dedicated addon/subdomain document-root files, and the panel domain row so the domain can be re-added later
 - Domain create validation now ignores and purges already-deleted domain rows before insert, preventing stale soft-deleted domains from blocking reuse
 - Admin domain list supports bulk deletion while preserving panel records when server cleanup fails

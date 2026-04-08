@@ -23,6 +23,7 @@ class MailQueueController extends Controller
         $selectedNode = $this->selectedNode($request);
         $queue = null;
         $error = null;
+        $delivery = null;
 
         if ($selectedNode) {
             $response = AgentClient::for($selectedNode)->mailQueue();
@@ -30,6 +31,18 @@ class MailQueueController extends Controller
                 $queue = $response->json();
             } else {
                 $error = trim($response->body()) ?: 'Unable to read the mail queue.';
+            }
+
+            $query = trim((string) $request->query('log_query', ''));
+            if ($query !== '') {
+                $logResponse = AgentClient::for($selectedNode)->mailDeliveryLog(
+                    $query,
+                    (string) $request->query('log_service', 'all'),
+                    200,
+                );
+                $delivery = $logResponse->successful()
+                    ? $logResponse->json()
+                    : ['error' => trim($logResponse->body()) ?: 'Unable to search mail delivery logs.'];
             }
         }
 
@@ -42,6 +55,8 @@ class MailQueueController extends Controller
             ]),
             'selectedNodeId' => $selectedNode?->id,
             'queue' => $queue,
+            'delivery' => $delivery,
+            'filters' => $request->only('log_query', 'log_service'),
             'error' => $error,
         ]);
     }

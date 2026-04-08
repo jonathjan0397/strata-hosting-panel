@@ -300,6 +300,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('migrations/{migration}/cleanup-source', [AccountMigrationController::class, 'cleanupSource'])->name('migrations.cleanup-source');
         Route::get('backup-imports', [BackupImportController::class, 'index'])->name('backup-imports.index');
         Route::post('backup-imports', [BackupImportController::class, 'store'])->name('backup-imports.store');
+        Route::post('backup-imports/{import}/restore', [BackupImportController::class, 'restore'])->name('backup-imports.restore');
         Route::resource('packages', HostingPackageController::class)->except(['show']);
         Route::resource('feature-lists', FeatureListController::class)->except(['show']);
 
@@ -412,6 +413,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('dns/server/sync-backups', [StandaloneDnsController::class, 'syncBackupZones'])->name('dns.server.sync-backups');
         Route::get('dns/server/{zone}', [StandaloneDnsController::class, 'show'])->name('dns.server.show');
         Route::delete('dns/server/{zone}', [StandaloneDnsController::class, 'destroy'])->name('dns.server.destroy');
+        Route::post('dns/server/{zone}/sync-backups', [StandaloneDnsController::class, 'syncZoneBackups'])->name('dns.server.sync-zone-backups');
         Route::post('dns/server/{zone}/records', [StandaloneDnsController::class, 'storeRecord'])->name('dns.server.records.store');
         Route::delete('dns/server/records/{record}', [StandaloneDnsController::class, 'destroyRecord'])->name('dns.server.records.destroy');
     });

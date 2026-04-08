@@ -59,6 +59,31 @@
                 </form>
             </div>
 
+            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-100">Delivery Log Search</h2>
+                        <p class="mt-1 text-sm text-gray-400">Search recent Postfix and Dovecot logs by domain, mailbox, queue ID, or error text.</p>
+                    </div>
+                    <form @submit.prevent="searchLogs" class="grid gap-3 sm:grid-cols-[1fr_auto_auto] lg:min-w-[44rem]">
+                        <input v-model="logQuery" type="text" class="field" placeholder="example.com, user@example.com, queue ID..." />
+                        <select v-model="logService" class="field">
+                            <option value="all">Postfix + Dovecot</option>
+                            <option value="postfix">Postfix</option>
+                            <option value="dovecot">Dovecot</option>
+                        </select>
+                        <button type="submit" class="btn-primary">Search Logs</button>
+                    </form>
+                </div>
+                <div v-if="delivery?.error" class="mt-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                    {{ delivery.error }}
+                </div>
+                <div v-else-if="delivery" class="mt-4 rounded-lg border border-gray-800 bg-gray-950 p-4">
+                    <p class="text-xs text-gray-500">Matched {{ delivery.count }} line(s) in {{ delivery.checked_logs?.join(', ') }}.</p>
+                    <pre class="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs leading-6 text-gray-300">{{ delivery.entries?.join('\n') || 'No matching log lines.' }}</pre>
+                </div>
+            </div>
+
             <div v-if="queue" class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
                 <div class="border-b border-gray-800 px-5 py-4">
                     <h3 class="text-sm font-semibold text-gray-200">Queued Messages</h3>
@@ -110,15 +135,27 @@ const props = defineProps({
     nodes: { type: Array, default: () => [] },
     selectedNodeId: { type: Number, default: null },
     queue: { type: Object, default: null },
+    delivery: { type: Object, default: null },
+    filters: { type: Object, default: () => ({}) },
     error: { type: String, default: null },
 });
 
 const nodeId = ref(props.selectedNodeId ?? props.nodes[0]?.id ?? '');
+const logQuery = ref(props.filters?.log_query ?? '');
+const logService = ref(props.filters?.log_service ?? 'all');
 const flushForm = useForm({ node_id: nodeId.value });
 const purgeForm = useForm({ node_id: nodeId.value, confirm: '' });
 
 function changeNode() {
     router.get(route('admin.mail-queue.index'), { node_id: nodeId.value });
+}
+
+function searchLogs() {
+    router.get(route('admin.mail-queue.index'), {
+        node_id: nodeId.value,
+        log_query: logQuery.value,
+        log_service: logService.value,
+    }, { preserveScroll: true });
 }
 
 function flushQueue() {

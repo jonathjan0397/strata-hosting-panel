@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 
 class SyncBackupDnsZones extends Command
 {
-    protected $signature = 'dns:sync-backup-zones';
+    protected $signature = 'dns:sync-backup-zones {--zone= : Sync only one DNS zone name}';
     protected $description = 'Mirror managed DNS zones to online backup DNS nodes.';
 
     public function handle(): int
@@ -17,6 +17,7 @@ class SyncBackupDnsZones extends Command
         $zones = DnsZone::with('records')
             ->whereNotNull('node_id')
             ->where('active', true)
+            ->when($this->option('zone'), fn ($query, $zone) => $query->where('zone_name', rtrim(strtolower($zone), '.')))
             ->get();
 
         if ($zones->isEmpty()) {

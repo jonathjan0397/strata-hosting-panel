@@ -200,6 +200,7 @@ Admin
 - [x] Backup DNS mirroring to other online nodes for managed zone record writes/deletes
 - [x] Scheduled backup DNS backfill for managed zones when new nodes come online
 - [x] Admin DNS cluster health and manual backup-zone sync
+- [x] Targeted backup DNS repair sync per zone
 - [x] Import zone files (BIND format paste/upload)
 - [x] Export zone files (BIND format download)
 - [x] Server DNS zones (standalone zones not tied to hosted accounts)
@@ -250,8 +251,10 @@ Admin
 - [x] One-click restore
 - [x] cPanel/CWP archive import conversion into Strata full-backup jobs (website files + detected SQL dumps)
 - [x] cPanel/CWP archive metadata preview for detected domains, DNS zones, mailbox names, and forwarders
+- [x] Restore shortcut from completed cPanel/CWP import jobs
 - [x] Queued manual backup creation, full restore, and path restore with restore status tracking
 - [x] Migration cutover support for credentialless email forwarders
+- [x] Migration blocker remediation checklist for services requiring fresh credentials/manual verification
 
 ### Security
 - [x] 2FA (TOTP) for all user levels

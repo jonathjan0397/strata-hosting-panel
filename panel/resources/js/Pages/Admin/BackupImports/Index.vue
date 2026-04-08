@@ -113,6 +113,9 @@
                                     <p class="max-w-xs truncate font-mono text-gray-300" :title="item.backup.filename">{{ item.backup.filename }}</p>
                                     <p class="mt-1">{{ item.backup.status }} - {{ item.backup.size_human }}</p>
                                     <Link :href="route('admin.backups.index')" class="mt-2 inline-block text-indigo-300 hover:text-indigo-200">Open backups</Link>
+                                    <button type="button" class="ml-3 mt-2 inline-block text-emerald-300 hover:text-emerald-200" @click="restoreImport(item.id)">
+                                        Restore now
+                                    </button>
                                 </div>
                                 <span v-else>Pending conversion</span>
                             </td>
@@ -150,7 +153,7 @@
 
 <script setup>
 import { computed, watch } from 'vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import PageHeader from '@/Components/PageHeader.vue';
@@ -209,5 +212,10 @@ function hasImportMetadata(item) {
         || item.detected_paths?.mailboxes?.length
         || item.detected_paths?.forwarders?.length
     );
+}
+
+function restoreImport(id) {
+    if (!confirm('Queue restore for this imported backup? This will restore files and detected SQL dumps into the destination account.')) return;
+    router.post(route('admin.backup-imports.restore', id), {}, { preserveScroll: true });
 }
 </script>

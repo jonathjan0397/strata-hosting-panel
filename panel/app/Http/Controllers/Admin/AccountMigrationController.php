@@ -6,7 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessAccountMigrationStep;
 use App\Models\Account;
 use App\Models\AccountMigration;
+use App\Models\AppInstallation;
+use App\Models\DatabaseGrant;
+use App\Models\EmailAccount;
+use App\Models\FtpAccount;
+use App\Models\HostingDatabase;
 use App\Models\Node;
+use App\Models\WebDavAccount;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -40,6 +46,7 @@ class AccountMigrationController extends Controller
                     'error' => $migration->error,
                     'cutover_blockers' => $cutoverBlockers,
                     'can_cutover' => $cutoverBlockers === [],
+                    'remediation' => $migration->account ? $this->remediation($migration->account) : [],
                     'backup' => $migration->backupJob ? [
                         'filename' => $migration->backupJob->filename,
                         'status' => $migration->backupJob->status,
@@ -71,6 +78,44 @@ class AccountMigrationController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'hostname']),
         ]);
+    }
+
+    private function remediation(Account $account): array
+    {
+        $items = [
+            [
+                'label' => 'Mailboxes',
+                'count' => EmailAccount::where('account_id', $account->id)->count(),
+                'action' => 'Create replacement mailboxes on the target after cutover and have users set fresh passwords.',
+            ],
+            [
+                'label' => 'FTP accounts',
+                'count' => FtpAccount::where('account_id', $account->id)->count(),
+                'action' => 'Create replacement FTP users on the target with new passwords.',
+            ],
+            [
+                'label' => 'Web Disk accounts',
+                'count' => WebDavAccount::where('account_id', $account->id)->count(),
+                'action' => 'Create replacement Web Disk users on the target with new passwords.',
+            ],
+            [
+                'label' => 'Databases',
+                'count' => HostingDatabase::where('account_id', $account->id)->count(),
+                'action' => 'Restore database dumps, verify application configs, then recreate database users/grants with new passwords.',
+            ],
+            [
+                'label' => 'Database grants',
+                'count' => DatabaseGrant::where('account_id', $account->id)->count(),
+                'action' => 'Recreate host-scoped grants after database users are reset.',
+            ],
+            [
+                'label' => 'App installs',
+                'count' => AppInstallation::where('account_id', $account->id)->count(),
+                'action' => 'Validate app files/configuration manually after restore before final cutover.',
+            ],
+        ];
+
+        return array_values(array_filter($items, fn (array $item) => $item['count'] > 0));
     }
 
     public function store(Request $request): RedirectResponse

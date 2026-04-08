@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessBackupJobAction;
 use App\Jobs\ProcessBackupImport;
 use App\Models\Account;
 use App\Models\AuditLog;
@@ -135,5 +136,24 @@ class BackupImportController extends Controller
         ]);
 
         return back()->with('success', "Backup import for {$account->username} was queued. Refresh the import queue for progress.");
+    }
+
+    public function restore(BackupImport $import): RedirectResponse
+    {
+        $import->load(['backupJob', 'account']);
+
+        if ($import->status !== 'complete' || ! $import->backupJob) {
+            return back()->with('error', 'Only completed imports with a generated backup can be restored.');
+        }
+
+        $import->backupJob->update(['restore_status' => 'running', 'restore_error' => null]);
+        ProcessBackupJobAction::dispatch($import->backupJob->id, 'restore');
+
+        AuditLog::record('backup.import_restore_queued', $import->account, [
+            'backup_import_id' => $import->id,
+            'backup_job_id' => $import->backup_job_id,
+        ]);
+
+        return back()->with('success', "Restore for imported backup {$import->backupJob->filename} was queued.");
     }
 }

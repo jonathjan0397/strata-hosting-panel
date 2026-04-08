@@ -96,10 +96,13 @@ Implemented on `main`:
 - API migration workflow endpoints for list, detail, prepare, transfer, restore, cutover, and source cleanup
 - queued migration execution for prepare, transfer, restore, cutover, and source cleanup with migration-row progress tracking
 - migration cutover support for credentialless email forwarder re-provisioning on the target node
+- migration blocker remediation checklist for services requiring fresh credentials/manual validation
 - competitor backup import queue for cPanel/CWP `.tar.gz` and `.tgz` archives, converting supported website files and SQL dumps into normal Strata full-backup jobs
 - competitor backup import metadata preview for detected domains, DNS zone files, mailbox names, and forwarders
+- restore shortcut from completed competitor backup import jobs
 - queued manual backup creation, full restore, and path restore with restore status/error tracking
 - admin DNS cluster health cards and manual backup-zone synchronization
+- targeted per-zone backup DNS repair synchronization
 
 ### 4. Metrics and Logs
 Status: `in progress`

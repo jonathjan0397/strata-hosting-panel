@@ -10,6 +10,9 @@
                 <h2 class="font-mono text-lg font-semibold text-gray-100">{{ zone.zone_name }}</h2>
                 <span class="rounded-full bg-gray-700 px-2.5 py-0.5 text-xs text-gray-300">{{ zone.type }} zone</span>
             </div>
+            <button type="button" @click="syncBackups" class="ml-auto rounded-lg border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-200 transition-colors hover:border-indigo-500 hover:text-white">
+                Repair Backup DNS
+            </button>
         </div>
 
         <div class="mb-6 overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
@@ -102,6 +105,11 @@ function submitRecord() {
             showAdd.value = false;
         },
     });
+}
+
+function syncBackups() {
+    if (!confirm(`Sync ${props.zone.zone_name} to backup DNS nodes now?`)) return;
+    router.post(route('admin.dns.server.sync-zone-backups', props.zone.id), {}, { preserveScroll: true });
 }
 
 function typeClass(type) {
