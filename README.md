@@ -155,10 +155,14 @@ See [docs/UPGRADING.md](docs/UPGRADING.md) for the full workflow and manual roll
 
 ## Adding a Child Node
 
-After the panel is running, go to **Admin -> Nodes -> Add Node** to get the HMAC secret and Node ID, then on the child server run:
+After the panel is running, go to **Admin -> Nodes -> Add Node** to get the HMAC secret and Node ID, then on the child server run the remote node installer. It installs the hosting service stack plus the Strata agent/Web Disk services:
 
 ```bash
-STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/agent.sh)
+STRATA_HMAC_SECRET=<secret> \
+STRATA_NODE_ID=<id> \
+STRATA_NODE_HOSTNAME=node1.example.com \
+STRATA_WEB_SERVER=nginx \
+bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/agent.sh)
 ```
 
 ---

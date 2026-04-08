@@ -373,7 +373,7 @@ strata-hosting-panel/
 │   └── main.go
 ├── installer/          # Bash installer scripts
 │   ├── install.sh      # Main panel installer
-│   └── agent.sh        # Agent installer
+│   └── agent.sh        # Remote node service-stack + agent installer
 └── docs/               # Documentation
 ```
 

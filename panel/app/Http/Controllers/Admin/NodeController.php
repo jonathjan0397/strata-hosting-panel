@@ -87,6 +87,7 @@ class NodeController extends Controller
         return Inertia::render('Admin/Nodes/Show', [
             'node'   => $node->fresh(),
             'health' => $health,
+            'installSecret' => $node->hmac_secret,
         ]);
     }
 

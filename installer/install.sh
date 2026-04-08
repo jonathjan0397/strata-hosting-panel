@@ -596,13 +596,13 @@ postconf -e "smtpd_banner = \$myhostname ESMTP"
 postconf -e "biff = no"
 postconf -e "append_dot_mydomain = no"
 postconf -e "virtual_transport = lmtp:unix:private/dovecot-lmtp"
-postconf -e "virtual_mailbox_base = /var/mail/vmail"
+postconf -e "virtual_mailbox_base = /var/mail/vhosts"
 postconf -e "virtual_minimum_uid = 5000"
 postconf -e "virtual_uid_maps = static:5000"
 postconf -e "virtual_gid_maps = static:5000"
-postconf -e "virtual_mailbox_domains = proxy:mysql:/etc/postfix/mysql-virtual-mailbox-domains.cf"
-postconf -e "virtual_mailbox_maps = proxy:mysql:/etc/postfix/mysql-virtual-mailbox-maps.cf"
-postconf -e "virtual_alias_maps = proxy:mysql:/etc/postfix/mysql-virtual-alias-maps.cf"
+postconf -e "virtual_mailbox_domains = hash:/etc/postfix/virtual_domains"
+postconf -e "virtual_mailbox_maps = hash:/etc/postfix/virtual_mailboxes"
+postconf -e "virtual_alias_maps = hash:/etc/postfix/virtual_aliases"
 postconf -e "smtpd_sasl_type = dovecot"
 postconf -e "smtpd_sasl_path = private/auth"
 postconf -e "smtpd_sasl_auth_enable = yes"
@@ -615,32 +615,12 @@ postconf -e "milter_protocol = 6"
 postconf -e "smtpd_milters = local:opendkim/opendkim.sock"
 postconf -e "non_smtpd_milters = local:opendkim/opendkim.sock"
 
-cat > /etc/postfix/mysql-virtual-mailbox-domains.cf <<EOF
-user     = strata
-password = ${DB_PASSWORD}
-hosts    = 127.0.0.1
-dbname   = strata_panel
-query    = SELECT domain FROM domains WHERE domain='%s' LIMIT 1
-EOF
-
-cat > /etc/postfix/mysql-virtual-mailbox-maps.cf <<EOF
-user     = strata
-password = ${DB_PASSWORD}
-hosts    = 127.0.0.1
-dbname   = strata_panel
-query    = SELECT 1 FROM email_accounts WHERE email='%s' LIMIT 1
-EOF
-
-cat > /etc/postfix/mysql-virtual-alias-maps.cf <<EOF
-user     = strata
-password = ${DB_PASSWORD}
-hosts    = 127.0.0.1
-dbname   = strata_panel
-query    = SELECT destination FROM email_forwarders WHERE source='%s' LIMIT 1
-EOF
-
-chmod 640 /etc/postfix/mysql-virtual-*.cf
-chown root:postfix /etc/postfix/mysql-virtual-*.cf
+touch /etc/postfix/virtual_domains /etc/postfix/virtual_mailboxes /etc/postfix/virtual_aliases
+postmap /etc/postfix/virtual_domains
+postmap /etc/postfix/virtual_mailboxes
+postmap /etc/postfix/virtual_aliases
+chmod 640 /etc/postfix/virtual_domains /etc/postfix/virtual_mailboxes /etc/postfix/virtual_aliases
+chown root:postfix /etc/postfix/virtual_domains /etc/postfix/virtual_mailboxes /etc/postfix/virtual_aliases
 
 postconf -M submission/inet="submission inet n - y - - smtpd" 2>/dev/null || true
 postconf -P "submission/inet/syslog_name=postfix/submission" 2>/dev/null || true
@@ -751,8 +731,8 @@ TrustAnchorFile /usr/share/dns/root.key
 OversignHeaders From
 InternalHosts   /etc/opendkim/trusted.hosts
 ExternalIgnoreList /etc/opendkim/trusted.hosts
-KeyTable        /etc/opendkim/key.table
-SigningTable    refile:/etc/opendkim/signing.table
+KeyTable        /etc/opendkim/KeyTable
+SigningTable    refile:/etc/opendkim/SigningTable
 EOF
 
 cat > /etc/opendkim/trusted.hosts <<EOF
@@ -761,8 +741,10 @@ localhost
 ${HOSTNAME_FQDN}
 EOF
 
-touch /etc/opendkim/key.table
-touch /etc/opendkim/signing.table
+mkdir -p /etc/opendkim/userkeys
+touch /etc/opendkim/KeyTable
+touch /etc/opendkim/SigningTable
+chown -R opendkim:opendkim /etc/opendkim/userkeys
 
 mkdir -p /var/spool/postfix/opendkim
 chown opendkim:postfix /var/spool/postfix/opendkim
@@ -1696,6 +1678,6 @@ else
 fi
 echo ""
 echo -e "  ${BOLD}To add a child node:${NC}"
-echo -e "    STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash agent.sh"
+echo -e "    STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> STRATA_NODE_HOSTNAME=node1.example.com bash agent.sh"
 echo -e "    (generate secrets in Admin → Nodes → Add Node)"
 echo ""

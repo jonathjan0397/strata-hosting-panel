@@ -93,7 +93,7 @@
             <!-- Agent install instructions -->
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5 mb-5">
                 <h3 class="text-sm font-semibold text-gray-200 mb-3">Agent Install Command</h3>
-                <p class="text-xs text-gray-400 mb-3">Run this on the target server as root:</p>
+                <p class="text-xs text-gray-400 mb-3">Run this on the target Debian server as root. It installs the node service stack plus the agent.</p>
                 <pre class="rounded-lg bg-gray-950 px-4 py-3 text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap break-all">{{ installCommand }}</pre>
             </div>
 
@@ -123,12 +123,15 @@ import ConfirmButton from '@/Components/ConfirmButton.vue';
 const props = defineProps({
     node:   Object,
     health: Object,
+    installSecret: String,
 });
 
 const installCommand = computed(() => {
-    return `bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/agent.sh) \\
-  --node-id "${props.node.node_id}" \\
-  --hmac-secret "<shown once — check your panel DB>" \\
-  --port ${props.node.port}`;
+    return `STRATA_HMAC_SECRET="${props.installSecret ?? '<secret>'}" \\
+STRATA_NODE_ID="${props.node.node_id}" \\
+STRATA_NODE_HOSTNAME="${props.node.hostname}" \\
+STRATA_WEB_SERVER="${props.node.web_server ?? 'nginx'}" \\
+STRATA_PORT="${props.node.port}" \\
+bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/agent.sh)`;
 });
 </script>
