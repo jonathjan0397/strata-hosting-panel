@@ -175,6 +175,13 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y pure-ftpd pure-ftpd-common \
     postfix postfix-mysql dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-mysql \
     opendkim opendkim-tools
 
+info "Installing Rspamd..."
+curl -fsSL https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/keyrings/rspamd.gpg 2>/dev/null
+echo "deb [signed-by=/usr/share/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ ${PHP_CODENAME} main" \
+    > /etc/apt/sources.list.d/rspamd.list
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y rspamd
+
 if ! getent group vmail >/dev/null 2>&1; then
     groupadd -g 5000 vmail 2>/dev/null || groupadd vmail
 fi
@@ -313,6 +320,7 @@ ssl_server_cert_file = /etc/strata-agent/tls/cert.pem
 ssl_server_key_file = /etc/strata-agent/tls/key.pem
 EOF
 systemctl enable --now postfix dovecot
+systemctl enable --now rspamd
 
 mkdir -p /etc/opendkim/userkeys /var/spool/postfix/opendkim
 cat > /etc/opendkim.conf <<EOF
@@ -475,7 +483,7 @@ systemctl enable --now fail2ban
 
 systemctl daemon-reload
 systemctl enable --now strata-agent strata-webdav
-systemctl restart postfix dovecot opendkim pure-ftpd pdns strata-agent strata-webdav
+systemctl restart postfix dovecot rspamd opendkim pure-ftpd pdns strata-agent strata-webdav
 
 if command -v acme.sh >/dev/null 2>&1 || curl -fsSL https://get.acme.sh | sh -s email="admin@${HOSTNAME_FQDN#*.}" >/dev/null 2>&1; then
     export PATH="/root/.acme.sh:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
@@ -485,7 +493,7 @@ if command -v acme.sh >/dev/null 2>&1 || curl -fsSL https://get.acme.sh | sh -s 
         /root/.acme.sh/acme.sh --install-cert -d "$HOSTNAME_FQDN" \
             --key-file /etc/strata-agent/tls/key.pem \
             --fullchain-file /etc/strata-agent/tls/cert.pem \
-            --reloadcmd "systemctl restart strata-agent strata-webdav postfix dovecot" >/dev/null 2>&1 || true
+            --reloadcmd "systemctl restart strata-agent strata-webdav postfix dovecot rspamd" >/dev/null 2>&1 || true
     else
         warn "Let's Encrypt certificate was not issued; self-signed agent certificate remains in use."
     fi

@@ -30,7 +30,9 @@ class SpamController extends Controller
         $response = AgentClient::for($account->node)->rspamdStats();
 
         if (! $response->successful()) {
-            return response()->json(['error' => 'Rspamd unreachable'], 503);
+            return response()->json([
+                'error' => trim($response->body()) !== '' ? trim($response->body()) : 'Rspamd unreachable',
+            ], $response->status() ?: 503);
         }
 
         return response()->json($response->json());

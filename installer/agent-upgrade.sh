@@ -10,6 +10,29 @@ NEW_BINARY="/usr/sbin/strata-agent.new"
 NEW_WEBDAV_BINARY="/usr/sbin/strata-webdav.new"
 export PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
+install_rspamd_if_missing() {
+    if systemctl list-unit-files rspamd.service >/dev/null 2>&1; then
+        return
+    fi
+
+    . /etc/os-release
+    case "${VERSION_ID}" in
+        13) php_codename="trixie" ;;
+        12) php_codename="bookworm" ;;
+        *)  php_codename="bullseye" ;;
+    esac
+
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y curl gnupg2 ca-certificates
+    curl -fsSL https://rspamd.com/apt-stable/gpg.key | gpg --dearmor > /usr/share/keyrings/rspamd.gpg
+    echo "deb [signed-by=/usr/share/keyrings/rspamd.gpg] https://rspamd.com/apt-stable/ ${php_codename} main" > /etc/apt/sources.list.d/rspamd.list
+    apt-get update
+    apt-get install -y rspamd
+    systemctl enable rspamd >/dev/null 2>&1 || true
+    systemctl restart rspamd
+}
+
 cleanup() {
     rm -rf "$WORKDIR"
 }
@@ -80,6 +103,7 @@ fi
 
 mv "$NEW_BINARY" /usr/sbin/strata-agent
 mv "$NEW_WEBDAV_BINARY" /usr/sbin/strata-webdav
+install_rspamd_if_missing
 if id vmail >/dev/null 2>&1; then
     mkdir -p /var/mail/vhosts
     chown vmail:vmail /var/mail/vhosts
@@ -114,6 +138,7 @@ systemctl daemon-reload
 systemctl enable strata-webdav >/dev/null 2>&1 || true
 systemctl restart strata-agent
 systemctl restart strata-webdav
+systemctl restart rspamd >/dev/null 2>&1 || true
 sleep 2
 systemctl is-active --quiet strata-agent
 systemctl is-active --quiet strata-webdav
