@@ -77,6 +77,10 @@ func Routes() chi.Router {
 	// Rspamd
 	r.Get("/mail/rspamd/stats", handleRspamdStats)
 	r.Get("/mail/delivery", handleMailDeliveryLog)
+	r.Get("/mail/queue", handleMailQueue)
+	r.Post("/mail/queue/flush", handleMailQueueFlush)
+	r.Delete("/mail/queue", handleMailQueueDeleteAll)
+	r.Delete("/mail/queue/{queueID}", handleMailQueueDelete)
 
 	// DNS zone + record management (PowerDNS)
 	r.Get("/dns/zones", handleDNSListZones)

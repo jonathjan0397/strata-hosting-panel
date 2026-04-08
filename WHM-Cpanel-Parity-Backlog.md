@@ -143,6 +143,7 @@ Implemented on `main`:
 - user delivery tracking against bounded postfix and dovecot log views
 - bulk mailbox and forwarder CSV import from the per-domain email workspace
 - mailbox-level archive controls that copy incoming mail to an Archive folder through Sieve
+- admin Postfix mail queue diagnostics with queue inspection, flush, stuck-message delete, and purge-all controls
 
 ### 6. Files and Developer Tooling
 Status: `in progress`

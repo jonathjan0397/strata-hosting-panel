@@ -36,6 +36,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Email Accounts now exposes shared DKIM/OpenDKIM key regeneration for admins, resellers, and users within their domain scope
 - Malware scans now run through the queue with persisted scan history and polling status instead of holding the browser request open
 - Web Disk now uses a dedicated WebDAV-over-HTTPS service on port 2078 with per-account credentials instead of only FTPS connection guidance
+- Admin Mail Queue diagnostics can inspect Postfix queues, flush deferred delivery, and delete stuck queued messages from online nodes
 
 **Accounts**
 - Bulk package reassignment from the admin account list

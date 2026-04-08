@@ -577,6 +577,26 @@ class AgentClient
         return $this->get('/mail/delivery?query=' . urlencode($query) . '&service=' . urlencode($service) . '&lines=' . $lines);
     }
 
+    public function mailQueue(): Response
+    {
+        return $this->get('/mail/queue');
+    }
+
+    public function mailQueueFlush(): Response
+    {
+        return $this->post('/mail/queue/flush');
+    }
+
+    public function mailQueueDelete(string $queueId): Response
+    {
+        return $this->delete('/mail/queue/' . urlencode($queueId));
+    }
+
+    public function mailQueueDeleteAll(): Response
+    {
+        return $this->delete('/mail/queue');
+    }
+
     // ── Database Grants ───────────────────────────────────────────────────────
 
     public function databaseGrant(string $dbName, string $dbUser, string $password, string $host = 'localhost', string $engine = 'mysql'): Response

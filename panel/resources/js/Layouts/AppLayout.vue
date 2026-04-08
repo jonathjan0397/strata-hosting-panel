@@ -216,6 +216,14 @@
                             </template>
                             Email Accounts
                         </NavItem>
+                        <NavItem :href="route('admin.mail-queue.index')" :active="$page.url.startsWith('/admin/mail-queue')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 7.5h16.5M3.75 12h16.5m-16.5 4.5h10.5M6 5.25h12A2.25 2.25 0 0 1 20.25 7.5v9A2.25 2.25 0 0 1 18 18.75H6A2.25 2.25 0 0 1 3.75 16.5v-9A2.25 2.25 0 0 1 6 5.25Z" />
+                                </svg>
+                            </template>
+                            Mail Queue
+                        </NavItem>
                         <NavItem :href="route('admin.dns.index')" :active="$page.url.startsWith('/admin/dns') && !$page.url.startsWith('/admin/dns/server')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -688,6 +696,7 @@ const navActions = computed(() => {
             { label: 'Firewall and IP Blocker', group: 'Security', href: route('admin.security.firewall') },
             { label: 'Fail2Ban Administration', group: 'Security', href: route('admin.security.fail2ban.index') },
             { label: 'Email Accounts', group: 'Mail', href: route('email-accounts.index') },
+            { label: 'Mail Queue', group: 'Mail', href: route('admin.mail-queue.index') },
             { label: 'Audit Log', group: 'System', href: route('admin.audit-log.index') },
             { label: 'Webhooks', group: 'System', href: route('admin.webhooks.index') },
         );

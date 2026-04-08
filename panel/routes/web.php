@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\BackupImportController;
 use App\Http\Controllers\Admin\LicenseSyncController;
+use App\Http\Controllers\Admin\MailQueueController;
 use App\Http\Controllers\Admin\NodeController;
 use App\Http\Controllers\Admin\NodeStatusController;
 use App\Http\Controllers\Admin\ResellerController;
@@ -346,6 +347,10 @@ Route::middleware(['auth'])->group(function () {
         // Email deliverability troubleshooter
         Route::get('deliverability', [DeliverabilityController::class, 'adminIndex'])->name('deliverability.index');
         Route::post('deliverability/check', [DeliverabilityController::class, 'check'])->name('deliverability.check');
+        Route::get('mail-queue', [MailQueueController::class, 'index'])->name('mail-queue.index');
+        Route::post('mail-queue/flush', [MailQueueController::class, 'flush'])->name('mail-queue.flush');
+        Route::delete('mail-queue/messages/{queueId}', [MailQueueController::class, 'delete'])->name('mail-queue.delete');
+        Route::delete('mail-queue', [MailQueueController::class, 'deleteAll'])->name('mail-queue.delete-all');
 
         // Backups
         Route::get('backups', [AdminBackupController::class, 'index'])->name('backups.index');
