@@ -80,6 +80,9 @@
                                 <p v-if="migration.status === 'restored' && migration.cutover_blockers?.length" class="mt-1 max-w-sm text-xs text-amber-300">
                                     Cutover blocked: {{ migration.cutover_blockers.join(', ') }}
                                 </p>
+                                <p v-if="migration.status === 'complete' && migration.reset_required && Object.keys(migration.reset_required).length" class="mt-1 max-w-sm text-xs text-amber-300">
+                                    Source cleanup blocked until reset-required services are handled.
+                                </p>
                                 <details v-if="migration.status === 'restored' && migration.remediation?.length" class="mt-2 max-w-md">
                                     <summary class="cursor-pointer text-xs text-indigo-300">Show remediation checklist</summary>
                                     <div class="mt-2 space-y-2 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3">
@@ -121,13 +124,14 @@
                                 </button>
                                 <span v-else-if="migration.status === 'restored'" class="text-xs text-amber-300">Blocked</span>
                                 <button
-                                    v-else-if="migration.status === 'complete'"
+                                    v-else-if="migration.status === 'complete' && migration.can_cleanup_source"
                                     type="button"
                                     class="text-xs font-semibold text-red-400 transition-colors hover:text-red-300"
                                     @click="cleanupSource(migration.id)"
                                 >
                                     Cleanup Source
                                 </button>
+                                <span v-else-if="migration.status === 'complete'" class="text-xs text-amber-300">Reset required</span>
                                 <span v-else-if="isRunning(migration.status)" class="text-xs text-amber-300">Queued</span>
                                 <span v-else class="text-xs text-gray-600">-</span>
                             </td>

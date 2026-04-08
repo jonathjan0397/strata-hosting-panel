@@ -83,6 +83,9 @@
                         />
                         <div>
                         <p class="text-sm font-mono text-gray-100">{{ db.db_name }}</p>
+                        <p v-if="db.migration_reset_required" class="mt-1 w-fit rounded-full bg-amber-900/40 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-200">
+                            Reset required after migration
+                        </p>
                         <p class="text-xs text-gray-500">
                             <span>{{ engineLabel(db.engine) }}</span>
                             <span class="mx-1 text-gray-700">/</span>
@@ -96,7 +99,7 @@
                             @click="openPwdModal(db)"
                             class="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                         >
-                            Password
+                            {{ db.migration_reset_required ? 'Set password' : 'Password' }}
                         </button>
                         <ConfirmButton
                             :href="route('admin.databases.destroy', db.id)"

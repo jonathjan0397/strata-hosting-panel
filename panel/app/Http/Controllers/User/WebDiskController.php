@@ -21,9 +21,8 @@ class WebDiskController extends Controller
             ->firstOrFail();
 
         $webDavAccounts = WebDavAccount::where('account_id', $account->id)
-            ->where('active', true)
             ->orderBy('username')
-            ->get(['id', 'username', 'home_dir', 'active']);
+            ->get(['id', 'username', 'home_dir', 'active', 'migration_reset_required']);
 
         $host = $account->node->hostname ?: $account->node->ip_address;
 

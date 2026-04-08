@@ -75,7 +75,14 @@
                     </thead>
                     <tbody class="divide-y divide-gray-800">
                         <tr v-for="db in databases" :key="db.id" class="transition-colors hover:bg-gray-800/40">
-                            <td class="px-5 py-3.5 text-sm font-mono text-gray-100">{{ db.db_name }}</td>
+                            <td class="px-5 py-3.5 text-sm font-mono text-gray-100">
+                                <div class="flex flex-col gap-1">
+                                    <span>{{ db.db_name }}</span>
+                                    <span v-if="db.migration_reset_required" class="w-fit rounded-full bg-amber-900/40 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-200">
+                                        Reset required after migration
+                                    </span>
+                                </div>
+                            </td>
                             <td class="px-5 py-3.5 text-sm text-gray-400">{{ engineLabel(db.engine) }}</td>
                             <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ db.db_user }}</td>
                             <td class="px-5 py-3.5 text-sm text-gray-500">{{ db.note ?? '-' }}</td>
@@ -85,7 +92,7 @@
                                         @click="openPwModal(db)"
                                         class="text-xs text-gray-400 transition-colors hover:text-gray-200"
                                     >
-                                        Change pw
+                                        {{ db.migration_reset_required ? 'Set pw' : 'Change pw' }}
                                     </button>
                                     <ConfirmButton
                                         :href="route('my.databases.destroy', db.id)"

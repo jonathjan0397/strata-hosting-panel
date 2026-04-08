@@ -54,6 +54,8 @@ class EmailAccountController extends Controller
                     'email' => $mailbox->email,
                     'quota_mb' => $mailbox->quota_mb,
                     'used_mb' => $mailbox->used_mb,
+                    'active' => $mailbox->active,
+                    'migration_reset_required' => $mailbox->migration_reset_required,
                     'domain' => [
                         'id' => $mailbox->domain?->id,
                         'domain' => $mailbox->domain?->domain,

@@ -36,6 +36,9 @@ class AccountMigrationController extends Controller
                 $cutoverBlockers = $migration->account
                     ? ProcessAccountMigrationStep::cutoverBlockers($migration->account)
                     : [];
+                $resetRequired = $migration->account
+                    ? ProcessAccountMigrationStep::resetRequiredServices($migration->account)
+                    : [];
 
                 return [
                     'id' => $migration->id,
@@ -46,6 +49,8 @@ class AccountMigrationController extends Controller
                     'error' => $migration->error,
                     'cutover_blockers' => $cutoverBlockers,
                     'can_cutover' => $cutoverBlockers === [],
+                    'reset_required' => $resetRequired,
+                    'can_cleanup_source' => $resetRequired === [],
                     'remediation' => $migration->account ? $this->remediation($migration->account) : [],
                     'backup' => $migration->backupJob ? [
                         'filename' => $migration->backupJob->filename,
@@ -86,27 +91,31 @@ class AccountMigrationController extends Controller
             [
                 'label' => 'Mailboxes',
                 'count' => EmailAccount::where('account_id', $account->id)->count(),
-                'action' => 'Create replacement mailboxes on the target after cutover and have users set fresh passwords.',
+                'action' => 'Cutover will preserve mailbox metadata, but users must set fresh mailbox passwords before source cleanup. Mailbox contents may require manual IMAP sync if they are not in the account backup.',
             ],
             [
                 'label' => 'FTP accounts',
                 'count' => FtpAccount::where('account_id', $account->id)->count(),
-                'action' => 'Create replacement FTP users on the target with new passwords.',
+                'action' => 'Cutover will preserve FTP users and paths, then require fresh passwords before source cleanup.',
             ],
             [
                 'label' => 'Web Disk accounts',
                 'count' => WebDavAccount::where('account_id', $account->id)->count(),
-                'action' => 'Create replacement Web Disk users on the target with new passwords.',
+                'action' => 'Cutover will preserve Web Disk users and paths, then require fresh passwords before source cleanup.',
             ],
             [
                 'label' => 'Databases',
-                'count' => HostingDatabase::where('account_id', $account->id)->count(),
-                'action' => 'Restore database dumps, verify application configs, then recreate database users/grants with new passwords.',
+                'count' => HostingDatabase::where('account_id', $account->id)
+                    ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
+                    ->count(),
+                'action' => 'MySQL database metadata can cut over with reset-required users. PostgreSQL remains blocked until import/recreate support is added.',
             ],
             [
                 'label' => 'Database grants',
-                'count' => DatabaseGrant::where('account_id', $account->id)->count(),
-                'action' => 'Recreate host-scoped grants after database users are reset.',
+                'count' => DatabaseGrant::where('account_id', $account->id)
+                    ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
+                    ->count(),
+                'action' => 'Host-scoped MySQL grants are preserved as reset-required and should be re-applied when database passwords are reset.',
             ],
             [
                 'label' => 'App installs',
@@ -219,7 +228,7 @@ class AccountMigrationController extends Controller
 
         $blockers = ProcessAccountMigrationStep::cutoverBlockers($migration->account);
         if ($blockers !== []) {
-            return back()->with('error', 'Automatic cutover is blocked until service re-provisioning is added for: ' . implode(', ', $blockers) . '.');
+            return back()->with('error', 'Automatic cutover is blocked until manual remediation is complete for: ' . implode(', ', $blockers) . '.');
         }
 
         if (! $migration->targetNode->isOnline()) {
@@ -246,6 +255,11 @@ class AccountMigrationController extends Controller
 
         if (! $migration->sourceNode->isOnline()) {
             return back()->with('error', 'Source node must be online before cleanup.');
+        }
+
+        $resetRequired = ProcessAccountMigrationStep::resetRequiredServices($migration->account);
+        if ($resetRequired !== []) {
+            return back()->with('error', 'Source cleanup is blocked until reset-required services are handled: ' . implode(', ', array_keys($resetRequired)) . '.');
         }
 
         $migration->update(['status' => 'source_cleanup_running', 'error' => null]);

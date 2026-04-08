@@ -78,10 +78,35 @@ class DatabaseProvisioner
     public function changePassword(HostingDatabase $db, string $password): array
     {
         try {
+            if ($db->migration_reset_required && ($db->engine ?? 'mysql') === 'mysql') {
+                $create = $this->client->createDatabase($db->db_name, $db->db_user, $password, 'mysql');
+                if (! $create->successful()) {
+                    $update = $this->client->changeDatabasePassword($db->db_user, $password, 'mysql');
+                    if (! $update->successful()) {
+                        return [false, $create->body() . ' / ' . $update->body()];
+                    }
+                } else {
+                    $update = $this->client->changeDatabasePassword($db->db_user, $password, 'mysql');
+                    if (! $update->successful()) {
+                        return [false, $update->body()];
+                    }
+                }
+
+                $db->update(['migration_reset_required' => false]);
+                DatabaseGrant::where('account_id', $db->account_id)
+                    ->where('db_name', $db->db_name)
+                    ->where('db_user', $db->db_user)
+                    ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
+                    ->update(['migration_reset_required' => false]);
+
+                return [true, null];
+            }
+
             $response = $this->client->changeDatabasePassword($db->db_user, $password, $db->engine ?? 'mysql');
             if (! $response->successful()) {
                 return [false, $response->body()];
             }
+            $db->update(['migration_reset_required' => false]);
             return [true, null];
         } catch (Throwable $e) {
             return [false, $e->getMessage()];

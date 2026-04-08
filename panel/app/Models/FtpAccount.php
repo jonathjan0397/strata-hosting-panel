@@ -8,12 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FtpAccount extends Model
 {
     protected $fillable = [
-        'account_id', 'node_id', 'username', 'home_dir', 'quota_mb', 'active',
+        'account_id', 'node_id', 'username', 'home_dir', 'quota_mb', 'active', 'migration_reset_required',
     ];
 
     protected $casts = [
         'active'   => 'boolean',
         'quota_mb' => 'integer',
+        'migration_reset_required' => 'boolean',
     ];
 
     public function account(): BelongsTo

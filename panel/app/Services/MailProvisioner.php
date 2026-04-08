@@ -113,12 +113,38 @@ class MailProvisioner
     public function changePassword(EmailAccount $mailbox, string $password): array
     {
         try {
-            $response = AgentClient::for($mailbox->node)->put("/mail/mailbox/{$mailbox->email}/password", [
-                'password' => $password,
-            ]);
+            $client = AgentClient::for($mailbox->node);
+
+            if ($mailbox->migration_reset_required) {
+                $create = $client->createMailbox([
+                    'email' => $mailbox->email,
+                    'password' => $password,
+                ]);
+
+                if (! $create->successful()) {
+                    $update = $client->changeMailboxPassword($mailbox->email, $password);
+                    if (! $update->successful()) {
+                        return [false, $create->body() . ' / ' . $update->body()];
+                    }
+                }
+
+                [$synced, $syncError] = app(MailSieveProvisioner::class)->sync($mailbox);
+                if (! $synced) {
+                    return [false, $syncError];
+                }
+
+                $mailbox->update(['migration_reset_required' => false, 'active' => true]);
+                return [true, null];
+            }
+
+            $response = $client->changeMailboxPassword($mailbox->email, $password);
 
             if (! $response->successful()) {
                 return [false, $response->body()];
+            }
+
+            if ($mailbox->migration_reset_required) {
+                $mailbox->update(['migration_reset_required' => false, 'active' => true]);
             }
 
             return [true, null];

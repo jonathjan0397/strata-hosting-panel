@@ -10,7 +10,11 @@ class HostingDatabase extends Model
     protected $table = 'hosting_databases';
 
     protected $fillable = [
-        'account_id', 'node_id', 'engine', 'db_name', 'db_user', 'note',
+        'account_id', 'node_id', 'engine', 'db_name', 'db_user', 'note', 'migration_reset_required',
+    ];
+
+    protected $casts = [
+        'migration_reset_required' => 'boolean',
     ];
 
     public function account(): BelongsTo

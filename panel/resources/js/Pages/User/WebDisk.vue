@@ -92,14 +92,19 @@
                         <tr v-for="webdav in webDavAccounts" :key="webdav.id" class="transition-colors hover:bg-gray-800/40">
                             <td class="px-5 py-3.5 font-mono text-sm text-gray-100">{{ webdav.username }}</td>
                             <td class="px-5 py-3.5 font-mono text-xs text-gray-400">{{ webdav.home_dir || connection.root }}</td>
-                            <td class="px-5 py-3.5 text-sm text-gray-400">{{ webdav.active ? 'Active' : 'Disabled' }}</td>
+                            <td class="px-5 py-3.5 text-sm text-gray-400">
+                                <span v-if="webdav.migration_reset_required" class="rounded-full bg-amber-900/40 px-2 py-0.5 text-xs font-semibold text-amber-200">
+                                    Reset required
+                                </span>
+                                <span v-else>{{ webdav.active ? 'Active' : 'Disabled' }}</span>
+                            </td>
                             <td class="px-5 py-3.5 text-right">
                                 <div class="flex items-center justify-end gap-2">
                                     <button
                                         @click="openPwModal(webdav)"
                                         class="text-xs text-gray-400 transition-colors hover:text-gray-200"
                                     >
-                                        Change pw
+                                        {{ webdav.migration_reset_required ? 'Set pw' : 'Change pw' }}
                                     </button>
                                     <ConfirmButton
                                         :href="route('my.web-disk.destroy', webdav.id)"

@@ -140,14 +140,23 @@
                     </thead>
                     <tbody class="divide-y divide-gray-800">
                         <tr v-for="mailbox in mailboxes" :key="mailbox.id" class="hover:bg-gray-800/40">
-                            <td class="px-5 py-3 text-sm font-mono text-gray-100">{{ mailbox.email }}</td>
+                            <td class="px-5 py-3 text-sm font-mono text-gray-100">
+                                <div class="flex flex-col gap-1">
+                                    <span>{{ mailbox.email }}</span>
+                                    <span v-if="mailbox.migration_reset_required" class="w-fit rounded-full bg-amber-900/40 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-200">
+                                        Reset required after migration
+                                    </span>
+                                </div>
+                            </td>
                             <td class="px-5 py-3 text-sm text-gray-400">{{ mailbox.domain?.domain }}</td>
                             <td class="px-5 py-3 text-sm text-gray-400">{{ mailbox.account?.username ?? '-' }}</td>
                             <td class="px-5 py-3 text-sm text-gray-400">{{ quotaLabel(mailbox) }}</td>
                             <td class="px-5 py-3 text-right">
                                 <div class="flex items-center justify-end gap-3">
                                     <a href="/webmail/" class="text-xs text-indigo-400 hover:text-indigo-300">Webmail</a>
-                                    <button type="button" class="text-xs text-sky-400 hover:text-sky-300" @click="openPassword(mailbox)">Password</button>
+                                    <button type="button" class="text-xs text-sky-400 hover:text-sky-300" @click="openPassword(mailbox)">
+                                        {{ mailbox.migration_reset_required ? 'Set password' : 'Password' }}
+                                    </button>
                                     <ConfirmButton
                                         :href="route('email-accounts.destroy', mailbox.id)"
                                         method="delete"

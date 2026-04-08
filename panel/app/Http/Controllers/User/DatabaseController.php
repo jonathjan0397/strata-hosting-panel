@@ -128,7 +128,7 @@ class DatabaseController extends Controller
 
         DatabaseGrant::updateOrCreate(
             ['db_name' => $database->db_name, 'db_user' => $data['db_user'], 'host' => $host],
-            ['account_id' => $account->id, 'node_id' => $account->node_id, 'engine' => $engine, 'password_hint' => substr($data['password'], 0, 3) . '***'],
+            ['account_id' => $account->id, 'node_id' => $account->node_id, 'engine' => $engine, 'password_hint' => substr($data['password'], 0, 3) . '***', 'migration_reset_required' => false],
         );
 
         return back()->with('success', "User {$data['db_user']} granted access from {$host}.");

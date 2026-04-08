@@ -7,7 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DatabaseGrant extends Model
 {
-    protected $fillable = ['account_id', 'node_id', 'engine', 'db_name', 'db_user', 'host', 'password_hint'];
+    protected $fillable = ['account_id', 'node_id', 'engine', 'db_name', 'db_user', 'host', 'password_hint', 'migration_reset_required'];
+
+    protected $casts = [
+        'migration_reset_required' => 'boolean',
+    ];
 
     public function account(): BelongsTo
     {

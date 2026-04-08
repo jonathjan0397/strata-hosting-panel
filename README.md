@@ -195,7 +195,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | **Security** | 2FA, audit log, dedicated Admin Security sidebar for Firewall and Fail2Ban administration, SSH keys, UFW firewall rules, ClamAV malware scans with daily/weekly scheduling and quarantine cleanup, per-domain ModSecurity and leech protection controls |
 | **UI / Accessibility** | Glassmorphism app shell with persisted Smoky Gray, Aurora Teal, Ember Gold, and Violet Bloom theme preferences |
 | **Admin Tools** | Browser SSH terminal, email deliverability troubleshooter, OS update management, backup schedules, audited client-panel access, bulk operations |
-| **Multi-node** | Remote nodes via Go agent with HMAC auth, health monitoring, per-node service management, conservative account migration workflow, competitor-backup import staging |
+| **Multi-node** | Remote nodes via Go agent with HMAC auth, health monitoring, per-node service management, conservative account migration workflow with reset-required service cutover, competitor-backup import staging |
 | **Billing API** | REST provisioning API, Bearer token auth, package/feature catalog API, migration API, outbound audit webhooks |
 
 ## Architecture

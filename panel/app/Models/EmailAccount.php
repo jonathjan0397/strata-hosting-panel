@@ -14,12 +14,13 @@ class EmailAccount extends Model
 
     protected $fillable = [
         'domain_id', 'account_id', 'node_id',
-        'email', 'local_part', 'quota_mb', 'used_mb', 'active', 'spam_action', 'archive_enabled',
+        'email', 'local_part', 'quota_mb', 'used_mb', 'active', 'spam_action', 'archive_enabled', 'migration_reset_required',
     ];
 
     protected $casts = [
         'active' => 'boolean',
         'archive_enabled' => 'boolean',
+        'migration_reset_required' => 'boolean',
     ];
 
     public function domain(): BelongsTo

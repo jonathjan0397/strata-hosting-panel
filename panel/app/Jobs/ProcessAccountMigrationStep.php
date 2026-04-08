@@ -13,8 +13,11 @@ use App\Models\EmailAccount;
 use App\Models\EmailForwarder;
 use App\Models\FtpAccount;
 use App\Models\HostingDatabase;
+use App\Models\WebDavAccount;
 use App\Services\AgentClient;
+use App\Services\DnsProvisioner;
 use App\Services\DomainProvisioner;
+use App\Services\MailProvisioner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -195,7 +198,7 @@ class ProcessAccountMigrationStep implements ShouldQueue
 
         $blockers = self::cutoverBlockers($migration->account);
         if ($blockers !== []) {
-            $this->failMigration($migration, 'Automatic cutover is blocked until service re-provisioning is added for: ' . implode(', ', $blockers) . '.');
+            $this->failMigration($migration, 'Automatic cutover is blocked until manual remediation is complete for: ' . implode(', ', $blockers) . '.');
             return;
         }
 
@@ -203,10 +206,34 @@ class ProcessAccountMigrationStep implements ShouldQueue
         $sourceNodeId = $migration->source_node_id;
         $targetNodeId = $migration->target_node_id;
         $domainIds = $account->domains->pluck('id')->all();
+        $domainMailSnapshots = $account->domains
+            ->mapWithKeys(fn ($domain) => [$domain->id => $domain->only([
+                'mail_enabled',
+                'dkim_enabled',
+                'dkim_public_key',
+                'dkim_dns_record',
+                'spf_enabled',
+                'spf_dns_record',
+                'dmarc_enabled',
+                'dmarc_dns_record',
+                'server_ip',
+            ])])
+            ->all();
         $forwarderIds = EmailForwarder::where('account_id', $account->id)->pluck('id')->all();
+        $mailboxIds = EmailAccount::where('account_id', $account->id)->pluck('id')->all();
+        $ftpIds = FtpAccount::where('account_id', $account->id)->pluck('id')->all();
+        $webDavIds = WebDavAccount::where('account_id', $account->id)->pluck('id')->all();
+        $databaseIds = HostingDatabase::where('account_id', $account->id)
+            ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
+            ->pluck('id')
+            ->all();
+        $databaseGrantIds = DatabaseGrant::where('account_id', $account->id)
+            ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
+            ->pluck('id')
+            ->all();
 
         try {
-            DB::transaction(function () use ($account, $domainIds, $forwarderIds, $targetNodeId) {
+            DB::transaction(function () use ($account, $domainIds, $forwarderIds, $mailboxIds, $ftpIds, $webDavIds, $databaseIds, $databaseGrantIds, $targetNodeId) {
                 $account->update(['node_id' => $targetNodeId]);
 
                 if ($domainIds !== []) {
@@ -217,12 +244,41 @@ class ProcessAccountMigrationStep implements ShouldQueue
                 if ($forwarderIds !== []) {
                     EmailForwarder::whereIn('id', $forwarderIds)->update(['node_id' => $targetNodeId]);
                 }
+
+                if ($mailboxIds !== []) {
+                    EmailAccount::whereIn('id', $mailboxIds)->update(['node_id' => $targetNodeId, 'migration_reset_required' => true, 'active' => false]);
+                }
+
+                if ($ftpIds !== []) {
+                    FtpAccount::whereIn('id', $ftpIds)->update(['node_id' => $targetNodeId, 'migration_reset_required' => true, 'active' => false]);
+                }
+
+                if ($webDavIds !== []) {
+                    WebDavAccount::whereIn('id', $webDavIds)->update(['node_id' => $targetNodeId, 'migration_reset_required' => true, 'active' => false]);
+                }
+
+                if ($databaseIds !== []) {
+                    HostingDatabase::whereIn('id', $databaseIds)->update(['node_id' => $targetNodeId, 'migration_reset_required' => true]);
+                }
+
+                if ($databaseGrantIds !== []) {
+                    DatabaseGrant::whereIn('id', $databaseGrantIds)->update(['node_id' => $targetNodeId, 'migration_reset_required' => true]);
+                }
             });
 
             foreach ($account->domains()->with('node', 'account')->get() as $domain) {
                 [$synced, $error] = app(DomainProvisioner::class)->reprovision($domain);
                 if (! $synced) {
                     throw new \RuntimeException("{$domain->domain}: {$error}");
+                }
+
+                if ($domain->mail_enabled) {
+                    [$mailSynced, $mailError] = app(MailProvisioner::class)->enableDomain($domain);
+                    if (! $mailSynced) {
+                        throw new \RuntimeException("mail {$domain->domain}: {$mailError}");
+                    }
+
+                    (new DnsProvisioner(AgentClient::for($migration->targetNode)))->addMailRecords($domain->refresh());
                 }
             }
 
@@ -237,16 +293,39 @@ class ProcessAccountMigrationStep implements ShouldQueue
                 }
             }
         } catch (\Throwable $e) {
-            DB::transaction(function () use ($account, $domainIds, $forwarderIds, $sourceNodeId) {
+            DB::transaction(function () use ($account, $domainIds, $domainMailSnapshots, $forwarderIds, $mailboxIds, $ftpIds, $webDavIds, $databaseIds, $databaseGrantIds, $sourceNodeId) {
                 $account->update(['node_id' => $sourceNodeId]);
 
                 if ($domainIds !== []) {
                     $account->domains()->whereIn('id', $domainIds)->update(['node_id' => $sourceNodeId]);
                     DnsZone::whereIn('domain_id', $domainIds)->update(['node_id' => $sourceNodeId]);
+                    foreach ($domainMailSnapshots as $domainId => $snapshot) {
+                        $account->domains()->where('id', $domainId)->update($snapshot);
+                    }
                 }
 
                 if ($forwarderIds !== []) {
                     EmailForwarder::whereIn('id', $forwarderIds)->update(['node_id' => $sourceNodeId]);
+                }
+
+                if ($mailboxIds !== []) {
+                    EmailAccount::whereIn('id', $mailboxIds)->update(['node_id' => $sourceNodeId, 'migration_reset_required' => false, 'active' => true]);
+                }
+
+                if ($ftpIds !== []) {
+                    FtpAccount::whereIn('id', $ftpIds)->update(['node_id' => $sourceNodeId, 'migration_reset_required' => false, 'active' => true]);
+                }
+
+                if ($webDavIds !== []) {
+                    WebDavAccount::whereIn('id', $webDavIds)->update(['node_id' => $sourceNodeId, 'migration_reset_required' => false, 'active' => true]);
+                }
+
+                if ($databaseIds !== []) {
+                    HostingDatabase::whereIn('id', $databaseIds)->update(['node_id' => $sourceNodeId, 'migration_reset_required' => false]);
+                }
+
+                if ($databaseGrantIds !== []) {
+                    DatabaseGrant::whereIn('id', $databaseGrantIds)->update(['node_id' => $sourceNodeId, 'migration_reset_required' => false]);
                 }
             });
 
@@ -262,6 +341,13 @@ class ProcessAccountMigrationStep implements ShouldQueue
             'target_node_id' => $targetNodeId,
             'domains_reprovisioned' => count($domainIds),
             'forwarders_reprovisioned' => count($forwarderIds),
+            'reset_required' => [
+                'mailboxes' => count($mailboxIds),
+                'ftp_accounts' => count($ftpIds),
+                'web_disk_accounts' => count($webDavIds),
+                'mysql_databases' => count($databaseIds),
+                'mysql_database_grants' => count($databaseGrantIds),
+            ],
             'source_retained' => true,
             'queued' => true,
         ]);
@@ -273,6 +359,15 @@ class ProcessAccountMigrationStep implements ShouldQueue
 
         if (! $migration->account || ! $migration->sourceNode) {
             $this->failMigration($migration, 'Migration is missing account or source node metadata.');
+            return;
+        }
+
+        $resetRequired = self::resetRequiredServices($migration->account);
+        if ($resetRequired !== []) {
+            $migration->update([
+                'status' => 'complete',
+                'error' => 'Source cleanup is blocked until reset-required services are handled: ' . implode(', ', array_keys($resetRequired)) . '.',
+            ]);
             return;
         }
 
@@ -299,14 +394,25 @@ class ProcessAccountMigrationStep implements ShouldQueue
     public static function cutoverBlockers(Account $account): array
     {
         $checks = [
-            'mailboxes' => EmailAccount::where('account_id', $account->id)->count(),
-            'FTP accounts' => FtpAccount::where('account_id', $account->id)->count(),
-            'databases' => HostingDatabase::where('account_id', $account->id)->count(),
-            'database grants' => DatabaseGrant::where('account_id', $account->id)->count(),
+            'PostgreSQL databases' => HostingDatabase::where('account_id', $account->id)->where('engine', 'postgresql')->count(),
+            'PostgreSQL database grants' => DatabaseGrant::where('account_id', $account->id)->where('engine', 'postgresql')->count(),
             'app installs' => AppInstallation::where('account_id', $account->id)->count(),
         ];
 
         return array_keys(array_filter($checks, fn (int $count) => $count > 0));
+    }
+
+    public static function resetRequiredServices(Account $account): array
+    {
+        $checks = [
+            'mailboxes' => EmailAccount::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
+            'FTP accounts' => FtpAccount::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
+            'Web Disk accounts' => WebDavAccount::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
+            'MySQL databases' => HostingDatabase::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
+            'MySQL database grants' => DatabaseGrant::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
+        ];
+
+        return array_filter($checks, fn (int $count) => $count > 0);
     }
 
     private function migration(array $relations): AccountMigration

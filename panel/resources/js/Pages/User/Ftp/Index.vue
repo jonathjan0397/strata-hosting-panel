@@ -65,7 +65,14 @@
                     </thead>
                     <tbody class="divide-y divide-gray-800">
                         <tr v-for="ftp in ftpAccounts" :key="ftp.id" class="transition-colors hover:bg-gray-800/40">
-                            <td class="px-5 py-3.5 text-sm font-mono text-gray-100">{{ ftp.username }}</td>
+                            <td class="px-5 py-3.5 text-sm font-mono text-gray-100">
+                                <div class="flex flex-col gap-1">
+                                    <span>{{ ftp.username }}</span>
+                                    <span v-if="ftp.migration_reset_required" class="w-fit rounded-full bg-amber-900/40 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-200">
+                                        Reset required after migration
+                                    </span>
+                                </div>
+                            </td>
                             <td class="px-5 py-3.5 text-xs font-mono text-gray-400">{{ ftp.home_dir ?? '-' }}</td>
                             <td class="px-5 py-3.5 text-sm text-gray-400">{{ ftp.quota_mb ? `${ftp.quota_mb} MB` : 'Unlimited' }}</td>
                             <td class="px-5 py-3.5 text-right">
@@ -74,7 +81,7 @@
                                         @click="openPwModal(ftp)"
                                         class="text-xs text-gray-400 transition-colors hover:text-gray-200"
                                     >
-                                        Change pw
+                                        {{ ftp.migration_reset_required ? 'Set pw' : 'Change pw' }}
                                     </button>
                                     <ConfirmButton
                                         :href="route('my.ftp.destroy', ftp.id)"

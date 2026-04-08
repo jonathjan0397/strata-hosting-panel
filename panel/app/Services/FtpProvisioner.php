@@ -67,10 +67,29 @@ class FtpProvisioner
     public function changePassword(FtpAccount $ftp, string $password): array
     {
         try {
+            if ($ftp->migration_reset_required) {
+                $create = $this->client->createFtpAccount([
+                    'username' => $ftp->username,
+                    'password' => $password,
+                    'home_dir' => $ftp->home_dir,
+                ]);
+
+                if (! $create->successful()) {
+                    $update = $this->client->changeFtpPassword($ftp->username, $password);
+                    if (! $update->successful()) {
+                        return [false, $create->body() . ' / ' . $update->body()];
+                    }
+                }
+
+                $ftp->update(['migration_reset_required' => false, 'active' => true]);
+                return [true, null];
+            }
+
             $response = $this->client->changeFtpPassword($ftp->username, $password);
             if (! $response->successful()) {
                 return [false, $response->body()];
             }
+            $ftp->update(['migration_reset_required' => false, 'active' => true]);
             return [true, null];
         } catch (Throwable $e) {
             return [false, $e->getMessage()];

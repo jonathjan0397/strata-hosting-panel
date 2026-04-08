@@ -60,6 +60,7 @@ class WebDavProvisioner
                 return [false, $response->body()];
             }
 
+            $webDavAccount->update(['migration_reset_required' => false, 'active' => true]);
             return [true, null];
         } catch (Throwable $e) {
             return [false, $e->getMessage()];

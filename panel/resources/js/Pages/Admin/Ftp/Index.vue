@@ -51,6 +51,9 @@
                 <div v-for="ftp in ftpAccounts" :key="ftp.id" class="flex items-center justify-between px-5 py-3">
                     <div>
                         <p class="text-sm font-mono text-gray-100">{{ ftp.username }}</p>
+                        <p v-if="ftp.migration_reset_required" class="mt-1 w-fit rounded-full bg-amber-900/40 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-200">
+                            Reset required after migration
+                        </p>
                         <p class="text-xs text-gray-500">
                             {{ ftp.home_dir }}
                             <span v-if="ftp.quota_mb > 0"> · {{ ftp.quota_mb }} MB quota</span>
@@ -62,7 +65,7 @@
                             @click="openPwdModal(ftp)"
                             class="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                         >
-                            Password
+                            {{ ftp.migration_reset_required ? 'Set password' : 'Password' }}
                         </button>
                         <ConfirmButton
                             :href="route('admin.ftp.destroy', ftp.id)"
