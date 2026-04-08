@@ -237,6 +237,12 @@ class DnsProvisioner
             return;
         }
 
+        $serverIp = $this->publicAddressFor($domain);
+        if ($serverIp) {
+            $addressType = filter_var($serverIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A';
+            $this->addRecord($zone, 'mail', $addressType, 300, [$serverIp], true);
+        }
+
         if ($domain->dkim_dns_record) {
             $this->addRecord($zone, 'default._domainkey', 'TXT', 300, [$domain->dkim_dns_record], true);
         }
@@ -246,9 +252,11 @@ class DnsProvisioner
         if ($domain->dmarc_dns_record) {
             $this->addRecord($zone, '_dmarc', 'TXT', 300, [$domain->dmarc_dns_record], true);
         }
-        if ($nodeHostname = $domain->node?->hostname) {
-            $this->addRecord($zone, '@', 'MX', 300, [$nodeHostname . '.'], true, 10);
-        }
+        $this->addRecord($zone, '@', 'MX', 300, ['mail.' . $domain->domain . '.'], true, 10);
+        $this->addRecord($zone, 'smtp', 'CNAME', 300, ['mail.' . $domain->domain . '.'], true);
+        $this->addRecord($zone, 'imap', 'CNAME', 300, ['mail.' . $domain->domain . '.'], true);
+        $this->addRecord($zone, 'pop', 'CNAME', 300, ['mail.' . $domain->domain . '.'], true);
+        $this->addRecord($zone, 'webmail', 'CNAME', 300, ['mail.' . $domain->domain . '.'], true);
     }
 
     /**

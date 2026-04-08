@@ -36,6 +36,13 @@ class DomainProvisioner
                 }
             }
 
+            [$mailEnabled, $mailError] = $this->ensureMailStack($domain->fresh());
+            if (! $mailEnabled) {
+                (new DnsProvisioner(AgentClient::for($domain->node)))->deleteZone($domain);
+                AgentClient::for($domain->node)->removeDomain($domain->domain);
+                return [false, 'Mail provisioning failed: ' . $mailError];
+            }
+
             return [true, null];
         } catch (\Throwable $e) {
             return [false, $e->getMessage()];
@@ -75,6 +82,17 @@ class DomainProvisioner
     {
         $errors = [];
         $client = AgentClient::for($domain->node);
+
+        if ($domain->mail_enabled) {
+            try {
+                $mailResponse = $client->removeMailDomain($domain->domain);
+                if (! $mailResponse->successful()) {
+                    $errors[] = 'Mail removal: ' . $mailResponse->body();
+                }
+            } catch (\Throwable $e) {
+                $errors[] = 'Mail removal: ' . $e->getMessage();
+            }
+        }
 
         try {
             if ($domain->ssl_enabled) {
@@ -123,6 +141,23 @@ class DomainProvisioner
         }
 
         return [empty($errors), implode('; ', $errors) ?: null];
+    }
+
+    private function ensureMailStack(Domain $domain): array
+    {
+        if ($domain->mail_enabled) {
+            (new DnsProvisioner(AgentClient::for($domain->node)))->addMailRecords($domain);
+            return [true, null];
+        }
+
+        [$enabled, $error] = app(MailProvisioner::class)->enableDomain($domain);
+        if (! $enabled) {
+            return [false, $error];
+        }
+
+        (new DnsProvisioner(AgentClient::for($domain->node)))->addMailRecords($domain->fresh());
+
+        return [true, null];
     }
 
     /**
