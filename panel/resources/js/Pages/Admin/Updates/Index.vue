@@ -27,7 +27,7 @@
                     </div>
 
                     <div class="rounded-xl border border-blue-700/30 bg-blue-900/20 p-4 text-sm text-blue-200">
-                        Panel upgrades restart services and may briefly interrupt the admin session. Remote node agent upgrades continue to be queued automatically by the upgrade utility.
+                        Panel upgrades restart services and may briefly interrupt the admin session. Automatic remote node agent upgrades can be turned on or off below.
                     </div>
 
                     <div v-if="panelMessage" class="rounded-xl border px-4 py-3 text-sm"
@@ -36,6 +36,28 @@
                             : 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300'">
                         {{ panelMessage.message }}
                         <div v-if="panelMessage.log_path" class="mt-1 font-mono text-xs text-gray-300">{{ panelMessage.log_path }}</div>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4">
+                        <label class="flex items-start gap-3">
+                            <input v-model="panelSettings.auto_remote_agents" type="checkbox" class="mt-1 rounded border-gray-600 bg-gray-800 text-indigo-500" />
+                            <div>
+                                <div class="text-sm font-medium text-gray-100">Automatically upgrade remote node agents with panel upgrades</div>
+                                <div class="mt-1 text-xs text-gray-400">
+                                    Turn this off if you want panel upgrades to stay manual and run remote node agent upgrades separately only when you choose.
+                                </div>
+                            </div>
+                        </label>
+                        <div class="mt-3 flex items-center gap-3">
+                            <button
+                                @click="savePanelSettings"
+                                :disabled="panelSettingsSaving"
+                                class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors disabled:opacity-50"
+                            >{{ panelSettingsSaving ? 'Saving...' : 'Save Upgrade Preference' }}</button>
+                            <span class="text-xs text-gray-500">
+                                {{ panelSettings.auto_remote_agents ? 'Remote node agent upgrades will auto-queue during panel upgrades.' : 'Remote node agent upgrades will stay manual.' }}
+                            </span>
+                        </div>
                     </div>
 
                     <div class="grid gap-3 md:grid-cols-[180px_1fr_auto]">
@@ -54,6 +76,20 @@
                     <p class="text-xs text-gray-500">
                         Recommended for public testing: <span class="font-mono text-gray-300">branch main</span>
                     </p>
+
+                    <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4">
+                        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <div class="text-sm font-medium text-gray-100">Manual Remote Node Agent Upgrade</div>
+                                <div class="mt-1 text-xs text-gray-400">Use this when automatic remote agent upgrades are disabled or when you want to upgrade agents separately.</div>
+                            </div>
+                            <button
+                                @click="startRemoteAgentsUpgrade"
+                                :disabled="panelApplying"
+                                class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors disabled:opacity-50"
+                            >Start Remote Agent Upgrade</button>
+                        </div>
+                    </div>
                 </section>
 
                 <section class="space-y-4 rounded-2xl border border-gray-800 bg-gray-900/70 p-5 backdrop-blur">
@@ -140,9 +176,13 @@ const loadError = ref('');
 const applyResult = ref(null);
 const panelApplying = ref(false);
 const panelMessage = ref(null);
+const panelSettingsSaving = ref(false);
 const panelForm = ref({
     source_type: props.panel?.default_source_type || 'branch',
     source_value: props.panel?.default_source_value || 'main',
+});
+const panelSettings = ref({
+    auto_remote_agents: !!props.panel?.auto_remote_agents,
 });
 
 async function checkUpdates() {
@@ -200,6 +240,53 @@ async function startPanelUpgrade() {
         }
     } catch (e) {
         panelMessage.value = { status: 'error', message: 'Failed to start panel upgrade.' };
+    } finally {
+        panelApplying.value = false;
+    }
+}
+
+async function savePanelSettings() {
+    panelSettingsSaving.value = true;
+    panelMessage.value = null;
+    try {
+        const res = await fetch(route('admin.updates.settings'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+            },
+            body: JSON.stringify(panelSettings.value),
+        });
+        panelMessage.value = await res.json();
+        if (!res.ok && !panelMessage.value?.message) {
+            panelMessage.value = { status: 'error', message: 'Failed to save upgrade preference.' };
+        }
+    } catch (e) {
+        panelMessage.value = { status: 'error', message: 'Failed to save upgrade preference.' };
+    } finally {
+        panelSettingsSaving.value = false;
+    }
+}
+
+async function startRemoteAgentsUpgrade() {
+    if (!confirm('Start the remote node agent upgrade now?')) return;
+    panelApplying.value = true;
+    panelMessage.value = null;
+    try {
+        const res = await fetch(route('admin.updates.remote-agents'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+            },
+            body: JSON.stringify(panelForm.value),
+        });
+        panelMessage.value = await res.json();
+        if (!res.ok && !panelMessage.value?.message) {
+            panelMessage.value = { status: 'error', message: 'Failed to start remote node agent upgrade.' };
+        }
+    } catch (e) {
+        panelMessage.value = { status: 'error', message: 'Failed to start remote node agent upgrade.' };
     } finally {
         panelApplying.value = false;
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Node;
+use App\Models\SystemSetting;
 use App\Services\AgentClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class UpdateController extends Controller
                 'log_path' => storage_path('logs/strata-panel-upgrade.log'),
                 'default_source_type' => 'branch',
                 'default_source_value' => 'main',
+                'auto_remote_agents' => SystemSetting::getValue('updates.auto_remote_agents', '0') === '1',
             ],
         ]);
     }
@@ -68,6 +70,26 @@ class UpdateController extends Controller
         return response()->json($payload, $response->status());
     }
 
+    public function panelSettings(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'auto_remote_agents' => ['required', 'boolean'],
+        ]);
+
+        SystemSetting::putValue('updates.auto_remote_agents', $data['auto_remote_agents']);
+
+        AuditLog::record('panel.upgrade.settings_updated', null, [
+            'auto_remote_agents' => $data['auto_remote_agents'],
+        ]);
+
+        return response()->json([
+            'status' => 'saved',
+            'message' => $data['auto_remote_agents']
+                ? 'Automatic remote node agent upgrades are enabled.'
+                : 'Automatic remote node agent upgrades are disabled. Upgrades will stay manual until re-enabled.',
+        ]);
+    }
+
     public function panelUpgrade(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -90,18 +112,21 @@ class UpdateController extends Controller
         File::append(
             $logPath,
             sprintf(
-                "[%s] Admin %s started panel upgrade: %s %s\n",
+                "[%s] Admin %s started panel upgrade: %s %s (auto_remote_agents=%s)\n",
                 now()->toDateTimeString(),
                 $request->user()->email,
                 $sourceFlag,
-                $sourceValue
+                $sourceValue,
+                SystemSetting::getValue('updates.auto_remote_agents', '0')
             )
         );
 
+        $autoRemoteAgents = SystemSetting::getValue('updates.auto_remote_agents', '0') === '1';
         $command = sprintf(
-            "nohup /root/strata-upgrade.sh %s %s >> %s 2>&1 < /dev/null &",
+            "nohup /root/strata-upgrade.sh %s %s%s >> %s 2>&1 < /dev/null &",
             escapeshellarg($sourceFlag),
             escapeshellarg($sourceValue),
+            $autoRemoteAgents ? '' : ' --skip-remote-agents',
             escapeshellarg($logPath)
         );
 
@@ -115,6 +140,52 @@ class UpdateController extends Controller
         return response()->json([
             'status' => 'started',
             'message' => 'Panel upgrade started. The panel may be briefly unavailable while services restart.',
+            'log_path' => $logPath,
+        ]);
+    }
+
+    public function remoteAgentsUpgrade(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'source_type' => ['required', 'in:branch,version'],
+            'source_value' => ['required', 'string', 'max:100'],
+        ]);
+
+        $sourceValue = trim($data['source_value']);
+        $logPath = storage_path('logs/strata-remote-agents-upgrade.log');
+        $phpBinary = File::exists('/usr/bin/php8.4') ? '/usr/bin/php8.4' : PHP_BINARY;
+        $flag = $data['source_type'] === 'version' ? '--target-version' : '--branch';
+
+        File::ensureDirectoryExists(dirname($logPath));
+        File::append(
+            $logPath,
+            sprintf(
+                "[%s] Admin %s started remote agent upgrade: %s %s\n",
+                now()->toDateTimeString(),
+                $request->user()->email,
+                $flag,
+                $sourceValue
+            )
+        );
+
+        $command = sprintf(
+            "cd /opt/strata-panel/panel && nohup %s artisan strata:nodes-upgrade-agents %s=%s >> %s 2>&1 < /dev/null &",
+            escapeshellarg($phpBinary),
+            $flag,
+            escapeshellarg($sourceValue),
+            escapeshellarg($logPath)
+        );
+
+        Process::fromShellCommandline('/bin/bash -lc ' . escapeshellarg($command))->run();
+
+        AuditLog::record('panel.remote_agents_upgrade.started', null, [
+            'source_type' => $data['source_type'],
+            'source_value' => $sourceValue,
+        ]);
+
+        return response()->json([
+            'status' => 'started',
+            'message' => 'Remote node agent upgrade started.',
             'log_path' => $logPath,
         ]);
     }

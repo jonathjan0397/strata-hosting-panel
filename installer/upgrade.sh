@@ -13,6 +13,7 @@ SOURCE_FILE=""
 SOURCE_BRANCH=""
 ROLLBACK_ON_FAIL=1
 KEEP_WORKDIR=0
+SKIP_REMOTE_AGENTS=0
 BACKUP_DIR=""
 OLD_AGENT=""
 OLD_WEBDAV=""
@@ -47,6 +48,7 @@ Options:
   --php-bin <path>     Override PHP binary. Auto-detected by default.
   --no-rollback        Do not restore the previous install on failure.
   --keep-workdir       Keep temporary extracted source for debugging.
+  --skip-remote-agents Do not auto-queue remote node agent upgrades after primary upgrade.
   -h, --help           Show this help.
 EOF
 }
@@ -60,6 +62,7 @@ while [[ $# -gt 0 ]]; do
         --php-bin) PHP_BIN="${2:-}"; shift 2 ;;
         --no-rollback) ROLLBACK_ON_FAIL=0; shift ;;
         --keep-workdir) KEEP_WORKDIR=1; shift ;;
+        --skip-remote-agents) SKIP_REMOTE_AGENTS=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" ;;
     esac
@@ -462,7 +465,9 @@ systemctl is-active --quiet strata-queue
 "$PHP_BIN" "$INSTALL_DIR/panel/artisan" about --only=environment >/dev/null
 "$PHP_BIN" "$INSTALL_DIR/panel/artisan" route:list >/dev/null
 
-if [[ -n "$SOURCE_VERSION" || -n "$SOURCE_BRANCH" ]]; then
+if [[ $SKIP_REMOTE_AGENTS -eq 1 ]]; then
+    warn "Skipping automatic remote node agent upgrades by request."
+elif [[ -n "$SOURCE_VERSION" || -n "$SOURCE_BRANCH" ]]; then
     info "Queuing remote node agent upgrades..."
     if [[ -n "$SOURCE_VERSION" ]]; then
         "$PHP_BIN" "$INSTALL_DIR/panel/artisan" strata:nodes-upgrade-agents --target-version="$SOURCE_VERSION" || warn "One or more remote agent upgrades failed to queue."
