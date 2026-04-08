@@ -105,7 +105,10 @@
                             <h3 class="text-sm font-semibold text-gray-300">30-Day Traffic History</h3>
                             <p class="mt-1 text-xs text-gray-500">Stored daily snapshots aggregated from domain access logs.</p>
                         </div>
-                        <div class="grid grid-cols-2 gap-3 text-right">
+                        <div class="flex flex-wrap items-start gap-4 text-right">
+                            <button type="button" class="rounded-lg border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 transition-colors hover:bg-gray-800" @click="downloadTrafficCsv">
+                                Export CSV
+                            </button>
                             <div>
                                 <p class="text-xs uppercase tracking-wide text-gray-500">Requests</p>
                                 <p class="text-lg font-semibold text-gray-100">{{ trafficHistory.totals.requests }}</p>
@@ -287,6 +290,13 @@ function downloadLog() {
         type: selectedType.value,
         domain_id: selectedType.value === 'php' ? null : selectedDomainId.value,
         lines: 300,
+    });
+}
+
+function downloadTrafficCsv() {
+    window.location = route('my.metrics.traffic.export', {
+        domain_id: selectedDomainId.value,
+        days: 30,
     });
 }
 

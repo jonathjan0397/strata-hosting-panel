@@ -237,6 +237,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('metrics/logs', [MetricsController::class, 'logs'])->name('metrics.logs');
             Route::get('metrics/logs/download', [MetricsController::class, 'download'])->name('metrics.logs.download');
             Route::get('metrics/traffic', [MetricsController::class, 'traffic'])->name('metrics.traffic');
+            Route::get('metrics/traffic/export', [MetricsController::class, 'trafficExport'])->name('metrics.traffic.export');
         });
 
         // PHP settings

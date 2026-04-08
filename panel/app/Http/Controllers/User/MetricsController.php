@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MetricsController extends Controller
 {
@@ -132,6 +133,59 @@ class MetricsController extends Controller
             'path' => $path,
             'lines' => $lines,
             ...$this->summarizeAccessLog($response->json('content') ?? ''),
+        ]);
+    }
+
+    public function trafficExport(Request $request): StreamedResponse
+    {
+        $data = $request->validate([
+            'domain_id' => ['nullable', 'exists:domains,id'],
+            'days' => ['nullable', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $account = $this->account($request);
+        $days = $data['days'] ?? 30;
+        $startDate = now()->subDays($days - 1)->toDateString();
+
+        $domainId = $data['domain_id'] ?? null;
+        if ($domainId) {
+            abort_unless($account->domains->contains('id', (int) $domainId), 404, 'Domain not found for this account.');
+        }
+
+        $query = AccountTrafficMetric::with('domain:id,domain')
+            ->where('account_id', $account->id)
+            ->where('date', '>=', $startDate)
+            ->orderBy('date')
+            ->orderBy('domain_id');
+
+        if ($domainId) {
+            $query->where('domain_id', $domainId);
+        }
+
+        $filename = "{$account->username}-traffic-{$startDate}-to-" . now()->toDateString() . '.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['date', 'domain', 'requests', 'bandwidth_bytes', 'status_2xx', 'status_3xx', 'status_4xx', 'status_5xx']);
+
+            $query->chunk(500, function ($rows) use ($out) {
+                foreach ($rows as $row) {
+                    fputcsv($out, [
+                        $row->date?->toDateString(),
+                        $row->domain?->domain ?? 'unknown',
+                        $row->requests,
+                        $row->bandwidth_bytes,
+                        $row->status_2xx,
+                        $row->status_3xx,
+                        $row->status_4xx,
+                        $row->status_5xx,
+                    ]);
+                }
+            });
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 

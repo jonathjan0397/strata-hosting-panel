@@ -38,6 +38,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Malware Scanner now supports account-level daily or weekly scheduled scans with optional quarantine
 - Web Disk now uses a dedicated WebDAV-over-HTTPS service on port 2078 with per-account credentials instead of only FTPS connection guidance
 - Admin Mail Queue diagnostics can inspect Postfix queues, flush deferred delivery, and delete stuck queued messages from online nodes
+- Metrics now exports historical traffic reports as CSV by date and domain
 
 **Accounts**
 - Bulk package reassignment from the admin account list
