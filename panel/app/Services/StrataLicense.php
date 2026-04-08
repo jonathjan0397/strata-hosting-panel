@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Node;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -48,6 +49,9 @@ class StrataLicense
                     'software'       => 'strata-hosting-panel',
                     'version'        => config('strata.version', 'dev'),
                     'app_url'        => config('app.url'),
+                    'install_path'   => self::installPath(),
+                    'server_ip'      => self::serverIp(),
+                    'nodes'          => self::nodePayload(),
                     'demo_mode'      => (bool) config('strata.demo_mode'),
                 ]);
 
@@ -151,5 +155,71 @@ class StrataLicense
             'features'  => [],
             'synced_at' => null,
         ];
+    }
+
+    private static function installPath(): string
+    {
+        $basePath = base_path();
+
+        return basename($basePath) === 'panel'
+            ? dirname($basePath)
+            : $basePath;
+    }
+
+    private static function serverIp(): ?string
+    {
+        $primary = Node::query()
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->first();
+
+        return $primary ? self::publicNodeIp($primary) : null;
+    }
+
+    private static function nodePayload(): array
+    {
+        return Node::query()
+            ->orderByDesc('is_primary')
+            ->orderBy('name')
+            ->get()
+            ->map(function (Node $node): array {
+                return [
+                    'name'          => $node->name,
+                    'hostname'      => $node->hostname,
+                    'ip_address'    => self::publicNodeIp($node),
+                    'role'          => $node->is_primary ? 'primary' : 'child',
+                    'status'        => $node->status,
+                    'web_server'    => $node->web_server,
+                    'agent_version' => $node->agent_version,
+                    'is_primary'    => $node->is_primary,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private static function publicNodeIp(Node $node): ?string
+    {
+        if (self::isPublicIp($node->ip_address)) {
+            return $node->ip_address;
+        }
+
+        if ($node->hostname) {
+            $resolved = gethostbyname($node->hostname);
+            if ($resolved !== $node->hostname && self::isPublicIp($resolved)) {
+                return $resolved;
+            }
+        }
+
+        return $node->ip_address;
+    }
+
+    private static function isPublicIp(?string $ip): bool
+    {
+        if (! $ip) {
+            return false;
+        }
+
+        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
     }
 }
