@@ -52,6 +52,7 @@ apt-get update && apt-get install -y curl ca-certificates
 - A **domain name** you control, with the ability to add DNS A records.
 - **Highly recommended:** install Strata Hosting Panel on a dedicated subdomain such as `panel.example.com`, not the apex/root domain `example.com`. This keeps the main domain available for the admin website or hosted content.
 - The panel subdomain's A record should point at your server's IP address before running the installer. Let's Encrypt needs it to issue a real SSL certificate. If DNS is not ready yet, the installer uses a self-signed certificate and tells you the exact command to re-issue once DNS propagates.
+- If you plan to delegate DNS to Strata, the installer derives authoritative nameservers from the panel/server base domain, for example `panel.example.com` -> `ns1.example.com` and `ns2.example.com`, and writes a supported PowerDNS `default-soa-content` automatically so new zones are ready for nameserver cutover.
 
 ### Step 1: Log in to your server as root
 
@@ -147,6 +148,8 @@ Manual archive upgrades are also supported:
 
 The upgrade utility preserves `.env`, `storage`, service secrets, certificates, hosted files, databases, and mail data. It creates a rollback backup under `/opt/strata-panel-backups/` and automatically restores it if a critical upgrade step fails.
 
+Upgrades also repair older PowerDNS installs by removing unsupported SOA settings and writing the supported `default-soa-content` automatically from the panel/node base domain. This prevents new authoritative zones from inheriting `a.misconfigured.dns.server.invalid.` in SOA responses after upgrade.
+
 When upgrading from `--version` or `--branch`, the primary server also queues matching agent upgrades for online remote nodes. Local archive upgrades are safe for the primary server but cannot be cascaded automatically unless the same build is available from a trusted GitHub URL.
 
 See [docs/UPGRADING.md](docs/UPGRADING.md) for the full workflow and manual rollback notes.
@@ -164,6 +167,8 @@ STRATA_NODE_HOSTNAME=node1.example.com \
 STRATA_WEB_SERVER=nginx \
 bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/agent.sh)
 ```
+
+Remote node installs and upgrades apply the same PowerDNS SOA defaults automatically, so backup DNS nodes answer with the same authoritative `ns1` / `ns2` SOA data as the primary.
 
 ---
 

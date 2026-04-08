@@ -168,6 +168,52 @@ enabled = true
 EOF
 }
 
+derive_parent_domain() {
+    local panel_domain=""
+    local app_url=""
+    local host_candidate=""
+
+    if [[ -f "$INSTALL_DIR/panel/.env" ]]; then
+        panel_domain="$(grep -E '^PANEL_DOMAIN=' "$INSTALL_DIR/panel/.env" | tail -n 1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
+        app_url="$(grep -E '^APP_URL=' "$INSTALL_DIR/panel/.env" | tail -n 1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
+    fi
+
+    if [[ -n "$panel_domain" ]]; then
+        host_candidate="$panel_domain"
+    elif [[ -n "$app_url" ]]; then
+        host_candidate="${app_url#*://}"
+        host_candidate="${host_candidate%%/*}"
+        host_candidate="${host_candidate%%:*}"
+    else
+        host_candidate="$(hostname -f 2>/dev/null || hostname)"
+    fi
+
+    if [[ "$host_candidate" == *.* ]]; then
+        echo "${host_candidate#*.}"
+    else
+        echo "$host_candidate"
+    fi
+}
+
+repair_powerdns_soa_defaults() {
+    local parent_domain=""
+    local soa_content=""
+    local pdns_conf="/etc/powerdns/pdns.conf"
+
+    [[ -f "$pdns_conf" ]] || return 0
+
+    parent_domain="$(derive_parent_domain)"
+    [[ -n "$parent_domain" ]] || return 0
+
+    soa_content="ns1.${parent_domain} hostmaster.${parent_domain} 0 10800 3600 604800 3600"
+
+    sed -i '/^default-soa-name=/d;/^default-soa-mail=/d;/^default-soa-content=/d' "$pdns_conf"
+    printf '\ndefault-soa-content=%s\n' "$soa_content" >> "$pdns_conf"
+
+    systemctl enable pdns >/dev/null 2>&1 || true
+    systemctl restart pdns >/dev/null 2>&1 || true
+}
+
 restore_backup() {
     [[ $ROLLBACK_ON_FAIL -eq 1 ]] || return 0
     [[ -n "$BACKUP_DIR" && -d "$BACKUP_DIR/panel" ]] || return 0
@@ -395,6 +441,7 @@ fi
 set_permissions
 repair_mail_permissions
 repair_fail2ban_defaults
+repair_powerdns_soa_defaults
 
 info "Restarting services..."
 systemctl daemon-reload

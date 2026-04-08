@@ -68,6 +68,43 @@ enabled = true
 EOF
 }
 
+derive_parent_domain() {
+    local host_candidate=""
+
+    host_candidate="${STRATA_NODE_HOSTNAME:-}"
+    if [[ -z "$host_candidate" && -f /etc/strata-agent/agent.env ]]; then
+        host_candidate="$(grep -E '^STRATA_NODE_HOSTNAME=' /etc/strata-agent/agent.env | tail -n 1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
+    fi
+    if [[ -z "$host_candidate" ]]; then
+        host_candidate="$(hostname -f 2>/dev/null || hostname)"
+    fi
+
+    if [[ "$host_candidate" == *.* ]]; then
+        echo "${host_candidate#*.}"
+    else
+        echo "$host_candidate"
+    fi
+}
+
+repair_powerdns_soa_defaults() {
+    local parent_domain=""
+    local soa_content=""
+    local pdns_conf="/etc/powerdns/pdns.conf"
+
+    [[ -f "$pdns_conf" ]] || return 0
+
+    parent_domain="$(derive_parent_domain)"
+    [[ -n "$parent_domain" ]] || return 0
+
+    soa_content="ns1.${parent_domain} hostmaster.${parent_domain} 0 10800 3600 604800 3600"
+
+    sed -i '/^default-soa-name=/d;/^default-soa-mail=/d;/^default-soa-content=/d' "$pdns_conf"
+    printf '\ndefault-soa-content=%s\n' "$soa_content" >> "$pdns_conf"
+
+    systemctl enable pdns >/dev/null 2>&1 || true
+    systemctl restart pdns >/dev/null 2>&1 || true
+}
+
 detect_goarch() {
     case "$(uname -m)" in
         x86_64|amd64) echo "amd64" ;;
@@ -170,6 +207,7 @@ install -m 755 "$NEW_BINARY" /usr/sbin/strata-agent
 install -m 755 "$NEW_WEBDAV_BINARY" /usr/sbin/strata-webdav
 install_rspamd_if_missing
 repair_fail2ban_defaults
+repair_powerdns_soa_defaults
 if id vmail >/dev/null 2>&1; then
     mkdir -p /var/mail/vhosts
     chown vmail:vmail /var/mail/vhosts

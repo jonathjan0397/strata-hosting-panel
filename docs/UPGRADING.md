@@ -51,6 +51,7 @@ The upgrade process:
 - runs Laravel migrations
 - builds frontend assets
 - rebuilds `/usr/sbin/strata-agent` and `/usr/sbin/strata-webdav`
+- repairs PowerDNS SOA defaults on the primary and upgraded remote nodes by writing the supported `default-soa-content` derived from the panel/node base domain
 - resets panel permissions
 - restarts `strata-agent`, `strata-webdav`, `strata-queue`, PHP-FPM, and the web server
 - runs health checks
@@ -98,3 +99,4 @@ Adjust the backup timestamp and PHP service name if your install differs.
 - Local `--file` upgrades cannot be cascaded automatically unless the same build is also available from a trusted GitHub tag or branch URL.
 - The panel and agent version are derived from the release tag, branch name, or the repository `VERSION` file. Node health checks update each node's `agent_version`.
 - The internal remote cascade command is `php artisan strata:nodes-upgrade-agents --target-version <tag>` or `--branch <branch>`. The top-level `/root/strata-upgrade.sh --version <tag>` wrapper handles this for normal upgrades.
+- If you use Strata as authoritative DNS, verify that your host-domain zone answers with an SOA similar to `ns1.example.com. hostmaster.example.com.` before changing registrar nameservers. Current installs should now be repaired automatically during upgrade.

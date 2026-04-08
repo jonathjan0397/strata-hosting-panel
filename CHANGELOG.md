@@ -74,6 +74,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Default DNS record seeding now refuses loopback/private node addresses such as `127.0.0.1` and falls back to the node hostname's public address when available
 - Agent PowerDNS writes now quote TXT content automatically so SPF, DKIM, and DMARC records are accepted by PowerDNS while remaining readable in the panel
 - Managed DNS zones now include nameserver records derived from the primary panel hostname, for example `panel.example.com` -> `ns1.example.com`
+- Fresh installs and upgrades now repair PowerDNS SOA defaults using supported `default-soa-content`, preventing authoritative zones from inheriting `a.misconfigured.dns.server.invalid.`
 - DNS record writes and deletes are mirrored to other online nodes so successive nodes can act as backup DNS servers for managed zones
 - Scheduled `dns:sync-backup-zones` backfills managed zones to online backup DNS nodes after a node comes online
 - Admin DNS Zones now shows nameserver cluster health and can trigger backup DNS synchronization on demand
