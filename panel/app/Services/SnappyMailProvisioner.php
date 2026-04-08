@@ -177,13 +177,13 @@ class SnappyMailProvisioner
     {
         $candidates = array_filter([
             env('STRATA_WEBMAIL_DATA_PATH'),
-            '/var/www/webmail/data',
             '/var/lib/snappymail',
+            '/var/www/webmail/data',
         ]);
 
         foreach ($candidates as $candidate) {
             $path = rtrim((string) $candidate, '/');
-            if (is_dir($path)) {
+            if (is_dir($path) && is_writable($path)) {
                 return $path;
             }
         }

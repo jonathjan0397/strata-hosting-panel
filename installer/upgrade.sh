@@ -316,9 +316,9 @@ else
     printf '\nSTRATA_VERSION=%s\n' "$target_version" >> "$INSTALL_DIR/panel/.env"
 fi
 if grep -q '^STRATA_WEBMAIL_DATA_PATH=' "$INSTALL_DIR/panel/.env"; then
-    sed -i "s|^STRATA_WEBMAIL_DATA_PATH=.*|STRATA_WEBMAIL_DATA_PATH=/var/www/webmail/data|" "$INSTALL_DIR/panel/.env"
+    sed -i "s|^STRATA_WEBMAIL_DATA_PATH=.*|STRATA_WEBMAIL_DATA_PATH=/var/lib/snappymail|" "$INSTALL_DIR/panel/.env"
 else
-    printf 'STRATA_WEBMAIL_DATA_PATH=/var/www/webmail/data\n' >> "$INSTALL_DIR/panel/.env"
+    printf 'STRATA_WEBMAIL_DATA_PATH=/var/lib/snappymail\n' >> "$INSTALL_DIR/panel/.env"
 fi
 
 info "Installing panel dependencies and running migrations..."

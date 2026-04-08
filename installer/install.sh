@@ -1401,8 +1401,8 @@ if [[ -f "$SNAPPY_ZIP" ]]; then
         cp "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" \
            "$WEBMAIL_DATA/_data_/_default_/configs/application.ini"
     fi
-    mkdir -p "$WEBMAIL_DIR/data/_data_/_default_/domains"
-    cat > "$WEBMAIL_DIR/data/_data_/_default_/domains/default.json" <<'JSON'
+    mkdir -p "$WEBMAIL_DATA/_data_/_default_/domains"
+    cat > "$WEBMAIL_DATA/_data_/_default_/domains/default.json" <<'JSON'
 {
     "IMAP": {
         "host": "127.0.0.1",
