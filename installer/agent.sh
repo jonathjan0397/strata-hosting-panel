@@ -134,9 +134,11 @@ MC=$(command -v mariadb 2>/dev/null || command -v mysql)
 SQL=$(cat <<SQL
 ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
+ALTER USER 'root'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
 CREATE DATABASE IF NOT EXISTS pdns CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS 'pdns'@'localhost' IDENTIFIED BY '${PDNS_DB_PASSWORD}';
+ALTER USER 'pdns'@'localhost' IDENTIFIED BY '${PDNS_DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON pdns.* TO 'pdns'@'localhost';
 FLUSH PRIVILEGES;
 SQL
@@ -253,20 +255,34 @@ chown root:dovecot /etc/dovecot/virtual_users
 chmod 640 /etc/dovecot/virtual_users
 cat > /etc/dovecot/conf.d/auth-strata-passwdfile.conf.ext <<'EOF'
 passdb passwd-file {
+  driver = passwd-file
+  auth_username_format = %{user}
   passwd_file_path = /etc/dovecot/virtual_users
 }
 userdb passwd-file {
+  driver = passwd-file
+  auth_username_format = %{user}
   passwd_file_path = /etc/dovecot/virtual_users
 }
 EOF
 cat > /etc/dovecot/conf.d/10-master.conf <<'EOF'
 service imap-login {
-  inet_listener imap { port = 143 }
-  inet_listener imaps { port = 993 ssl = yes }
+  inet_listener imap {
+    port = 0
+  }
+  inet_listener imaps {
+    port = 993
+    ssl = yes
+  }
 }
 service pop3-login {
-  inet_listener pop3 { port = 110 }
-  inet_listener pop3s { port = 995 ssl = yes }
+  inet_listener pop3 {
+    port = 0
+  }
+  inet_listener pop3s {
+    port = 995
+    ssl = yes
+  }
 }
 service lmtp {
   unix_listener /var/spool/postfix/private/dovecot-lmtp {
@@ -281,7 +297,14 @@ service auth {
     user = postfix
     group = postfix
   }
+  unix_listener auth-userdb {
+    mode = 0600
+    user = vmail
+  }
   user = dovecot
+}
+service auth-worker {
+  user = vmail
 }
 EOF
 cat > /etc/dovecot/conf.d/10-ssl.conf <<EOF
@@ -318,7 +341,7 @@ chown opendkim:postfix /var/spool/postfix/opendkim
 /usr/sbin/usermod -aG opendkim postfix 2>/dev/null || true
 systemctl enable --now opendkim
 
-echo "yes" > /etc/pure-ftpd/conf/VirtualChroot
+rm -f /etc/pure-ftpd/conf/VirtualChroot
 echo "/etc/pureftpd/pureftpd.pdb" > /etc/pure-ftpd/conf/PureDB
 echo "yes" > /etc/pure-ftpd/conf/NoAnonymous
 echo "yes" > /etc/pure-ftpd/conf/ChrootEveryone
