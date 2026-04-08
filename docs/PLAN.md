@@ -257,6 +257,7 @@ Admin
 - [x] fail2ban integration (dedicated Admin Security sidebar entry and admin UI for jail status, manual bans, unbans, and service start/stop/restart; installer defaults protect SSH, Nginx auth, Postfix, Postfix SASL, and Dovecot with 10 retries before ban)
 - [x] SSH key management (add/remove authorized_keys per account)
 - [x] ClamAV malware scanner for jailed account paths
+- [x] Scheduled ClamAV malware scans with optional quarantine
 - [x] Per-domain ModSecurity controls for installed WAF modules
 - [x] Per-domain leech protection controls
 

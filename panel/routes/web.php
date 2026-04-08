@@ -255,6 +255,7 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('account.feature:malware_scanner')->group(function () {
             Route::get('security/malware-scanner', [MalwareScanController::class, 'index'])->name('malware.index');
             Route::post('security/malware-scanner/scan', [MalwareScanController::class, 'scan'])->name('malware.scan');
+            Route::put('security/malware-scanner/schedule', [MalwareScanController::class, 'updateSchedule'])->name('malware.schedule');
             Route::get('security/malware-scanner/scans/{scan}', [MalwareScanController::class, 'status'])->name('malware.status');
         });
 

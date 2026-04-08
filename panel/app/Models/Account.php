@@ -25,10 +25,14 @@ class Account extends Model
         'disk_used_mb', 'bandwidth_used_mb', 'suspended_at',
         'php_upload_max', 'php_post_max', 'php_memory_limit', 'php_max_exec_time',
         'backup_schedule', 'backup_time', 'backup_day',
+        'malware_scan_schedule', 'malware_scan_path', 'malware_scan_quarantine',
+        'malware_scan_last_queued_at',
     ];
 
     protected $casts = [
         'suspended_at' => 'datetime',
+        'malware_scan_quarantine' => 'boolean',
+        'malware_scan_last_queued_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

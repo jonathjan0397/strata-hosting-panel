@@ -5,6 +5,7 @@ use App\Console\Commands\BackupRun;
 use App\Console\Commands\ConfigureSnappyMail;
 use App\Console\Commands\LicenseSync;
 use App\Console\Commands\MetricsAggregateTraffic;
+use App\Console\Commands\MalwareRunScheduled;
 use App\Console\Commands\NodeHealthCheck;
 use App\Console\Commands\SslRenew;
 use App\Console\Commands\SyncBackupDnsZones;
@@ -47,6 +48,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Aggregate recent web traffic into daily metrics after log rotation settles.
         $schedule->command(MetricsAggregateTraffic::class, ['--days' => 30])->dailyAt('02:20');
+
+        // Queue due scheduled malware scans; the command skips accounts with active scans.
+        $schedule->command(MalwareRunScheduled::class)->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
