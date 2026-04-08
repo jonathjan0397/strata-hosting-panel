@@ -39,9 +39,24 @@ NODE_ID="${STRATA_NODE_ID:-}"
 HOSTNAME_FQDN="${STRATA_NODE_HOSTNAME:-$(hostname -f 2>/dev/null || hostname)}"
 WEB_SERVER="${STRATA_WEB_SERVER:-nginx}"
 AGENT_PORT="${STRATA_PORT:-8743}"
-DB_PASSWORD="${STRATA_DB_ROOT_PASSWORD:-$(gen_pass 32)}"
-PDNS_DB_PASSWORD="${STRATA_PDNS_DB_PASSWORD:-$(gen_pass 32)}"
-PDNS_API_KEY="${STRATA_PDNS_API_KEY:-$(gen_hex 32)}"
+REQUESTED_DB_PASSWORD="${STRATA_DB_ROOT_PASSWORD:-}"
+REQUESTED_PDNS_DB_PASSWORD="${STRATA_PDNS_DB_PASSWORD:-}"
+REQUESTED_PDNS_API_KEY="${STRATA_PDNS_API_KEY:-}"
+
+EXISTING_DB_PASSWORD=""
+EXISTING_PDNS_DB_PASSWORD=""
+EXISTING_PDNS_API_KEY=""
+if [[ -f /etc/strata-agent/install.env ]]; then
+    # shellcheck disable=SC1091
+    source /etc/strata-agent/install.env
+    EXISTING_DB_PASSWORD="${STRATA_DB_ROOT_PASSWORD:-}"
+    EXISTING_PDNS_DB_PASSWORD="${STRATA_PDNS_DB_PASSWORD:-}"
+    EXISTING_PDNS_API_KEY="${STRATA_PDNS_API_KEY:-}"
+fi
+
+DB_PASSWORD="${REQUESTED_DB_PASSWORD:-${EXISTING_DB_PASSWORD:-$(gen_pass 32)}}"
+PDNS_DB_PASSWORD="${REQUESTED_PDNS_DB_PASSWORD:-${EXISTING_PDNS_DB_PASSWORD:-$(gen_pass 32)}}"
+PDNS_API_KEY="${REQUESTED_PDNS_API_KEY:-${EXISTING_PDNS_API_KEY:-$(gen_hex 32)}}"
 
 if [[ -z "$HMAC_SECRET" ]]; then
     read -rp "$(echo -e "${CYAN}HMAC Secret${NC} (from panel node details): ")" HMAC_SECRET
@@ -57,6 +72,14 @@ fi
 [[ "$WEB_SERVER" == "nginx" || "$WEB_SERVER" == "apache" ]] || die "STRATA_WEB_SERVER must be nginx or apache."
 
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
+
+mkdir -p /etc/strata-agent
+cat > /etc/strata-agent/install.env <<EOF
+STRATA_DB_ROOT_PASSWORD='${DB_PASSWORD}'
+STRATA_PDNS_DB_PASSWORD='${PDNS_DB_PASSWORD}'
+STRATA_PDNS_API_KEY='${PDNS_API_KEY}'
+EOF
+chmod 600 /etc/strata-agent/install.env
 
 info "Installing Strata remote node on Debian ${DEBIAN_VERSION}."
 info "Hostname: ${HOSTNAME_FQDN}; web server: ${WEB_SERVER}; agent port: ${AGENT_PORT}."
