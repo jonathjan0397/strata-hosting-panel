@@ -109,17 +109,13 @@ class AccountMigrationController extends Controller
             ],
             [
                 'label' => 'Databases',
-                'count' => HostingDatabase::where('account_id', $account->id)
-                    ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
-                    ->count(),
-                'action' => 'MySQL database metadata can cut over with reset-required users. PostgreSQL remains blocked until import/recreate support is added.',
+                'count' => HostingDatabase::where('account_id', $account->id)->count(),
+                'action' => 'Database metadata can cut over with reset-required users. Verify restored data and application configs before source cleanup.',
             ],
             [
                 'label' => 'Database grants',
-                'count' => DatabaseGrant::where('account_id', $account->id)
-                    ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
-                    ->count(),
-                'action' => 'Host-scoped MySQL grants are preserved as reset-required and should be re-applied when database passwords are reset.',
+                'count' => DatabaseGrant::where('account_id', $account->id)->count(),
+                'action' => 'Database grants are preserved as reset-required and should be re-applied when database passwords are reset.',
             ],
             [
                 'label' => 'App installs',

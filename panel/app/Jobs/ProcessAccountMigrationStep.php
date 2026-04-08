@@ -224,14 +224,8 @@ class ProcessAccountMigrationStep implements ShouldQueue
         $ftpIds = FtpAccount::where('account_id', $account->id)->pluck('id')->all();
         $webDavIds = WebDavAccount::where('account_id', $account->id)->pluck('id')->all();
         $appInstallationIds = AppInstallation::where('account_id', $account->id)->pluck('id')->all();
-        $databaseIds = HostingDatabase::where('account_id', $account->id)
-            ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
-            ->pluck('id')
-            ->all();
-        $databaseGrantIds = DatabaseGrant::where('account_id', $account->id)
-            ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
-            ->pluck('id')
-            ->all();
+        $databaseIds = HostingDatabase::where('account_id', $account->id)->pluck('id')->all();
+        $databaseGrantIds = DatabaseGrant::where('account_id', $account->id)->pluck('id')->all();
 
         try {
             DB::transaction(function () use ($account, $domainIds, $forwarderIds, $mailboxIds, $ftpIds, $webDavIds, $appInstallationIds, $databaseIds, $databaseGrantIds, $targetNodeId) {
@@ -354,8 +348,8 @@ class ProcessAccountMigrationStep implements ShouldQueue
                 'mailboxes' => count($mailboxIds),
                 'ftp_accounts' => count($ftpIds),
                 'web_disk_accounts' => count($webDavIds),
-                'mysql_databases' => count($databaseIds),
-                'mysql_database_grants' => count($databaseGrantIds),
+                'databases' => count($databaseIds),
+                'database_grants' => count($databaseGrantIds),
                 'app_installations' => count($appInstallationIds),
             ],
             'source_retained' => true,
@@ -412,10 +406,7 @@ class ProcessAccountMigrationStep implements ShouldQueue
 
     public static function cutoverBlockers(Account $account): array
     {
-        $checks = [
-            'PostgreSQL databases' => HostingDatabase::where('account_id', $account->id)->where('engine', 'postgresql')->count(),
-            'PostgreSQL database grants' => DatabaseGrant::where('account_id', $account->id)->where('engine', 'postgresql')->count(),
-        ];
+        $checks = [];
 
         return array_keys(array_filter($checks, fn (int $count) => $count > 0));
     }
@@ -426,8 +417,8 @@ class ProcessAccountMigrationStep implements ShouldQueue
             'mailboxes' => EmailAccount::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
             'FTP accounts' => FtpAccount::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
             'Web Disk accounts' => WebDavAccount::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
-            'MySQL databases' => HostingDatabase::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
-            'MySQL database grants' => DatabaseGrant::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
+            'databases' => HostingDatabase::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
+            'database grants' => DatabaseGrant::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
         ];
 
         return array_filter($checks, fn (int $count) => $count > 0);

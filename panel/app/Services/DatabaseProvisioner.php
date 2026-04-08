@@ -78,15 +78,16 @@ class DatabaseProvisioner
     public function changePassword(HostingDatabase $db, string $password): array
     {
         try {
-            if ($db->migration_reset_required && ($db->engine ?? 'mysql') === 'mysql') {
-                $create = $this->client->createDatabase($db->db_name, $db->db_user, $password, 'mysql');
+            if ($db->migration_reset_required) {
+                $engine = $db->engine ?? 'mysql';
+                $create = $this->client->createDatabase($db->db_name, $db->db_user, $password, $engine);
                 if (! $create->successful()) {
-                    $update = $this->client->changeDatabasePassword($db->db_user, $password, 'mysql');
+                    $update = $this->client->changeDatabasePassword($db->db_user, $password, $engine);
                     if (! $update->successful()) {
                         return [false, $create->body() . ' / ' . $update->body()];
                     }
                 } else {
-                    $update = $this->client->changeDatabasePassword($db->db_user, $password, 'mysql');
+                    $update = $this->client->changeDatabasePassword($db->db_user, $password, $engine);
                     if (! $update->successful()) {
                         return [false, $update->body()];
                     }
@@ -96,7 +97,7 @@ class DatabaseProvisioner
                 DatabaseGrant::where('account_id', $db->account_id)
                     ->where('db_name', $db->db_name)
                     ->where('db_user', $db->db_user)
-                    ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
+                    ->where(fn ($query) => $query->where('engine', $engine)->orWhereNull('engine'))
                     ->update(['migration_reset_required' => false]);
 
                 return [true, null];

@@ -255,7 +255,7 @@ Admin
 - [x] Queued manual backup creation, full restore, and path restore with restore status tracking
 - [x] Migration cutover support for credentialless email forwarders
 - [x] Migration blocker remediation checklist for services requiring fresh credentials/manual verification
-- [x] Migration reset-required cutover for mailboxes, FTP/Web Disk accounts, MySQL databases, and MySQL grants without storing or transferring plaintext passwords
+- [x] Migration reset-required cutover for mailboxes, FTP/Web Disk accounts, databases, and database grants without storing or transferring plaintext passwords
 - [x] Migration verification-required cutover for app install metadata, with source cleanup blocked until restored apps are verified
 
 ### Security
