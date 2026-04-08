@@ -15,6 +15,9 @@ class SyncBackupDnsZones extends Command
 
     public function handle(): int
     {
+        $provisioner = new DnsProvisioner(AgentClient::for(Node::where('is_primary', true)->orderBy('id')->first() ?? Node::orderBy('id')->firstOrFail()));
+        $nameservers = $provisioner->authoritativeNameservers();
+
         $zones = DnsZone::with('records')
             ->whereNotNull('node_id')
             ->where('active', true)
@@ -38,7 +41,7 @@ class SyncBackupDnsZones extends Command
 
             foreach ($backupNodes as $node) {
                 $client = AgentClient::for($node);
-                $zoneResponse = $client->createDnsZone($zone->zone_name);
+                $zoneResponse = $client->createDnsZone($zone->zone_name, $nameservers);
 
                 if (! DnsProvisioner::zoneProvisionResponseIsUsable($zoneResponse)) {
                     $errors++;

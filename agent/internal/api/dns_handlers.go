@@ -18,7 +18,8 @@ func handleDNSListZones(w http.ResponseWriter, r *http.Request) {
 
 func handleDNSCreateZone(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Domain string `json:"domain"`
+		Domain      string   `json:"domain"`
+		Nameservers []string `json:"nameservers"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -27,7 +28,7 @@ func handleDNSCreateZone(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "domain required", http.StatusBadRequest)
 		return
 	}
-	if err := dns.CreateZone(req.Domain); err != nil {
+	if err := dns.CreateZone(req.Domain, req.Nameservers); err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}

@@ -21,7 +21,7 @@ class DnsProvisioner
     public function createZone(Domain $domain): array
     {
         try {
-            $response = $this->client->createDnsZone($domain->domain);
+            $response = $this->client->createDnsZone($domain->domain, $this->authoritativeNameservers());
             if (! $response->successful()) {
                 return [false, $response->body()];
             }
@@ -51,7 +51,7 @@ class DnsProvisioner
         $mailHost = 'mail.' . $domain->domain . '.';
         $nodeIp = $this->publicAddressFor($domain);
         $records = [
-            ['@', 'NS', $this->nameserverHosts(), null],
+            ['@', 'NS', $this->authoritativeNameservers(), null],
             ...$this->nameserverAddressRecordsFor($domain),
             ['www', 'CNAME', [$domainName], null],
             ['ftp', 'CNAME', [$domainName], null],
@@ -289,7 +289,7 @@ class DnsProvisioner
         return $this->addRecord($zone, '@', 'TXT', 300, $contents, true);
     }
 
-    private function nameserverHosts(): array
+    public function authoritativeNameservers(): array
     {
         $primary = Node::where('is_primary', true)->orderBy('id')->first() ?? Node::orderBy('id')->first();
         $baseDomain = $this->baseDomainFor($primary?->hostname);
@@ -361,7 +361,7 @@ class DnsProvisioner
         foreach ($this->backupDnsNodes($zone) as $node) {
             $client = AgentClient::for($node);
 
-            $zoneResponse = $client->createDnsZone($zone->zone_name);
+            $zoneResponse = $client->createDnsZone($zone->zone_name, $this->authoritativeNameservers());
             if (! $this->zoneProvisionResponseIsUsable($zoneResponse)) {
                 return [false, "Backup DNS zone sync failed on {$node->name}: " . $zoneResponse->body()];
             }

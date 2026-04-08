@@ -89,12 +89,15 @@ func pdnsRequest(method, path string, body any) ([]byte, int, error) {
 }
 
 // CreateZone creates a new authoritative DNS zone in PowerDNS.
-func CreateZone(domain string) error {
+func CreateZone(domain string, nameservers []string) error {
 	name := canonical(domain)
+	if len(nameservers) == 0 {
+		nameservers = []string{}
+	}
 	zone := map[string]any{
 		"name":        name,
 		"kind":        "Native",
-		"nameservers": []string{},
+		"nameservers": nameservers,
 		"rrsets":      []any{},
 	}
 	data, status, err := pdnsRequest("POST", "/servers/"+serverID+"/zones", zone)

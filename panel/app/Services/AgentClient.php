@@ -203,9 +203,12 @@ class AgentClient
         return $this->get('/dns/zones');
     }
 
-    public function createDnsZone(string $domain): Response
+    public function createDnsZone(string $domain, array $nameservers = []): Response
     {
-        return $this->post('/dns/zone', ['domain' => $domain]);
+        return $this->post('/dns/zone', array_filter([
+            'domain' => $domain,
+            'nameservers' => $nameservers ?: null,
+        ], fn ($value) => $value !== null));
     }
 
     public function deleteDnsZone(string $domain): Response

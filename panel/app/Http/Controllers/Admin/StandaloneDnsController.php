@@ -155,8 +155,9 @@ class StandaloneDnsController extends Controller
 
         $node   = Node::findOrFail($data['node_id']);
         $client = AgentClient::for($node);
+        $nameservers = (new DnsProvisioner($client))->authoritativeNameservers();
 
-        $response = $client->createDnsZone($zoneName);
+        $response = $client->createDnsZone($zoneName, $nameservers);
         if (! $response->successful()) {
             return back()->with('error', 'Agent error: ' . $response->body());
         }
