@@ -478,13 +478,10 @@ systemctl enable --now strata-agent strata-webdav
 systemctl restart postfix dovecot opendkim pure-ftpd pdns strata-agent strata-webdav
 
 if command -v acme.sh >/dev/null 2>&1 || curl -fsSL https://get.acme.sh | sh -s email="admin@${HOSTNAME_FQDN#*.}" >/dev/null 2>&1; then
+    export PATH="/root/.acme.sh:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
     /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1 || true
-    if [[ "$WEB_SERVER" == "apache" ]]; then
-        ACME_PLUGIN="apache"
-    else
-        ACME_PLUGIN="nginx"
-    fi
-    if /root/.acme.sh/acme.sh --issue --"${ACME_PLUGIN}" -d "$HOSTNAME_FQDN" --keylength 4096 >/dev/null 2>&1; then
+    mkdir -p /var/www/html/.well-known/acme-challenge
+    if /root/.acme.sh/acme.sh --issue -w /var/www/html -d "$HOSTNAME_FQDN" --keylength 4096 >/dev/null 2>&1; then
         /root/.acme.sh/acme.sh --install-cert -d "$HOSTNAME_FQDN" \
             --key-file /etc/strata-agent/tls/key.pem \
             --fullchain-file /etc/strata-agent/tls/cert.pem \
