@@ -4,7 +4,7 @@
             <PageHeader
                 eyebrow="Email"
                 title="Email Deliverability Troubleshooter"
-                description="Check your domain's email configuration: MX, SPF, DKIM, DMARC, reverse DNS, and blacklists."
+                description="Check your domain's email configuration: MX, SPF, DKIM, DMARC, public-IP PTR/rDNS, and blacklists."
             />
 
             <DeliverabilityChecker

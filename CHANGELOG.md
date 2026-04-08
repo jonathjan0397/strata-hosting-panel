@@ -34,6 +34,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Email Accounts password modal now uses a high-contrast field for readability across glass themes
 - Mail client configuration cards now render directly from page data so secure port guidance is always visible
 - Email Accounts now exposes shared DKIM/OpenDKIM key regeneration for admins, resellers, and users within their domain scope
+- Email deliverability checks now resolve the hosted domain or primary node public mail IP before PTR/rDNS, SPF, and blacklist checks, avoiding false checks against loopback/private node addresses
 - Malware scans now run through the queue with persisted scan history and polling status instead of holding the browser request open
 - Malware Scanner now supports account-level daily or weekly scheduled scans with optional quarantine
 - Malware Scanner now lists quarantined files and lets users permanently delete quarantined items from their account jail

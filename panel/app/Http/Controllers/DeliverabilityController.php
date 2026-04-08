@@ -42,7 +42,7 @@ class DeliverabilityController extends Controller
     {
         $data   = $request->validate(['domain' => 'required|string|max:253']);
         $domain = strtolower(trim($data['domain']));
-        $ip     = $this->serverIp();
+        $ip     = $this->serverIpForDomain($domain);
 
         return response()->json([
             'domain'    => $domain,
@@ -320,18 +320,77 @@ class DeliverabilityController extends Controller
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    private function serverIpForDomain(string $domain): string
+    {
+        $hostedDomain = Domain::with('node')
+            ->where('domain', $domain)
+            ->first();
+
+        if ($hostedDomain) {
+            $ip = $this->publicIpFromCandidates([
+                $hostedDomain->server_ip,
+                $hostedDomain->node?->ip_address,
+                $this->resolveHostname($hostedDomain->node?->hostname),
+            ]);
+
+            if ($ip) {
+                return $ip;
+            }
+        }
+
+        return $this->serverIp();
+    }
+
     /**
-     * Determine the server's outbound IP.
-     * Prefer the primary node's IP address; fall back to server addr.
+     * Determine the public mail/server IP.
+     * Prefer a public primary-node address; fall back to hostname DNS and SERVER_ADDR.
      */
     private function serverIp(): string
     {
         $node = Node::where('is_primary', true)->first();
         if ($node) {
-            return $node->ip_address;
+            $ip = $this->publicIpFromCandidates([
+                $node->ip_address,
+                $this->resolveHostname($node->hostname),
+            ]);
+
+            if ($ip) {
+                return $ip;
+            }
         }
 
-        return $_SERVER['SERVER_ADDR'] ?? '';
+        return $this->publicIpFromCandidates([$_SERVER['SERVER_ADDR'] ?? null]) ?? '';
+    }
+
+    private function publicIpFromCandidates(array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate) || $candidate === '') {
+                continue;
+            }
+
+            if ($this->isPublicIp($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveHostname(?string $hostname): ?string
+    {
+        if (! $hostname || filter_var($hostname, FILTER_VALIDATE_IP)) {
+            return null;
+        }
+
+        $records = gethostbynamel($hostname);
+
+        return $records[0] ?? null;
+    }
+
+    private function isPublicIp(string $ip): bool
+    {
+        return (bool) filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
     }
 
     /**

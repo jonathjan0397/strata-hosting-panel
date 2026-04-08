@@ -6,7 +6,7 @@
             <div>
                 <h1 class="text-lg font-semibold text-gray-100">Email Deliverability Troubleshooter</h1>
                 <p class="mt-1 text-sm text-gray-400">
-                    Run a full DNS deliverability audit on any domain — MX, SPF, DKIM, DMARC, reverse DNS, and blacklist checks.
+                    Run a full DNS deliverability audit on any domain, including MX, SPF, DKIM, DMARC, public-IP PTR/rDNS, and blacklist checks.
                 </p>
             </div>
 

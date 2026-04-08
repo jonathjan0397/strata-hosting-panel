@@ -271,7 +271,7 @@ Admin
 
 ### Admin Tools
 - [x] Browser-based SSH terminal (per-node, xterm.js)
-- [x] Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, PTR, blacklists)
+- [x] Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, public-IP PTR/rDNS, blacklists)
 
 ### Billing Integration (API)
 - [x] REST provisioning API (create/suspend/unsuspend/terminate/usage)
@@ -326,7 +326,7 @@ Admin
 - [x] Audit log viewer (admin, filterable, paginated)
 - [x] SSL auto-renew (artisan command + scheduler)
 - [x] Browser-based SSH terminal (admin, per-node, xterm.js + PTY)
-- [x] Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, PTR, blacklists)
+- [x] Email deliverability troubleshooter (MX, SPF, DKIM, DMARC, public-IP PTR/rDNS, blacklists)
 
 ### Phase 6 — Reseller Portal ✅
 - [x] Reseller dashboard with quota meters (accounts, disk, bandwidth, domains, email, databases)

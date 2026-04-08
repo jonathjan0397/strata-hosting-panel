@@ -32,7 +32,7 @@
 
         <!-- Server IP note -->
         <p v-if="serverIp" class="text-xs text-gray-500">
-            Checks are run against server IP: <span class="font-mono text-gray-400">{{ serverIp }}</span>
+            PTR, SPF, and blacklist checks use the public mail server IP: <span class="font-mono text-gray-400">{{ serverIp }}</span>
         </p>
 
         <!-- Error -->
