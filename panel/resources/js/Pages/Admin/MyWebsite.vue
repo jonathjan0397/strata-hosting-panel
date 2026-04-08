@@ -3,7 +3,6 @@
         <div class="max-w-3xl mx-auto py-8 px-4 space-y-6">
             <h1 class="text-2xl font-semibold text-gray-100">My Website</h1>
 
-            <!-- Flash messages -->
             <div v-if="$page.props.flash?.success" class="rounded-lg bg-green-900/40 border border-green-700 px-4 py-3 text-green-300 text-sm">
                 {{ $page.props.flash.success }}
             </div>
@@ -11,21 +10,24 @@
                 {{ $page.props.flash.error }}
             </div>
 
-            <!-- Already provisioned -->
             <template v-if="account">
                 <div class="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-4">
                     <div class="flex items-start justify-between">
                         <div>
                             <p class="text-lg font-medium text-gray-100">{{ account.domain?.domain ?? '(no domain)' }}</p>
                             <p class="text-sm text-gray-400 mt-0.5">System user: <code class="text-indigo-400">{{ account.username }}</code> &middot; PHP {{ account.php_version }} &middot; {{ account.node?.name }}</p>
+                            <p v-if="account.status === 'provisioning'" class="mt-1 text-xs text-sky-300">Website provisioning is running in the background. Refresh this page in a moment.</p>
+                            <p v-else-if="account.status === 'failed'" class="mt-1 text-xs text-red-300">Provisioning failed: {{ account.provisioning_error ?? 'Unknown error' }}</p>
+                            <p v-else-if="!account.domain" class="mt-1 text-xs text-amber-300">The server account exists, but no domain is attached yet. Complete setup below to finish the website.</p>
                         </div>
-                        <span :class="account.status === 'active' ? 'bg-green-900/50 text-green-400 border-green-700' : 'bg-yellow-900/50 text-yellow-400 border-yellow-700'"
-                              class="text-xs px-2.5 py-1 rounded-full border font-medium">
+                        <span
+                            :class="account.status === 'active' ? 'bg-green-900/50 text-green-400 border-green-700' : 'bg-yellow-900/50 text-yellow-400 border-yellow-700'"
+                            class="text-xs px-2.5 py-1 rounded-full border font-medium"
+                        >
                             {{ account.status }}
                         </span>
                     </div>
 
-                    <!-- SSL status -->
                     <div v-if="account.domain" class="flex items-center gap-2 text-sm">
                         <svg v-if="account.domain.ssl_enabled" class="h-4 w-4 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
@@ -38,7 +40,6 @@
                         </span>
                     </div>
 
-                    <!-- Quick-access links -->
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                         <Link :href="route('my.files.index')" class="flex flex-col items-center gap-1.5 rounded-lg bg-gray-800 hover:bg-gray-750 border border-gray-700 px-3 py-3 text-sm text-gray-300 hover:text-gray-100 transition-colors">
                             <svg class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -67,7 +68,49 @@
                     </div>
                 </div>
 
-                <!-- Remove website -->
+                <div v-if="!account.domain" class="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-5">
+                    <div>
+                        <h2 class="text-base font-medium text-gray-100">Complete website setup</h2>
+                        <p class="text-sm text-gray-400 mt-1">
+                            Attach your main domain to the existing website account. This will finish vhost and DNS provisioning on
+                            <span class="text-gray-300">{{ account.node?.name ?? primaryNode?.name }}</span>.
+                        </p>
+                    </div>
+
+                    <form v-if="account.status !== 'provisioning'" @submit.prevent="submit" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Domain</label>
+                            <input
+                                v-model="form.domain"
+                                type="text"
+                                placeholder="example.com"
+                                class="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-100 placeholder-gray-500 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                :class="{ 'border-red-500': errors.domain }"
+                            />
+                            <p v-if="errors.domain" class="mt-1 text-xs text-red-400">{{ errors.domain }}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">PHP Version</label>
+                            <select
+                                v-model="form.php_version"
+                                class="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option v-for="v in phpVersions" :key="v" :value="v">PHP {{ v }}</option>
+                            </select>
+                            <p v-if="account.status === 'active'" class="mt-1 text-xs text-gray-500">The existing system account keeps its current PHP pool version unless you remove and recreate it.</p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            :disabled="loading"
+                            class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+                        >
+                            {{ loading ? 'Queueing...' : account.status === 'failed' ? 'Retry Website Setup' : 'Complete Website Setup' }}
+                        </button>
+                    </form>
+                </div>
+
                 <div class="rounded-xl bg-gray-900 border border-red-900/50 p-6">
                     <h2 class="text-base font-medium text-gray-100 mb-1">Remove Website</h2>
                     <p class="text-sm text-gray-400 mb-4">Removes the system account, vhost, and all files from the server. This cannot be undone.</p>
@@ -76,7 +119,6 @@
                     </button>
                 </div>
 
-                <!-- Confirm dialog -->
                 <div v-if="confirmRemove" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
                     <div class="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md space-y-4">
                         <h3 class="text-lg font-semibold text-gray-100">Remove website?</h3>
@@ -93,7 +135,6 @@
                 </div>
             </template>
 
-            <!-- Not yet provisioned -->
             <template v-else>
                 <div class="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-5">
                     <div>
@@ -134,7 +175,7 @@
                             :disabled="!primaryNode || loading"
                             class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
                         >
-                            {{ loading ? 'Provisioning…' : 'Provision Website' }}
+                            {{ loading ? 'Queueing...' : 'Provision Website' }}
                         </button>
                     </form>
                 </div>
@@ -144,8 +185,8 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { router, Link } from '@inertiajs/vue3'
+import { reactive, ref } from 'vue'
+import { Link, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
 const props = defineProps({
@@ -155,8 +196,8 @@ const props = defineProps({
 })
 
 const form = reactive({
-    domain: '',
-    php_version: props.phpVersions?.at(-1) ?? '8.4',
+    domain: props.account?.domain?.domain ?? '',
+    php_version: props.account?.php_version ?? props.phpVersions?.at(-1) ?? '8.4',
 })
 const errors = reactive({})
 const loading = ref(false)
