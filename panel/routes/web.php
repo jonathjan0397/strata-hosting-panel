@@ -258,6 +258,8 @@ Route::middleware(['auth'])->group(function () {
             Route::post('security/malware-scanner/scan', [MalwareScanController::class, 'scan'])->name('malware.scan');
             Route::put('security/malware-scanner/schedule', [MalwareScanController::class, 'updateSchedule'])->name('malware.schedule');
             Route::get('security/malware-scanner/scans/{scan}', [MalwareScanController::class, 'status'])->name('malware.status');
+            Route::get('security/malware-scanner/quarantine', [MalwareScanController::class, 'quarantine'])->name('malware.quarantine');
+            Route::delete('security/malware-scanner/quarantine/{filename}', [MalwareScanController::class, 'deleteQuarantine'])->name('malware.quarantine.delete');
         });
 
         // App Installer

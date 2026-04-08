@@ -165,6 +165,8 @@ func Routes() chi.Router {
 
 	// Malware scanning (jailed to /var/www/{username}/)
 	r.Post("/malware/{username}/scan", handleMalwareScan)
+	r.Get("/malware/{username}/quarantine", handleMalwareQuarantineList)
+	r.Delete("/malware/{username}/quarantine/{filename}", handleMalwareQuarantineDelete)
 
 	return r
 }

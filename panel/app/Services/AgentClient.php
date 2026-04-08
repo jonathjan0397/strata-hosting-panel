@@ -380,6 +380,16 @@ class AgentClient
         ], timeout: 650);
     }
 
+    public function malwareQuarantineList(string $username): Response
+    {
+        return $this->get("/malware/{$username}/quarantine");
+    }
+
+    public function malwareQuarantineDelete(string $username, string $filename): Response
+    {
+        return $this->delete("/malware/{$username}/quarantine/" . urlencode($filename));
+    }
+
     // ── Backups ───────────────────────────────────────────────────────────────
 
     public function backupCreate(string $username, string $type = 'full'): Response

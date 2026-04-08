@@ -202,6 +202,7 @@ Implemented on `main`:
 - package-gated ClamAV malware scanner for jailed account paths with optional quarantine
 - queued ClamAV scan execution with persisted scan history and polling status
 - scheduled ClamAV scans with account-level daily/weekly cadence and optional quarantine
+- malware quarantine listing and permanent cleanup inside the account jail
 - package-gated per-domain ModSecurity directive controls with enforce/detection-only modes
 - package-gated per-domain leech protection with Nginx request limiting and Apache block/redirect directives
 
