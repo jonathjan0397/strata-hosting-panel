@@ -5,9 +5,36 @@
                 <h2 class="text-lg font-semibold text-gray-100">All DNS Zones</h2>
                 <p class="mt-0.5 text-sm text-gray-400">Hosted and standalone DNS zones across every online nameserver.</p>
             </div>
-            <button @click="showCreate = !showCreate" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
-                + New Zone
-            </button>
+            <div class="flex items-center gap-2">
+                <button @click="syncBackups" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-200 transition-colors hover:border-indigo-500 hover:text-white">
+                    Sync Backup DNS
+                </button>
+                <button @click="showCreate = !showCreate" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
+                    + New Zone
+                </button>
+            </div>
+        </div>
+
+        <div class="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div v-for="node in cluster" :key="node.id" class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-semibold text-gray-100">{{ node.name }}</h3>
+                            <span class="rounded-full px-2 py-0.5 text-[11px]" :class="node.is_primary ? 'bg-indigo-900/50 text-indigo-200' : 'bg-cyan-900/40 text-cyan-200'">
+                                {{ node.is_primary ? 'Primary DNS' : 'Backup DNS' }}
+                            </span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500">{{ node.hostname }}</p>
+                    </div>
+                    <span class="rounded-full px-2 py-0.5 text-xs" :class="node.status === 'ok' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-red-900/40 text-red-300'">
+                        {{ node.status === 'ok' ? 'Healthy' : 'Error' }}
+                    </span>
+                </div>
+                <div class="mt-4 text-2xl font-semibold text-gray-100">{{ node.live_zones }}</div>
+                <p class="text-xs text-gray-500">Live zones reported by PowerDNS</p>
+                <p v-if="node.error" class="mt-3 rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-xs text-red-200">{{ node.error }}</p>
+            </div>
         </div>
 
         <div v-if="showCreate" class="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
@@ -91,7 +118,7 @@ import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 
-defineProps({ zones: Array, nodes: Array });
+defineProps({ zones: Array, nodes: Array, cluster: Array });
 
 const showCreate = ref(false);
 const createForm = ref({ zone_name: '', node_id: '' });
@@ -103,6 +130,11 @@ function submitCreate() {
             createForm.value = { zone_name: '', node_id: '' };
         },
     });
+}
+
+function syncBackups() {
+    if (!confirm('Run backup DNS zone sync now?')) return;
+    router.post(route('admin.dns.server.sync-backups'), {}, { preserveScroll: true });
 }
 </script>
 

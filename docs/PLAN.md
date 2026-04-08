@@ -199,6 +199,7 @@ Admin
 - [x] Nameserver records derived from the primary panel hostname, for example `panel.example.com` -> `ns1.example.com`
 - [x] Backup DNS mirroring to other online nodes for managed zone record writes/deletes
 - [x] Scheduled backup DNS backfill for managed zones when new nodes come online
+- [x] Admin DNS cluster health and manual backup-zone sync
 - [x] Import zone files (BIND format paste/upload)
 - [x] Export zone files (BIND format download)
 - [x] Server DNS zones (standalone zones not tied to hosted accounts)

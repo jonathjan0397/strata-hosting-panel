@@ -66,6 +66,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Managed DNS zones now include nameserver records derived from the primary panel hostname, for example `panel.example.com` -> `ns1.example.com`
 - DNS record writes and deletes are mirrored to other online nodes so successive nodes can act as backup DNS servers for managed zones
 - Scheduled `dns:sync-backup-zones` backfills managed zones to online backup DNS nodes after a node comes online
+- Admin DNS Zones now shows nameserver cluster health and can trigger backup DNS synchronization on demand
 - Users can delete their own domains from the domain detail page after a destructive warning; deletion removes the vhost, managed DNS zone, directory privacy settings, dedicated addon/subdomain document-root files, and the panel domain row so the domain can be re-added later
 - Domain create validation now ignores and purges already-deleted domain rows before insert, preventing stale soft-deleted domains from blocking reuse
 - Admin domain list supports bulk deletion while preserving panel records when server cleanup fails

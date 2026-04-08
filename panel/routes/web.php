@@ -407,6 +407,7 @@ Route::middleware(['auth'])->group(function () {
         // Standalone / server DNS zones
         Route::get('dns/server', [StandaloneDnsController::class, 'index'])->name('dns.server.index');
         Route::post('dns/server', [StandaloneDnsController::class, 'store'])->name('dns.server.store');
+        Route::post('dns/server/sync-backups', [StandaloneDnsController::class, 'syncBackupZones'])->name('dns.server.sync-backups');
         Route::get('dns/server/{zone}', [StandaloneDnsController::class, 'show'])->name('dns.server.show');
         Route::delete('dns/server/{zone}', [StandaloneDnsController::class, 'destroy'])->name('dns.server.destroy');
         Route::post('dns/server/{zone}/records', [StandaloneDnsController::class, 'storeRecord'])->name('dns.server.records.store');

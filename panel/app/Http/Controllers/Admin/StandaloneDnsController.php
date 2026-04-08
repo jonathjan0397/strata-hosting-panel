@@ -11,6 +11,7 @@ use App\Services\AgentClient;
 use App\Services\DnsProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,15 +30,22 @@ class StandaloneDnsController extends Controller
             ->get()
             ->keyBy('zone_name');
 
-        $nodes = Node::where('status', 'online')->select('id', 'name', 'hostname')->get();
+        $nodes = Node::where('status', 'online')->select('id', 'name', 'hostname', 'is_primary')->get();
 
         // Collect live zones from each node's agent; de-duplicate by name.
         $liveZones = collect();
+        $cluster = collect();
         foreach ($nodes as $node) {
+            $nodeZones = 0;
+            $nodeError = null;
+
             try {
                 $response = AgentClient::for($node)->listDnsZones();
                 if ($response->successful()) {
-                    foreach ($response->json() as $z) {
+                    $zoneRows = $response->json() ?? [];
+                    $nodeZones = count($zoneRows);
+
+                    foreach ($zoneRows as $z) {
                         $name = rtrim(strtolower($z['name'] ?? ''), '.');
                         if ($name && ! $liveZones->has($name)) {
                             $liveZones->put($name, [
@@ -48,10 +56,22 @@ class StandaloneDnsController extends Controller
                             ]);
                         }
                     }
+                } else {
+                    $nodeError = trim($response->body()) ?: "HTTP {$response->status()}";
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                $nodeError = $e->getMessage();
                 // Node unreachable — skip silently.
             }
+            $cluster->push([
+                'id'         => $node->id,
+                'name'       => $node->name,
+                'hostname'   => $node->hostname,
+                'is_primary' => $node->is_primary,
+                'live_zones' => $nodeZones,
+                'status'     => $nodeError ? 'error' : 'ok',
+                'error'      => $nodeError,
+            ]);
         }
 
         // Merge: DB zones enriched with live flag; live-only zones have no DB id.
@@ -90,7 +110,18 @@ class StandaloneDnsController extends Controller
         return Inertia::render('Admin/Dns/ServerZones', [
             'zones' => $merged->values()->sortBy('zone_name')->values(),
             'nodes' => $nodes->map->only('id', 'name'),
+            'cluster' => $cluster,
         ]);
+    }
+
+    public function syncBackupZones(): RedirectResponse
+    {
+        $exitCode = Artisan::call('dns:sync-backup-zones');
+        $output = trim(Artisan::output());
+
+        return $exitCode === 0
+            ? back()->with('success', $output ?: 'Backup DNS sync completed.')
+            : back()->with('error', $output ?: 'Backup DNS sync failed.');
     }
 
     /**

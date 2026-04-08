@@ -99,6 +99,7 @@ Implemented on `main`:
 - competitor backup import queue for cPanel/CWP `.tar.gz` and `.tgz` archives, converting supported website files and SQL dumps into normal Strata full-backup jobs
 - competitor backup import metadata preview for detected domains, DNS zone files, mailbox names, and forwarders
 - queued manual backup creation, full restore, and path restore with restore status/error tracking
+- admin DNS cluster health cards and manual backup-zone synchronization
 
 ### 4. Metrics and Logs
 Status: `in progress`
