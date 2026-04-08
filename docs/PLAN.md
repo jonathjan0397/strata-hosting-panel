@@ -256,6 +256,7 @@ Admin
 - [x] Migration cutover support for credentialless email forwarders
 - [x] Migration blocker remediation checklist for services requiring fresh credentials/manual verification
 - [x] Migration reset-required cutover for mailboxes, FTP/Web Disk accounts, MySQL databases, and MySQL grants without storing or transferring plaintext passwords
+- [x] Migration verification-required cutover for app install metadata, with source cleanup blocked until restored apps are verified
 
 ### Security
 - [x] 2FA (TOTP) for all user levels

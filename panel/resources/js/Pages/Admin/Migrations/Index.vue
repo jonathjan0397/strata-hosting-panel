@@ -83,6 +83,9 @@
                                 <p v-if="migration.status === 'complete' && migration.reset_required && Object.keys(migration.reset_required).length" class="mt-1 max-w-sm text-xs text-amber-300">
                                     Source cleanup blocked until reset-required services are handled.
                                 </p>
+                                <p v-if="migration.status === 'complete' && migration.verification_required && Object.keys(migration.verification_required).length" class="mt-1 max-w-sm text-xs text-amber-300">
+                                    Source cleanup blocked until verification-required services are handled.
+                                </p>
                                 <details v-if="migration.status === 'restored' && migration.remediation?.length" class="mt-2 max-w-md">
                                     <summary class="cursor-pointer text-xs text-indigo-300">Show remediation checklist</summary>
                                     <div class="mt-2 space-y-2 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3">

@@ -54,6 +54,7 @@ class AppInstallerController extends Controller
                 'update_available'  => $i->update_available,
                 'auto_update'       => $i->auto_update,
                 'status'            => $i->status,
+                'migration_verification_required' => $i->migration_verification_required,
                 'error_message'     => $i->error_message,
                 'last_updated_at'   => $i->last_updated_at?->toDateString(),
                 'created_at'        => $i->created_at->toDateString(),
@@ -140,6 +141,19 @@ class AppInstallerController extends Controller
         $installation->update(['auto_update' => ! $installation->auto_update]);
 
         return back();
+    }
+
+    public function verifyMigration(AppInstallation $installation)
+    {
+        $account = Auth::user()->account;
+        abort_if($installation->account_id !== $account->id, 403);
+
+        $installation->update([
+            'migration_verification_required' => false,
+            'error_message' => null,
+        ]);
+
+        return back()->with('success', "{$installation->app_name} marked verified after migration.");
     }
 
     // ── DELETE /my/apps/{installation} ────────────────────────────────────────

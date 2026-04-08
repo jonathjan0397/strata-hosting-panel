@@ -179,6 +179,14 @@ class MigrationController extends Controller
             ], 409);
         }
 
+        $verificationRequired = ProcessAccountMigrationStep::verificationRequiredServices($migration->account);
+        if ($verificationRequired !== []) {
+            return response()->json([
+                'error' => 'Source cleanup is blocked until verification-required services are handled.',
+                'verification_required' => $verificationRequired,
+            ], 409);
+        }
+
         $migration->update(['status' => 'source_cleanup_running', 'error' => null]);
 
         ProcessAccountMigrationStep::dispatch($migration->id, 'cleanup_source', 'api.account_migration');
@@ -203,6 +211,7 @@ class MigrationController extends Controller
         $account = $migration->account;
         $blockers = $account ? ProcessAccountMigrationStep::cutoverBlockers($account) : [];
         $resetRequired = $account ? ProcessAccountMigrationStep::resetRequiredServices($account) : [];
+        $verificationRequired = $account ? ProcessAccountMigrationStep::verificationRequiredServices($account) : [];
 
         return [
             'id' => $migration->id,
@@ -219,7 +228,8 @@ class MigrationController extends Controller
             'cutover_blockers' => $blockers,
             'can_cutover' => $blockers === [],
             'reset_required' => $resetRequired,
-            'can_cleanup_source' => $resetRequired === [],
+            'verification_required' => $verificationRequired,
+            'can_cleanup_source' => $resetRequired === [] && $verificationRequired === [],
             'started_by' => $migration->startedBy ? [
                 'id' => $migration->startedBy->id,
                 'name' => $migration->startedBy->name,

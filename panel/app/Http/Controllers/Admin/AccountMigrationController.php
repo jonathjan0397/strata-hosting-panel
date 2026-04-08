@@ -39,6 +39,9 @@ class AccountMigrationController extends Controller
                 $resetRequired = $migration->account
                     ? ProcessAccountMigrationStep::resetRequiredServices($migration->account)
                     : [];
+                $verificationRequired = $migration->account
+                    ? ProcessAccountMigrationStep::verificationRequiredServices($migration->account)
+                    : [];
 
                 return [
                     'id' => $migration->id,
@@ -50,7 +53,8 @@ class AccountMigrationController extends Controller
                     'cutover_blockers' => $cutoverBlockers,
                     'can_cutover' => $cutoverBlockers === [],
                     'reset_required' => $resetRequired,
-                    'can_cleanup_source' => $resetRequired === [],
+                    'verification_required' => $verificationRequired,
+                    'can_cleanup_source' => $resetRequired === [] && $verificationRequired === [],
                     'remediation' => $migration->account ? $this->remediation($migration->account) : [],
                     'backup' => $migration->backupJob ? [
                         'filename' => $migration->backupJob->filename,
@@ -120,7 +124,7 @@ class AccountMigrationController extends Controller
             [
                 'label' => 'App installs',
                 'count' => AppInstallation::where('account_id', $account->id)->count(),
-                'action' => 'Validate app files/configuration manually after restore before final cutover.',
+                'action' => 'Cutover will preserve app metadata, then require the account owner or operator to verify the app before source cleanup.',
             ],
         ];
 
@@ -260,6 +264,11 @@ class AccountMigrationController extends Controller
         $resetRequired = ProcessAccountMigrationStep::resetRequiredServices($migration->account);
         if ($resetRequired !== []) {
             return back()->with('error', 'Source cleanup is blocked until reset-required services are handled: ' . implode(', ', array_keys($resetRequired)) . '.');
+        }
+
+        $verificationRequired = ProcessAccountMigrationStep::verificationRequiredServices($migration->account);
+        if ($verificationRequired !== []) {
+            return back()->with('error', 'Source cleanup is blocked until verification-required services are handled: ' . implode(', ', array_keys($verificationRequired)) . '.');
         }
 
         $migration->update(['status' => 'source_cleanup_running', 'error' => null]);

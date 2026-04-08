@@ -269,6 +269,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/install', [AppInstallerController::class, 'install'])->name('install');
             Route::post('/{installation}/update', [AppInstallerController::class, 'update'])->name('update');
             Route::patch('/{installation}/auto-update', [AppInstallerController::class, 'toggleAutoUpdate'])->name('auto-update');
+            Route::patch('/{installation}/verify-migration', [AppInstallerController::class, 'verifyMigration'])->name('verify-migration');
             Route::delete('/{installation}', [AppInstallerController::class, 'destroy'])->name('destroy');
         });
     });

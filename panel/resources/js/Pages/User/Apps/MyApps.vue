@@ -36,6 +36,10 @@
                                 class="rounded-full bg-amber-900/40 px-2 py-0.5 text-xs text-amber-300">
                                 Update available
                             </span>
+                            <span v-if="inst.migration_verification_required"
+                                class="rounded-full bg-amber-900/40 px-2 py-0.5 text-xs font-semibold text-amber-200">
+                                Verify after migration
+                            </span>
                         </div>
 
                         <div class="mt-1 flex items-center gap-3 flex-wrap">
@@ -66,10 +70,23 @@
                                 <span class="block mt-1 text-amber-400/70">Remove the installer directory when done.</span>
                             </p>
                         </div>
+
+                        <div v-if="inst.migration_verification_required"
+                            class="mt-2 rounded-lg bg-amber-900/20 border border-amber-700/40 px-3 py-2">
+                            <p class="text-xs text-amber-200">
+                                This app was moved during account migration. Verify the site, database config, and admin login before source cleanup.
+                            </p>
+                        </div>
                     </div>
 
                     <!-- Actions -->
                     <div class="flex items-center gap-3 shrink-0">
+                        <button v-if="inst.migration_verification_required"
+                            @click="verifyMigration(inst)"
+                            class="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600 transition-colors">
+                            Mark verified
+                        </button>
+
                         <!-- Auto-update toggle -->
                         <button v-if="inst.status === 'active'"
                             @click="toggleAutoUpdate(inst)"
@@ -141,6 +158,11 @@ function toggleAutoUpdate(inst) {
 
 function updateApp(inst) {
     router.post(route('my.apps.update', inst.id));
+}
+
+function verifyMigration(inst) {
+    if (!confirm(`Mark ${inst.app_name} as verified after migration? Confirm only after the site and database config are working on the target node.`)) return;
+    router.patch(route('my.apps.verify-migration', inst.id));
 }
 
 // Status badge component inline

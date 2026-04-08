@@ -223,6 +223,7 @@ class ProcessAccountMigrationStep implements ShouldQueue
         $mailboxIds = EmailAccount::where('account_id', $account->id)->pluck('id')->all();
         $ftpIds = FtpAccount::where('account_id', $account->id)->pluck('id')->all();
         $webDavIds = WebDavAccount::where('account_id', $account->id)->pluck('id')->all();
+        $appInstallationIds = AppInstallation::where('account_id', $account->id)->pluck('id')->all();
         $databaseIds = HostingDatabase::where('account_id', $account->id)
             ->where(fn ($query) => $query->where('engine', 'mysql')->orWhereNull('engine'))
             ->pluck('id')
@@ -233,7 +234,7 @@ class ProcessAccountMigrationStep implements ShouldQueue
             ->all();
 
         try {
-            DB::transaction(function () use ($account, $domainIds, $forwarderIds, $mailboxIds, $ftpIds, $webDavIds, $databaseIds, $databaseGrantIds, $targetNodeId) {
+            DB::transaction(function () use ($account, $domainIds, $forwarderIds, $mailboxIds, $ftpIds, $webDavIds, $appInstallationIds, $databaseIds, $databaseGrantIds, $targetNodeId) {
                 $account->update(['node_id' => $targetNodeId]);
 
                 if ($domainIds !== []) {
@@ -255,6 +256,10 @@ class ProcessAccountMigrationStep implements ShouldQueue
 
                 if ($webDavIds !== []) {
                     WebDavAccount::whereIn('id', $webDavIds)->update(['node_id' => $targetNodeId, 'migration_reset_required' => true, 'active' => false]);
+                }
+
+                if ($appInstallationIds !== []) {
+                    AppInstallation::whereIn('id', $appInstallationIds)->update(['node_id' => $targetNodeId, 'migration_verification_required' => true]);
                 }
 
                 if ($databaseIds !== []) {
@@ -293,7 +298,7 @@ class ProcessAccountMigrationStep implements ShouldQueue
                 }
             }
         } catch (\Throwable $e) {
-            DB::transaction(function () use ($account, $domainIds, $domainMailSnapshots, $forwarderIds, $mailboxIds, $ftpIds, $webDavIds, $databaseIds, $databaseGrantIds, $sourceNodeId) {
+            DB::transaction(function () use ($account, $domainIds, $domainMailSnapshots, $forwarderIds, $mailboxIds, $ftpIds, $webDavIds, $appInstallationIds, $databaseIds, $databaseGrantIds, $sourceNodeId) {
                 $account->update(['node_id' => $sourceNodeId]);
 
                 if ($domainIds !== []) {
@@ -318,6 +323,10 @@ class ProcessAccountMigrationStep implements ShouldQueue
 
                 if ($webDavIds !== []) {
                     WebDavAccount::whereIn('id', $webDavIds)->update(['node_id' => $sourceNodeId, 'migration_reset_required' => false, 'active' => true]);
+                }
+
+                if ($appInstallationIds !== []) {
+                    AppInstallation::whereIn('id', $appInstallationIds)->update(['node_id' => $sourceNodeId, 'migration_verification_required' => false]);
                 }
 
                 if ($databaseIds !== []) {
@@ -347,6 +356,7 @@ class ProcessAccountMigrationStep implements ShouldQueue
                 'web_disk_accounts' => count($webDavIds),
                 'mysql_databases' => count($databaseIds),
                 'mysql_database_grants' => count($databaseGrantIds),
+                'app_installations' => count($appInstallationIds),
             ],
             'source_retained' => true,
             'queued' => true,
@@ -367,6 +377,15 @@ class ProcessAccountMigrationStep implements ShouldQueue
             $migration->update([
                 'status' => 'complete',
                 'error' => 'Source cleanup is blocked until reset-required services are handled: ' . implode(', ', array_keys($resetRequired)) . '.',
+            ]);
+            return;
+        }
+
+        $verificationRequired = self::verificationRequiredServices($migration->account);
+        if ($verificationRequired !== []) {
+            $migration->update([
+                'status' => 'complete',
+                'error' => 'Source cleanup is blocked until verification-required services are handled: ' . implode(', ', array_keys($verificationRequired)) . '.',
             ]);
             return;
         }
@@ -396,7 +415,6 @@ class ProcessAccountMigrationStep implements ShouldQueue
         $checks = [
             'PostgreSQL databases' => HostingDatabase::where('account_id', $account->id)->where('engine', 'postgresql')->count(),
             'PostgreSQL database grants' => DatabaseGrant::where('account_id', $account->id)->where('engine', 'postgresql')->count(),
-            'app installs' => AppInstallation::where('account_id', $account->id)->count(),
         ];
 
         return array_keys(array_filter($checks, fn (int $count) => $count > 0));
@@ -410,6 +428,15 @@ class ProcessAccountMigrationStep implements ShouldQueue
             'Web Disk accounts' => WebDavAccount::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
             'MySQL databases' => HostingDatabase::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
             'MySQL database grants' => DatabaseGrant::where('account_id', $account->id)->where('migration_reset_required', true)->count(),
+        ];
+
+        return array_filter($checks, fn (int $count) => $count > 0);
+    }
+
+    public static function verificationRequiredServices(Account $account): array
+    {
+        $checks = [
+            'app installs' => AppInstallation::where('account_id', $account->id)->where('migration_verification_required', true)->count(),
         ];
 
         return array_filter($checks, fn (int $count) => $count > 0);

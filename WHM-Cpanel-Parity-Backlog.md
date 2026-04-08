@@ -98,6 +98,7 @@ Implemented on `main`:
 - migration cutover support for credentialless email forwarder re-provisioning on the target node
 - migration blocker remediation checklist for services requiring fresh credentials/manual validation
 - migration reset-required cutover for mailboxes, FTP accounts, Web Disk accounts, MySQL databases, and MySQL grants, preserving metadata without transferring plaintext passwords and blocking source cleanup until fresh credentials are set
+- migration verification-required cutover for app installs, preserving metadata and blocking source cleanup until restored apps are verified
 - competitor backup import queue for cPanel/CWP `.tar.gz` and `.tgz` archives, converting supported website files and SQL dumps into normal Strata full-backup jobs
 - competitor backup import metadata preview for detected domains, DNS zone files, mailbox names, and forwarders
 - restore shortcut from completed competitor backup import jobs

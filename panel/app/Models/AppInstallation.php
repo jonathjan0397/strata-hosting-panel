@@ -16,13 +16,14 @@ class AppInstallation extends Model
         'setup_url',
         'installed_version', 'latest_version',
         'update_available', 'auto_update',
-        'status', 'error_message',
+        'status', 'migration_verification_required', 'error_message',
         'last_checked_at', 'last_updated_at',
     ];
 
     protected $casts = [
         'update_available' => 'boolean',
         'auto_update'      => 'boolean',
+        'migration_verification_required' => 'boolean',
         'last_checked_at'  => 'datetime',
         'last_updated_at'  => 'datetime',
     ];

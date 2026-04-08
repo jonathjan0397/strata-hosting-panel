@@ -56,6 +56,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Migration cutover now reassigns and re-provisions credentialless email forwarders on the target node instead of blocking solely because forwarders exist
 - Migration rows now show a remediation checklist for blocked services that require fresh credentials or manual verification
 - Migration cutover can now preserve mailbox, FTP, Web Disk, MySQL database, and MySQL grant metadata as reset-required records on the target node, requiring fresh credentials before source cleanup instead of transferring plaintext passwords
+- App installs now cut over as verification-required metadata and block source cleanup until the account owner marks the restored app verified
 
 **Backups**
 - Admin backup list supports bulk deletion while preserving panel records when node cleanup fails
