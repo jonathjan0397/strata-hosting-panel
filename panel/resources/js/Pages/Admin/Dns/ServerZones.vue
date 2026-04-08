@@ -37,6 +37,50 @@
             </div>
         </div>
 
+        <div class="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <div class="mb-4 flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-100">Host Domain DNS</h3>
+                    <p class="mt-1 text-xs text-gray-400">
+                        DNS guidance for {{ hostDns.base_domain }} based on the primary panel hostname {{ hostDns.panel_hostname }}.
+                    </p>
+                </div>
+                <Link
+                    v-if="hostDns.zone_id"
+                    :href="route('admin.dns.server.show', hostDns.zone_id)"
+                    class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                >
+                    Manage host zone
+                </Link>
+                <span v-else class="rounded-full bg-amber-900/40 px-2 py-0.5 text-xs text-amber-200">Recommended records</span>
+            </div>
+
+            <div v-if="!hostDns.zone_exists" class="mb-4 rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-xs text-amber-100">
+                No managed zone exists for {{ hostDns.base_domain }} yet. Add these records at your registrar or create a standalone zone for this domain.
+            </div>
+
+            <div class="overflow-hidden rounded-lg border border-gray-800">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-800 text-left">
+                            <th class="px-3 py-2 text-xs font-medium text-gray-400">Name</th>
+                            <th class="px-3 py-2 text-xs font-medium text-gray-400">Type</th>
+                            <th class="px-3 py-2 text-xs font-medium text-gray-400">Value</th>
+                            <th class="px-3 py-2 text-xs font-medium text-gray-400">TTL</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800">
+                        <tr v-for="record in hostDns.records" :key="`${record.name}-${record.type}-${record.value}`">
+                            <td class="px-3 py-2 font-mono text-xs text-gray-200">{{ record.name }}</td>
+                            <td class="px-3 py-2 text-xs text-gray-400">{{ record.type }}</td>
+                            <td class="px-3 py-2 font-mono text-xs text-gray-300">{{ record.priority !== null && record.priority !== undefined ? `${record.priority} ` : '' }}{{ record.value }}</td>
+                            <td class="px-3 py-2 text-xs text-gray-500">{{ record.ttl }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div v-if="showCreate" class="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <h3 class="mb-4 text-sm font-semibold text-gray-200">Create Standalone Zone</h3>
             <form @submit.prevent="submitCreate" class="flex flex-wrap items-end gap-3">
@@ -118,7 +162,7 @@ import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 
-defineProps({ zones: Array, nodes: Array, cluster: Array });
+defineProps({ zones: Array, nodes: Array, cluster: Array, hostDns: Object });
 
 const showCreate = ref(false);
 const createForm = ref({ zone_name: '', node_id: '' });

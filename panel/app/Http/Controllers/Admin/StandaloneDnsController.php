@@ -30,7 +30,9 @@ class StandaloneDnsController extends Controller
             ->get()
             ->keyBy('zone_name');
 
-        $nodes = Node::where('status', 'online')->select('id', 'name', 'hostname', 'is_primary')->get();
+        $nodes = Node::where('status', 'online')
+            ->select('id', 'name', 'hostname', 'ip_address', 'port', 'node_id', 'hmac_secret', 'is_primary')
+            ->get();
 
         // Collect live zones from each node's agent; de-duplicate by name.
         $liveZones = collect();
@@ -111,6 +113,7 @@ class StandaloneDnsController extends Controller
             'zones' => $merged->values()->sortBy('zone_name')->values(),
             'nodes' => $nodes->map->only('id', 'name'),
             'cluster' => $cluster,
+            'hostDns' => $this->hostDnsInformation(),
         ]);
     }
 
@@ -294,5 +297,113 @@ class StandaloneDnsController extends Controller
         $email = $account->user?->email;
 
         return $email ? "{$account->username} ({$email})" : $account->username;
+    }
+
+    private function hostDnsInformation(): array
+    {
+        $primary = Node::where('is_primary', true)->first();
+        $hostname = $primary?->hostname ?: parse_url((string) config('app.url'), PHP_URL_HOST) ?: gethostname();
+        $baseDomain = $this->baseDomain($hostname);
+        $zone = DnsZone::with('records')->where('zone_name', $baseDomain)->first();
+        $nodes = Node::orderByDesc('is_primary')->orderBy('name')->get(['name', 'hostname', 'ip_address', 'is_primary']);
+
+        $recommendedRecords = $nodes->flatMap(function (Node $node, int $index) use ($baseDomain) {
+            $number = $node->is_primary ? 1 : $index + 1;
+            $records = [
+                [
+                    'name' => "ns{$number}.{$baseDomain}",
+                    'type' => 'A',
+                    'value' => $this->publicAddressForNode($node) ?: $node->ip_address,
+                    'ttl' => 3600,
+                    'source' => $node->name,
+                ],
+            ];
+
+            if ($node->hostname) {
+                $records[] = [
+                    'name' => $node->hostname,
+                    'type' => 'A',
+                    'value' => $this->publicAddressForNode($node) ?: $node->ip_address,
+                    'ttl' => 3600,
+                    'source' => $node->name,
+                ];
+            }
+
+            return $records;
+        })->values();
+
+        $recommendedRecords->prepend([
+            'name' => $baseDomain,
+            'type' => 'NS',
+            'value' => "ns1.{$baseDomain}",
+            'ttl' => 3600,
+            'source' => 'Primary DNS',
+        ]);
+
+        if ($nodes->count() > 1) {
+            $recommendedRecords->push([
+                'name' => $baseDomain,
+                'type' => 'NS',
+                'value' => "ns2.{$baseDomain}",
+                'ttl' => 3600,
+                'source' => 'Backup DNS',
+            ]);
+        }
+
+        return [
+            'base_domain' => $baseDomain,
+            'panel_hostname' => $hostname,
+            'zone_id' => $zone?->id,
+            'zone_exists' => (bool) $zone,
+            'records' => $zone
+                ? $zone->records->map(fn (DnsRecord $record) => [
+                    'name' => $record->name,
+                    'type' => $record->type,
+                    'value' => $record->value,
+                    'ttl' => $record->ttl,
+                    'priority' => $record->priority,
+                    'source' => 'Managed zone',
+                ])->values()
+                : $recommendedRecords,
+        ];
+    }
+
+    private function baseDomain(string $hostname): string
+    {
+        $hostname = trim(strtolower($hostname), '.');
+        $parts = explode('.', $hostname);
+
+        if (count($parts) <= 2) {
+            return $hostname;
+        }
+
+        return implode('.', array_slice($parts, -2));
+    }
+
+    private function publicAddressForNode(Node $node): ?string
+    {
+        $candidates = array_filter([
+            $node->ip_address,
+            $this->resolveHostname($node->hostname),
+        ]);
+
+        foreach ($candidates as $candidate) {
+            if (filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveHostname(?string $hostname): ?string
+    {
+        if (! $hostname || filter_var($hostname, FILTER_VALIDATE_IP)) {
+            return null;
+        }
+
+        $records = gethostbynamel($hostname);
+
+        return $records[0] ?? null;
     }
 }
