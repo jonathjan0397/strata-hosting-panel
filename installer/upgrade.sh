@@ -34,7 +34,7 @@ usage() {
 Strata Hosting Panel upgrade utility
 
 Usage:
-  $0 --version v1.0.0-beta.1
+  $0 --version v1.0.0-beta.2
   $0 --branch main
   $0 --file /root/strata-hosting-panel.tar.gz
 

@@ -1,19 +1,19 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.0.0--beta.1-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/v1.0.0-beta.1)
+[![Release](https://img.shields.io/badge/Release-v1.0.0--beta.2-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/v1.0.0-beta.2)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** v1.0.0-beta.1 public testing
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** v1.0.0-beta.2 public testing
 
 ---
 
 > **Pre-release Beta Software**
 >
-> v1.0.0-beta.1 is available for public testing and should not be treated as production-ready.
+> v1.0.0-beta.2 is available for public testing and should not be treated as production-ready.
 > **Do not use in production without reviewing the code and hardening the server yourself.**
 >
 > Public testers: please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
@@ -130,7 +130,7 @@ Upgrade to a tagged release:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /root/strata-upgrade.sh
 chmod +x /root/strata-upgrade.sh
-/root/strata-upgrade.sh --version v1.0.0-beta.1
+/root/strata-upgrade.sh --version v1.0.0-beta.2
 ```
 
 Public testers can upgrade from the latest `main` branch:
@@ -142,7 +142,7 @@ Public testers can upgrade from the latest `main` branch:
 Manual archive upgrades are also supported:
 
 ```bash
-/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-beta.1.tar.gz
+/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-beta.2.tar.gz
 ```
 
 The upgrade utility preserves `.env`, `storage`, service secrets, certificates, hosted files, databases, and mail data. It creates a rollback backup under `/opt/strata-panel-backups/` and automatically restores it if a critical upgrade step fails.
@@ -178,7 +178,7 @@ STRATA_HMAC_SECRET=<secret> STRATA_NODE_ID=<id> bash <(curl -fsSL https://raw.gi
 | Database | MariaDB + PostgreSQL |
 | Firewall / Malware | UFW + fail2ban + ClamAV |
 
-## Features (v1.0.0-beta.1)
+## Features (v1.0.0-beta.2)
 
 | Category | Features |
 |---|---|

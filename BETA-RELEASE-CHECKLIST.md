@@ -1,6 +1,6 @@
 # Beta Release Checklist
 
-Target release: `v1.0.0-beta.1`
+Target release: `v1.0.0-beta.2`
 
 Target validation OS: Debian 13 (trixie)
 
@@ -9,7 +9,7 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 ## Release Gate
 
 - [x] Public `main` branch upgrade completes using `installer/upgrade.sh --branch main`.
-- [x] Tagged release upgrade path is documented using `installer/upgrade.sh --version v1.0.0-beta.1`.
+- [x] Tagged release upgrade path is documented using `installer/upgrade.sh --version v1.0.0-beta.2`.
 - [x] Rollback backup is created before upgrade.
 - [x] Remote node agent cascade command runs after branch/tag upgrades.
 - [x] Panel login page returns HTTP 200.
@@ -37,8 +37,8 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 
 ## Validation Notes
 
-- Validated release commit: `c53605b`.
-- Smoke server upgrade created rollback backup `/opt/strata-panel-backups/20260407-162634`.
+- Validated release commit: `611dfc3`.
+- Smoke server upgrade created rollback backup `/opt/strata-panel-backups/20260407-193535`.
 - Remote agent cascade completed on the single-node smoke install and reported no remote online nodes requiring upgrade.
 - Verified public demo credential hashes for the admin, reseller, user, and reseller-client demo accounts.
 - Verified SnappyMail `default` and `stratadevplatform.net` profiles use IMAPS `993`, authenticated SMTP `587`, and full mailbox logins.
@@ -46,14 +46,14 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 
 ## Known Beta Limitations
 
-- Migration cutover is intentionally conservative and blocks accounts with mailboxes, forwarders, FTP users, databases, database grants, or app installs.
+- Migration cutover is intentionally conservative and blocks accounts with mailboxes, FTP users, databases, database grants, or app installs. Credentialless forwarders are now re-provisioned during cutover.
 - Full two-node migration prepare/transfer/restore/cutover should be tested before claiming production-grade multi-node migration support.
-- cPanel backup import compatibility is not implemented yet; current import support registers existing Strata backup archives.
+- cPanel/CWP backup import compatibility currently converts website files and detected SQL dumps into Strata full-backup jobs and previews detected domains, DNS zones, mailboxes, and forwarders. It does not recover original mailbox/FTP/database passwords or proprietary control-panel settings.
 - phpMyAdmin and phpPgAdmin use manual login, not automatic SSO.
 - Web Disk parity is currently FTPS connection guidance backed by jailed FTP accounts, not a full WebDAV server.
-- Some long-running workflows outside account migrations still run synchronously.
+- Migration, malware scans, manual backup creation, backup restore, and path restore are queued. Some less common maintenance workflows may still run synchronously.
 - Debian 13 is the primary beta validation target; Debian 11/12 are intended targets but need fresh-install beta validation before stronger claims.
 
 ## Tagging Criteria
 
-Tag `v1.0.0-beta.1` only after the release gate passes or any remaining failures are documented here as accepted beta limitations.
+Tag `v1.0.0-beta.2` only after the release gate passes or any remaining failures are documented here as accepted beta limitations.
