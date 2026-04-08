@@ -73,7 +73,7 @@ class DomainProvisioner
 
         if ($domain->mail_enabled) {
             try {
-                $mailResponse = $client->removeMailDomain($domain->domain);
+                $mailResponse = $client->deprovisionMailDomain($domain->domain);
                 if (! $mailResponse->successful()) {
                     $errors[] = 'Mail removal: ' . $mailResponse->body();
                 }
