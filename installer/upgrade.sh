@@ -117,6 +117,41 @@ repair_mail_permissions() {
     fi
 }
 
+repair_fail2ban_defaults() {
+    mkdir -p /etc/fail2ban/jail.d
+    cat > /etc/fail2ban/jail.d/strata-defaults.local <<'EOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 10
+backend = systemd
+
+[sshd]
+enabled = true
+
+[postfix]
+enabled = true
+
+[postfix-sasl]
+enabled = true
+
+[dovecot]
+enabled = true
+
+[pure-ftpd]
+enabled = true
+
+[nginx-http-auth]
+enabled = true
+
+[apache-auth]
+enabled = true
+
+[recidive]
+enabled = true
+EOF
+}
+
 restore_backup() {
     [[ $ROLLBACK_ON_FAIL -eq 1 ]] || return 0
     [[ -n "$BACKUP_DIR" && -d "$BACKUP_DIR/panel" ]] || return 0
@@ -335,13 +370,16 @@ fi
 
 set_permissions
 repair_mail_permissions
+repair_fail2ban_defaults
 
 info "Restarting services..."
 systemctl daemon-reload
+systemctl enable fail2ban >/dev/null 2>&1 || true
 systemctl enable strata-webdav >/dev/null 2>&1 || true
 systemctl restart strata-agent
 systemctl restart strata-webdav
 systemctl restart strata-queue
+systemctl restart fail2ban >/dev/null 2>&1 || true
 systemctl restart php8.4-fpm 2>/dev/null || systemctl restart php-fpm 2>/dev/null || true
 systemctl reload nginx 2>/dev/null || systemctl restart nginx 2>/dev/null || true
 systemctl reload apache2 2>/dev/null || systemctl restart apache2 2>/dev/null || true

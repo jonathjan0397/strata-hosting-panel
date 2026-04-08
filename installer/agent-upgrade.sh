@@ -33,6 +33,41 @@ install_rspamd_if_missing() {
     systemctl restart rspamd
 }
 
+repair_fail2ban_defaults() {
+    mkdir -p /etc/fail2ban/jail.d
+    cat > /etc/fail2ban/jail.d/strata-defaults.local <<'EOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 10
+backend = systemd
+
+[sshd]
+enabled = true
+
+[postfix]
+enabled = true
+
+[postfix-sasl]
+enabled = true
+
+[dovecot]
+enabled = true
+
+[pure-ftpd]
+enabled = true
+
+[nginx-http-auth]
+enabled = true
+
+[apache-auth]
+enabled = true
+
+[recidive]
+enabled = true
+EOF
+}
+
 cleanup() {
     rm -rf "$WORKDIR"
 }
@@ -104,6 +139,7 @@ fi
 mv "$NEW_BINARY" /usr/sbin/strata-agent
 mv "$NEW_WEBDAV_BINARY" /usr/sbin/strata-webdav
 install_rspamd_if_missing
+repair_fail2ban_defaults
 if id vmail >/dev/null 2>&1; then
     mkdir -p /var/mail/vhosts
     chown vmail:vmail /var/mail/vhosts
@@ -135,9 +171,11 @@ WantedBy=multi-user.target
 EOF
 fi
 systemctl daemon-reload
+systemctl enable fail2ban >/dev/null 2>&1 || true
 systemctl enable strata-webdav >/dev/null 2>&1 || true
 systemctl restart strata-agent
 systemctl restart strata-webdav
+systemctl restart fail2ban >/dev/null 2>&1 || true
 systemctl restart rspamd >/dev/null 2>&1 || true
 sleep 2
 systemctl is-active --quiet strata-agent
