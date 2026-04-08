@@ -48,6 +48,7 @@ class AdminWebsiteController extends Controller
     public function provision(Request $request): RedirectResponse
     {
         $this->purgeTrashedDomain($request->input('domain'));
+        $this->purgeTrashedWebsiteAccount($request);
 
         $data = $request->validate([
             'domain'      => ['required', 'string', 'max:253', Rule::unique('domains', 'domain')->whereNull('deleted_at'), 'regex:/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/'],
@@ -171,7 +172,7 @@ class AdminWebsiteController extends Controller
             return back()->with('error', "Account cleanup failed and was rolled back in the panel: {$accountError}");
         }
 
-        $account->delete();
+        $account->forceDelete();
 
         return redirect()->route('admin.my-website.index')
             ->with('success', 'Website removed from the server.');
@@ -185,6 +186,16 @@ class AdminWebsiteController extends Controller
 
         \App\Models\Domain::onlyTrashed()
             ->where('domain', strtolower(trim($domain)))
+            ->forceDelete();
+    }
+
+    private function purgeTrashedWebsiteAccount(Request $request): void
+    {
+        Account::onlyTrashed()
+            ->where('user_id', $request->user()->id)
+            ->whereDoesntHave('domains')
+            ->get()
+            ->each
             ->forceDelete();
     }
 
