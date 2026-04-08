@@ -43,7 +43,61 @@
                 <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                 </svg>
-                Agent unreachable. Check that strata-agent is running on this node.
+                Agent unreachable. {{ healthError ?? 'Check that strata-agent is running on this node.' }}
+            </div>
+
+            <!-- Agent certificate -->
+            <div class="mb-5 rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="mb-4 flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-200">Agent TLS Certificate</h3>
+                        <p class="mt-1 text-xs text-gray-400">
+                            Used for secure panel-to-agent calls. If this certificate expires or does not match the hostname, remote operations can fail.
+                        </p>
+                    </div>
+                    <span
+                        class="rounded-full px-2 py-0.5 text-xs font-semibold"
+                        :class="certificateBadgeClass"
+                    >
+                        {{ certificate?.status ?? 'unknown' }}
+                    </span>
+                </div>
+
+                <div
+                    v-if="certificate?.status !== 'valid'"
+                    class="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+                >
+                    {{ certificate?.message ?? 'Certificate status could not be verified.' }}
+                </div>
+
+                <dl class="grid gap-3 text-sm md:grid-cols-2">
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-gray-500">Issuer</dt>
+                        <dd class="mt-1 break-words text-gray-200">{{ certificate?.issuer ?? 'Unknown' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-gray-500">Expires</dt>
+                        <dd class="mt-1 text-gray-200">{{ certificate?.expires_human ?? 'Unknown' }}</dd>
+                    </div>
+                    <div class="md:col-span-2">
+                        <dt class="text-xs uppercase tracking-wide text-gray-500">Fingerprint</dt>
+                        <dd class="mt-1 break-all font-mono text-xs text-gray-400">{{ certificate?.fingerprint ?? 'Unavailable' }}</dd>
+                    </div>
+                </dl>
+
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                        type="button"
+                        class="btn-primary"
+                        :disabled="certificateForm.processing"
+                        @click="renewCertificate"
+                    >
+                        {{ certificateForm.processing ? 'Starting renewal...' : 'Renew / Repair Certificate' }}
+                    </button>
+                    <p class="text-xs text-gray-500">
+                        This uses the node secret to start an agent-side Let&apos;s Encrypt renewal. No SSH or CLI is required.
+                    </p>
+                </div>
             </div>
 
             <!-- Node details -->
@@ -114,7 +168,7 @@
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NodeStatusBadge from '@/Components/NodeStatusBadge.vue';
@@ -123,8 +177,28 @@ import ConfirmButton from '@/Components/ConfirmButton.vue';
 const props = defineProps({
     node:   Object,
     health: Object,
+    healthError: String,
+    certificate: Object,
     installSecret: String,
 });
+
+const certificateForm = useForm({});
+
+const certificateBadgeClass = computed(() => {
+    if (props.certificate?.status === 'valid') {
+        return 'bg-emerald-500/15 text-emerald-300';
+    }
+    if (props.certificate?.status === 'expires_soon') {
+        return 'bg-amber-500/15 text-amber-300';
+    }
+    return 'bg-red-500/15 text-red-300';
+});
+
+function renewCertificate() {
+    certificateForm.post(route('admin.nodes.certificate.renew', props.node.id), {
+        preserveScroll: true,
+    });
+}
 
 const installCommand = computed(() => {
     return `STRATA_HMAC_SECRET="${props.installSecret ?? '<secret>'}" \\

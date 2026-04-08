@@ -15,6 +15,7 @@ use App\Models\FtpAccount;
 use App\Models\HostingDatabase;
 use App\Models\Node;
 use App\Services\AgentClient;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -71,6 +72,7 @@ class NodeController extends Controller
     public function show(Node $node): Response
     {
         $health = null;
+        $healthError = null;
 
         try {
             $response = AgentClient::for($node)->health();
@@ -79,16 +81,33 @@ class NodeController extends Controller
                 $node->update(['status' => 'online', 'last_seen_at' => now()]);
             } else {
                 $node->update(['status' => 'offline']);
+                $healthError = "Agent returned HTTP {$response->status()}.";
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             $node->update(['status' => 'offline']);
+            $healthError = $e->getMessage();
         }
 
         return Inertia::render('Admin/Nodes/Show', [
             'node'   => $node->fresh(),
             'health' => $health,
+            'healthError' => $healthError,
+            'certificate' => $this->inspectCertificate($node),
             'installSecret' => $node->hmac_secret,
         ]);
+    }
+
+    public function renewCertificate(Node $node): RedirectResponse
+    {
+        $response = AgentClient::for($node)->renewAgentCertificate($node->hostname);
+
+        if (! $response->successful()) {
+            return back()->with('error', $response->body() ?: 'Certificate renewal could not be started.');
+        }
+
+        AuditLog::record('node.certificate_renewal_started', $node);
+
+        return back()->with('success', "Certificate renewal started for {$node->hostname}. Refresh this page in a minute to verify the result.");
     }
 
     public function destroy(Node $node): RedirectResponse
@@ -120,5 +139,131 @@ class NodeController extends Controller
 
         return redirect()->route('admin.nodes.index')
             ->with('success', 'Node removed.');
+    }
+
+    private function inspectCertificate(Node $node): array
+    {
+        $host = $node->hostname ?: $node->ip_address;
+        $port = $node->port ?: 8743;
+        $context = stream_context_create([
+            'ssl' => [
+                'capture_peer_cert' => true,
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'SNI_enabled' => true,
+                'peer_name' => $host,
+            ],
+        ]);
+
+        $errorNumber = 0;
+        $errorString = '';
+        $client = @stream_socket_client(
+            "ssl://{$host}:{$port}",
+            $errorNumber,
+            $errorString,
+            8,
+            STREAM_CLIENT_CONNECT,
+            $context,
+        );
+
+        if (! $client) {
+            return [
+                'status' => 'unreachable',
+                'message' => trim($errorString) ?: 'Certificate could not be inspected.',
+            ];
+        }
+
+        $params = stream_context_get_params($client);
+        fclose($client);
+        $cert = $params['options']['ssl']['peer_certificate'] ?? null;
+        if (! $cert) {
+            return [
+                'status' => 'unknown',
+                'message' => 'No peer certificate was returned.',
+            ];
+        }
+
+        $parsed = openssl_x509_parse($cert) ?: [];
+        $fingerprint = strtoupper(openssl_x509_fingerprint($cert, 'sha256') ?: '');
+        $subject = $this->formatCertificateName($parsed['subject'] ?? []);
+        $issuer = $this->formatCertificateName($parsed['issuer'] ?? []);
+        $expiresAt = isset($parsed['validTo_time_t'])
+            ? CarbonImmutable::createFromTimestampUTC((int) $parsed['validTo_time_t'])
+            : null;
+        $dnsNames = $this->certificateDnsNames($parsed);
+        $matchesHost = $this->certificateMatchesHost($host, $dnsNames, $parsed['subject']['CN'] ?? null);
+        $isSelfSigned = $subject !== '' && $issuer !== '' && $subject === $issuer;
+        $expiresSoon = $expiresAt ? $expiresAt->lte(now()->addDays(14)) : true;
+        $expired = $expiresAt ? $expiresAt->isPast() : false;
+
+        $status = 'valid';
+        $message = 'Certificate is trusted by hostname metadata.';
+        if ($expired) {
+            $status = 'expired';
+            $message = 'Certificate is expired.';
+        } elseif ($isSelfSigned) {
+            $status = 'self_signed';
+            $message = 'Certificate is self-signed. Renew it before relying on remote operations.';
+        } elseif (! $matchesHost) {
+            $status = 'hostname_mismatch';
+            $message = 'Certificate does not match the node hostname.';
+        } elseif ($expiresSoon) {
+            $status = 'expires_soon';
+            $message = 'Certificate expires within 14 days.';
+        }
+
+        return [
+            'status' => $status,
+            'message' => $message,
+            'subject' => $subject,
+            'issuer' => $issuer,
+            'expires_at' => $expiresAt?->toIso8601String(),
+            'expires_human' => $expiresAt?->toDayDateTimeString(),
+            'fingerprint' => $fingerprint,
+            'dns_names' => $dnsNames,
+            'matches_host' => $matchesHost,
+            'is_self_signed' => $isSelfSigned,
+        ];
+    }
+
+    private function formatCertificateName(array $name): string
+    {
+        return collect($name)
+            ->map(fn ($value, $key) => "{$key}={$value}")
+            ->implode(', ');
+    }
+
+    private function certificateDnsNames(array $parsed): array
+    {
+        $san = $parsed['extensions']['subjectAltName'] ?? '';
+        if ($san === '') {
+            return [];
+        }
+
+        return collect(explode(',', $san))
+            ->map(fn ($entry) => trim($entry))
+            ->filter(fn ($entry) => str_starts_with($entry, 'DNS:'))
+            ->map(fn ($entry) => substr($entry, 4))
+            ->values()
+            ->all();
+    }
+
+    private function certificateMatchesHost(string $host, array $dnsNames, ?string $commonName): bool
+    {
+        $names = $dnsNames ?: array_filter([$commonName]);
+
+        foreach ($names as $name) {
+            if (strcasecmp($name, $host) === 0) {
+                return true;
+            }
+            if (str_starts_with($name, '*.')) {
+                $suffix = substr($name, 1);
+                if (str_ends_with($host, $suffix) && substr_count($host, '.') === substr_count($suffix, '.')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

@@ -10,6 +10,8 @@ func Routes() chi.Router {
 	// Health + version
 	r.Get("/health", handleHealth)
 	r.Get("/version", handleVersion)
+	r.Get("/agent/certificate", handleAgentCertificateInfo)
+	r.Post("/agent/certificate/renew", handleAgentCertificateRenew)
 
 	// App installer
 	r.Post("/apps/install", handleAppInstall)

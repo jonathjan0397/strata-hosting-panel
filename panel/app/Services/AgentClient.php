@@ -27,6 +27,22 @@ class AgentClient
         return $this->get('/version');
     }
 
+    public function agentCertificate(): Response
+    {
+        return $this->get('/agent/certificate');
+    }
+
+    public function renewAgentCertificate(?string $hostname = null): Response
+    {
+        return $this->request(
+            'POST',
+            '/agent/certificate/renew',
+            ['hostname' => $hostname ?: $this->node->hostname],
+            timeout: 60,
+            verify: false,
+        );
+    }
+
     public function systemInfo(): Response
     {
         return $this->get('/system/info');
@@ -682,7 +698,7 @@ class AgentClient
         return $this->request('POST', $path, $body, timeout: 600);
     }
 
-    private function request(string $method, string $path, array $body = [], int $timeout = 30): Response
+    private function request(string $method, string $path, array $body = [], int $timeout = 30, bool $verify = true): Response
     {
         $timestamp = (string) time();
         $bodyJson  = $body ? json_encode($body) : '';
@@ -695,6 +711,10 @@ class AgentClient
             'Accept'             => 'application/json',
         ])
             ->timeout($timeout);
+
+        if (! $verify) {
+            $http = $http->withoutVerifying();
+        }
 
         $url = $this->node->apiUrl($path);
 

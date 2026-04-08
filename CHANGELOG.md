@@ -36,6 +36,7 @@ Public beta target: `v1.0.0-beta.2`.
 - Email Accounts now exposes shared DKIM/OpenDKIM key regeneration for admins, resellers, and users within their domain scope
 - Email deliverability checks now resolve the hosted domain or primary node public mail IP before PTR/rDNS, SPF, and blacklist checks, avoiding false checks against loopback/private node addresses
 - Remote node installation is now standardized: `installer/agent.sh` bootstraps the hosting service stack, agent, Web Disk, DNS, mail, database, malware, firewall, and Fail2Ban services instead of installing only the agent binary
+- Node detail pages now show agent TLS certificate health, expiry, issuer, fingerprint, and an admin-only Renew/Repair action that can recover node certificates without SSH or CLI access
 - Fresh mail installs now use agent-managed Postfix hash maps and the same OpenDKIM table paths the agent writes, which keeps primary and remote node mail provisioning consistent
 - Malware scans now run through the queue with persisted scan history and polling status instead of holding the browser request open
 - Malware Scanner now supports account-level daily or weekly scheduled scans with optional quarantine
