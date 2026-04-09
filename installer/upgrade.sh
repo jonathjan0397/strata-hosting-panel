@@ -217,6 +217,48 @@ repair_powerdns_soa_defaults() {
     systemctl restart pdns >/dev/null 2>&1 || true
 }
 
+repair_mail_tls_defaults() {
+    local parent_domain=""
+    local mail_domain=""
+    local mail_tls_dir="/etc/strata-panel/mail-tls"
+    local dovecot_ssl="/etc/dovecot/conf.d/10-ssl.conf"
+
+    [[ -f /etc/postfix/main.cf ]] || return 0
+
+    parent_domain="$(derive_parent_domain)"
+    [[ -n "$parent_domain" ]] || return 0
+    mail_domain="mail.${parent_domain}"
+
+    mkdir -p "$mail_tls_dir"
+    if [[ ! -s "$mail_tls_dir/fullchain.pem" || ! -s "$mail_tls_dir/privkey.pem" ]]; then
+        openssl req -x509 -newkey rsa:4096 \
+            -keyout "${mail_tls_dir}/privkey.pem" \
+            -out "${mail_tls_dir}/fullchain.pem" \
+            -days 3650 -nodes \
+            -subj "/CN=${mail_domain}" \
+            -addext "subjectAltName=DNS:${mail_domain}" >/dev/null 2>&1 || true
+        chmod 600 "${mail_tls_dir}/privkey.pem" 2>/dev/null || true
+    fi
+
+    postconf -e "smtpd_sasl_auth_enable = no" >/dev/null 2>&1 || true
+    postconf -e "smtpd_tls_cert_file = ${mail_tls_dir}/fullchain.pem" >/dev/null 2>&1 || true
+    postconf -e "smtpd_tls_key_file = ${mail_tls_dir}/privkey.pem" >/dev/null 2>&1 || true
+    postconf -P "submission/inet/smtpd_sasl_auth_enable=yes" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/smtpd_sasl_auth_enable=yes" >/dev/null 2>&1 || true
+
+    if [[ -d /etc/dovecot/conf.d ]]; then
+        cat > "$dovecot_ssl" <<EOF
+ssl = yes
+ssl_server_cert_file = ${mail_tls_dir}/fullchain.pem
+ssl_server_key_file = ${mail_tls_dir}/privkey.pem
+ssl_min_protocol = TLSv1.2
+EOF
+    fi
+
+    systemctl restart dovecot >/dev/null 2>&1 || true
+    systemctl restart postfix >/dev/null 2>&1 || true
+}
+
 restore_backup() {
     [[ $ROLLBACK_ON_FAIL -eq 1 ]] || return 0
     [[ -n "$BACKUP_DIR" && -d "$BACKUP_DIR/panel" ]] || return 0
@@ -445,6 +487,7 @@ set_permissions
 repair_mail_permissions
 repair_fail2ban_defaults
 repair_powerdns_soa_defaults
+repair_mail_tls_defaults
 
 info "Restarting services..."
 systemctl daemon-reload

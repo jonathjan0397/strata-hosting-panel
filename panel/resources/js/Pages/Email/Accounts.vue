@@ -88,8 +88,15 @@
                         </div>
                         <div v-if="domain.dkim?.value" class="mt-3 rounded-lg border border-gray-800 bg-gray-950/50 p-3">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">DNS record</p>
-                            <p class="mt-1 font-mono text-xs text-gray-300">{{ domain.dkim.host }} TXT</p>
+                            <p class="mt-1 font-mono text-xs text-gray-300">{{ domain.dkim.fqdn }} TXT</p>
                             <p class="mt-2 break-all font-mono text-xs text-gray-400">{{ domain.dkim.value }}</p>
+                            <p class="mt-2 text-[0.7rem]" :class="domain.dkim.published ? 'text-emerald-400' : 'text-amber-300'">
+                                {{ domain.dkim.published ? 'Managed DNS already includes this DKIM record.' : (domain.managed_dns ? 'Managed DNS is attached, but this DKIM record still needs to be published.' : 'Publish this DKIM record with your external DNS provider.') }}
+                            </p>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between gap-3 text-xs">
+                            <span class="text-gray-500">Use the troubleshooter to validate DNS, mail, and certificate health for this domain.</span>
+                            <Link :href="troubleshootingRoute" class="text-sky-400 hover:text-sky-300">Open troubleshooting</Link>
                         </div>
                     </div>
                 </div>
@@ -208,7 +215,7 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 import EmptyState from '@/Components/EmptyState.vue';
@@ -226,6 +233,12 @@ const disabledDomains = computed(() => props.domains.filter((domain) => !domain.
 const primaryMailServer = computed(() => enabledDomains.value[0]?.node?.hostname ?? 'mail.your-domain.example');
 const enablingDomainId = ref(null);
 const regeneratingDomainId = ref(null);
+const troubleshootingRoute = computed(() => {
+    if (props.role === 'admin') return route('admin.troubleshooting.index');
+    if (props.role === 'reseller') return route('reseller.troubleshooting.index');
+
+    return route('my.troubleshooting.index');
+});
 const mailClientSettings = [
     { title: 'IMAP secure', port: '993', security: 'SSL/TLS', note: 'Recommended for incoming mail' },
     { title: 'POP3 secure', port: '995', security: 'SSL/TLS', note: 'Use only if clients need POP3' },

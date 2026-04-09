@@ -14,13 +14,14 @@ class Node extends Model
         'name', 'hostname', 'ip_address', 'port',
         'node_id', 'hmac_secret', 'tls_fingerprint',
         'status', 'agent_version', 'last_health', 'last_seen_at',
-        'is_primary', 'web_server', 'accelerators',
+        'is_primary', 'hosts_dns', 'web_server', 'accelerators',
     ];
 
     protected $casts = [
         'last_health'   => 'array',
         'last_seen_at'  => 'datetime',
         'is_primary'    => 'boolean',
+        'hosts_dns'     => 'boolean',
         'accelerators'  => 'array',
     ];
 
@@ -39,6 +40,11 @@ class Node extends Model
     public function isOnline(): bool
     {
         return $this->status === 'online';
+    }
+
+    public function hostsDns(): bool
+    {
+        return (bool) $this->hosts_dns;
     }
 
     public function apiUrl(string $path = ''): string

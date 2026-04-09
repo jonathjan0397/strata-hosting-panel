@@ -51,6 +51,7 @@ class NodeController extends Controller
             'ip_address'   => ['required', 'ip'],
             'port'         => ['nullable', 'integer', 'between:1,65535'],
             'web_server'   => ['required', 'in:nginx,apache'],
+            'hosts_dns'    => ['nullable', 'boolean'],
             'accelerators' => ['nullable', 'array'],
             'accelerators.*' => ['in:varnish,redis,memcached'],
         ]);
@@ -61,6 +62,7 @@ class NodeController extends Controller
             'node_id'      => Str::uuid()->toString(),
             'hmac_secret'  => Str::random(64),
             'status'       => 'unknown',
+            'hosts_dns'    => (bool) ($data['hosts_dns'] ?? false),
             'accelerators' => $data['accelerators'] ?? [],
         ]);
 

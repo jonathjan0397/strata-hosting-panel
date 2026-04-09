@@ -31,6 +31,7 @@ class StandaloneDnsController extends Controller
             ->keyBy('zone_name');
 
         $nodes = Node::where('status', 'online')
+            ->where('hosts_dns', true)
             ->select('id', 'name', 'hostname', 'ip_address', 'port', 'node_id', 'hmac_secret', 'is_primary')
             ->get();
 
@@ -153,7 +154,7 @@ class StandaloneDnsController extends Controller
             return back()->with('error', "Zone {$zoneName} already exists.");
         }
 
-        $node   = Node::findOrFail($data['node_id']);
+        $node   = Node::where('hosts_dns', true)->findOrFail($data['node_id']);
         $client = AgentClient::for($node);
         $nameservers = (new DnsProvisioner($client))->authoritativeNameservers();
 
@@ -306,7 +307,7 @@ class StandaloneDnsController extends Controller
         $hostname = $primary?->hostname ?: parse_url((string) config('app.url'), PHP_URL_HOST) ?: gethostname();
         $baseDomain = $this->baseDomain($hostname);
         $zone = DnsZone::with('records')->where('zone_name', $baseDomain)->first();
-        $nodes = Node::orderByDesc('is_primary')->orderBy('name')->get(['name', 'hostname', 'ip_address', 'is_primary']);
+        $nodes = Node::where('hosts_dns', true)->orderByDesc('is_primary')->orderBy('name')->get(['name', 'hostname', 'ip_address', 'is_primary']);
         $panelHost = parse_url((string) config('app.url'), PHP_URL_HOST) ?: $hostname;
         $recommendedRecords = $this->hostDnsRecommendedRecords($baseDomain, $hostname, (string) $panelHost, $nodes);
 

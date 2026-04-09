@@ -8,6 +8,8 @@ use App\Models\DnsZone;
 use App\Models\Node;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Str;
 use Throwable;
 
 class DnsProvisioner
@@ -184,6 +186,11 @@ class DnsProvisioner
                 return [false, $response->body()];
             }
 
+            $rectifyResponse = $this->client->rectifyDnsZone($zone->zone_name);
+            if (! $rectifyResponse->successful()) {
+                return [false, 'Primary DNS zone rectify failed: ' . $rectifyResponse->body()];
+            }
+
             [$mirrored, $mirrorError] = $this->mirrorRecordToBackupNodes($zone, $name, $type, $ttl, $agentContents);
             if (! $mirrored) {
                 return [false, $mirrorError];
@@ -210,6 +217,11 @@ class DnsProvisioner
             $response = $this->client->deleteDnsRecord($zone->zone_name, $name, $type);
             if (! $response->successful()) {
                 return [false, $response->body()];
+            }
+
+            $rectifyResponse = $this->client->rectifyDnsZone($zone->zone_name);
+            if (! $rectifyResponse->successful()) {
+                return [false, 'Primary DNS zone rectify failed: ' . $rectifyResponse->body()];
             }
 
             [$mirrored, $mirrorError] = $this->deleteRecordFromBackupNodes($zone, $name, $type);
@@ -344,13 +356,22 @@ class DnsProvisioner
     private function dnsCapableNodes()
     {
         $online = Node::whereNull('deleted_at')
+            ->where('hosts_dns', true)
             ->where('status', 'online');
 
         if ($online->exists()) {
             return $online;
         }
 
-        return Node::whereNull('deleted_at');
+        $configured = Node::whereNull('deleted_at')
+            ->where('hosts_dns', true);
+
+        if ($configured->exists()) {
+            return $configured;
+        }
+
+        return Node::whereNull('deleted_at')
+            ->where('is_primary', true);
     }
 
     private function baseDomainFor(?string $hostname): ?string
@@ -382,6 +403,11 @@ class DnsProvisioner
             if (! $recordResponse->successful()) {
                 return [false, "Backup DNS record sync failed on {$node->name}: " . $recordResponse->body()];
             }
+
+            $rectifyResponse = $client->rectifyDnsZone($zone->zone_name);
+            if (! $rectifyResponse->successful()) {
+                return [false, "Backup DNS zone rectify failed on {$node->name}: " . $rectifyResponse->body()];
+            }
         }
 
         return [true, null];
@@ -390,9 +416,16 @@ class DnsProvisioner
     private function deleteRecordFromBackupNodes(DnsZone $zone, string $name, string $type): array
     {
         foreach ($this->backupDnsNodes($zone) as $node) {
-            $response = AgentClient::for($node)->deleteDnsRecord($zone->zone_name, $name, $type);
+            $client = AgentClient::for($node);
+
+            $response = $client->deleteDnsRecord($zone->zone_name, $name, $type);
             if (! $response->successful()) {
                 return [false, "Backup DNS record removal failed on {$node->name}: " . $response->body()];
+            }
+
+            $rectifyResponse = $client->rectifyDnsZone($zone->zone_name);
+            if (! $rectifyResponse->successful()) {
+                return [false, "Backup DNS zone rectify failed on {$node->name}: " . $rectifyResponse->body()];
             }
         }
 
@@ -407,10 +440,187 @@ class DnsProvisioner
     private function backupDnsNodesForNode(?int $nodeId): Collection
     {
         return Node::whereNull('deleted_at')
+            ->where('hosts_dns', true)
             ->when($nodeId, fn ($query) => $query->where('id', '!=', $nodeId))
             ->where('status', 'online')
             ->orderBy('id')
             ->get();
+    }
+
+    public function syncZoneToNode(DnsZone $zone, Node $node, bool $rebuild = false): array
+    {
+        try {
+            $client = AgentClient::for($node);
+
+            if ($rebuild) {
+                $deleteResponse = $client->deleteDnsZone($zone->zone_name);
+                if (! $deleteResponse->successful() && $deleteResponse->status() !== 404) {
+                    return [false, "Backup DNS zone reset failed on {$node->name}: " . $deleteResponse->body()];
+                }
+            }
+
+            $zoneResponse = $client->createDnsZone($zone->zone_name, $this->authoritativeNameservers());
+            if (! self::zoneProvisionResponseIsUsable($zoneResponse)) {
+                return [false, "Backup DNS zone sync failed on {$node->name}: " . $zoneResponse->body()];
+            }
+
+            foreach ($zone->records as $record) {
+                $contents = preg_split('/\R/', (string) $record->value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                if ($contents === []) {
+                    continue;
+                }
+
+                if (in_array($record->type, ['MX', 'SRV'], true) && $record->priority !== null) {
+                    $contents = array_map(fn ($content) => "{$record->priority} {$content}", $contents);
+                }
+
+                $recordResponse = $client->upsertDnsRecord(
+                    $zone->zone_name,
+                    $record->name,
+                    $record->type,
+                    $record->ttl,
+                    $contents,
+                );
+
+                if (! $recordResponse->successful()) {
+                    return [false, "Backup DNS record sync failed on {$node->name}: {$record->type} {$record->name}: " . $recordResponse->body()];
+                }
+            }
+
+            $rectifyResponse = $client->rectifyDnsZone($zone->zone_name);
+            if (! $rectifyResponse->successful()) {
+                return [false, "DNS zone rectify failed on {$node->name}: " . $rectifyResponse->body()];
+            }
+
+            if ($rebuild) {
+                $restartResponse = $client->restartService('pdns');
+                if (! $restartResponse->successful()) {
+                    return [false, "Backup DNS service restart failed on {$node->name}: " . $restartResponse->body()];
+                }
+            }
+
+            return [true, null];
+        } catch (Throwable $e) {
+            return [false, $e->getMessage()];
+        }
+    }
+
+    public function ensureBackupZoneHealthy(DnsZone $zone, Node $node): array
+    {
+        return $this->ensureNodeZoneHealthy($zone, $node, 'backup');
+    }
+
+    public function ensureAuthoritativeZoneHealthy(DnsZone $zone, Node $node): array
+    {
+        return $this->ensureNodeZoneHealthy($zone, $node, 'authoritative');
+    }
+
+    public function backfillStandaloneHostZoneRecords(DnsZone $zone): bool
+    {
+        if (! $this->isStandaloneHostZone($zone)) {
+            return false;
+        }
+
+        foreach ($this->standaloneHostZoneRecordDefinitions($zone->zone_name) as $record) {
+            DnsRecord::updateOrCreate(
+                [
+                    'dns_zone_id' => $zone->id,
+                    'name' => $record['name'],
+                    'type' => $record['type'],
+                ],
+                [
+                    'ttl' => $record['ttl'],
+                    'value' => implode("\n", $record['contents']),
+                    'priority' => $record['priority'] ?? 0,
+                    'managed' => true,
+                ],
+            );
+        }
+
+        $zone->unsetRelation('records');
+        $zone->load('records');
+
+        return true;
+    }
+
+    private function ensureNodeZoneHealthy(DnsZone $zone, Node $node, string $role): array
+    {
+        $initialCheck = $this->verifyZoneOnNode($zone, $node);
+        if ($initialCheck['healthy']) {
+            return ['success' => true, 'healed' => false, 'details' => null];
+        }
+
+        [$synced, $syncError] = $this->syncZoneToNode($zone, $node);
+        if (! $synced) {
+            return ['success' => false, 'healed' => false, 'details' => $syncError];
+        }
+
+        $postSyncCheck = $this->verifyZoneOnNode($zone, $node);
+        if ($postSyncCheck['healthy']) {
+            return ['success' => true, 'healed' => true, 'details' => "resolved by resynchronizing the {$role} zone"];
+        }
+
+        [$rebuilt, $rebuildError] = $this->syncZoneToNode($zone, $node, true);
+        if (! $rebuilt) {
+            return ['success' => false, 'healed' => false, 'details' => $rebuildError];
+        }
+
+        $postRebuildCheck = $this->verifyZoneOnNode($zone, $node);
+        if ($postRebuildCheck['healthy']) {
+            return ['success' => true, 'healed' => true, 'details' => "resolved by rebuilding the {$role} zone and restarting PowerDNS"];
+        }
+
+        return [
+            'success' => false,
+            'healed' => false,
+            'details' => "{$role} DNS zone is still drifted after rebuild: " . implode('; ', $postRebuildCheck['differences']),
+        ];
+    }
+
+    public function verifyZoneOnNode(DnsZone $zone, Node $node): array
+    {
+        try {
+            $response = AgentClient::for($node)->getDnsZone($zone->zone_name);
+            if (! $response->successful()) {
+                return [
+                    'healthy' => false,
+                    'differences' => ["zone fetch failed on {$node->name}: " . $response->body()],
+                ];
+            }
+
+            $expected = $this->expectedRecordMap($zone);
+            $live = $this->liveRecordMap($zone->zone_name, $response->json('rrsets', []));
+            $differences = [];
+
+            foreach ($expected as $key => $record) {
+                if (! array_key_exists($key, $live)) {
+                    $differences[] = "missing {$key}";
+                    continue;
+                }
+
+                if ($record['ttl'] !== $live[$key]['ttl']) {
+                    $differences[] = "ttl mismatch for {$key}: expected {$record['ttl']}, got {$live[$key]['ttl']}";
+                }
+
+                if ($record['contents'] !== $live[$key]['contents']) {
+                    $differences[] = "content mismatch for {$key}";
+                }
+            }
+
+            foreach (array_diff(array_keys($live), array_keys($expected)) as $key) {
+                $differences[] = "unexpected {$key}";
+            }
+
+            return [
+                'healthy' => $differences === [],
+                'differences' => $differences,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'healthy' => false,
+                'differences' => [$e->getMessage()],
+            ];
+        }
     }
 
     public static function zoneProvisionResponseIsUsable(Response $response): bool
@@ -424,5 +634,254 @@ class DnsProvisioner
         return str_contains($body, 'status 409')
             || str_contains($body, 'already exists')
             || str_contains($body, 'conflict');
+    }
+
+    private function expectedRecordMap(DnsZone $zone): array
+    {
+        $map = [];
+
+        $records = $zone->records;
+        if ($records->isEmpty() && $this->isStandaloneHostZone($zone)) {
+            foreach ($this->standaloneHostZoneRecordDefinitions($zone->zone_name) as $record) {
+                $fqdn = $this->absoluteRecordName($zone->zone_name, $record['name']);
+                $key = $this->recordKey($fqdn, $record['type']);
+
+                $contents = $record['contents'];
+                if (in_array($record['type'], ['MX', 'SRV'], true) && $record['priority'] !== null) {
+                    $contents = array_map(fn ($content) => "{$record['priority']} {$content}", $contents);
+                }
+
+                $map[$key] = [
+                    'ttl' => (int) $record['ttl'],
+                    'contents' => $this->normalizeContents($record['type'], $contents),
+                ];
+            }
+
+            ksort($map);
+
+            return $map;
+        }
+
+        foreach ($records as $record) {
+            $contents = preg_split('/\R/', (string) $record->value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if ($contents === []) {
+                continue;
+            }
+
+            if (in_array($record->type, ['MX', 'SRV'], true) && $record->priority !== null) {
+                $contents = array_map(fn ($content) => "{$record->priority} {$content}", $contents);
+            }
+
+            $fqdn = $this->absoluteRecordName($zone->zone_name, $record->name);
+            $key = $this->recordKey($fqdn, $record->type);
+
+            $map[$key] = [
+                'ttl' => (int) $record->ttl,
+                'contents' => $this->normalizeContents($record->type, $contents),
+            ];
+        }
+
+        ksort($map);
+
+        return $map;
+    }
+
+    private function liveRecordMap(string $zoneName, array $rrsets): array
+    {
+        $map = [];
+
+        foreach ($rrsets as $rrset) {
+            $type = strtoupper((string) ($rrset['type'] ?? ''));
+            if ($type === '' || $type === 'SOA') {
+                continue;
+            }
+
+            $name = $this->absoluteRecordName($zoneName, (string) ($rrset['name'] ?? ''));
+            $records = collect($rrset['records'] ?? [])
+                ->filter(fn ($record) => ! ($record['disabled'] ?? false))
+                ->pluck('content')
+                ->filter(fn ($content) => $content !== null && trim((string) $content) !== '')
+                ->map(fn ($content) => (string) $content)
+                ->values()
+                ->all();
+
+            if ($records === []) {
+                continue;
+            }
+
+            $map[$this->recordKey($name, $type)] = [
+                'ttl' => (int) ($rrset['ttl'] ?? 0),
+                'contents' => $this->normalizeContents($type, $records),
+            ];
+        }
+
+        ksort($map);
+
+        return $map;
+    }
+
+    private function absoluteRecordName(string $zoneName, string $name): string
+    {
+        $zoneName = strtolower(rtrim($zoneName, '.')) . '.';
+        $name = trim($name);
+
+        if ($name === '' || $name === '@') {
+            return $zoneName;
+        }
+
+        if (Str::endsWith($name, '.')) {
+            return strtolower($name);
+        }
+
+        return strtolower($name . '.' . $zoneName);
+    }
+
+    private function recordKey(string $name, string $type): string
+    {
+        return strtolower(rtrim($name, '.')) . '|' . strtoupper($type);
+    }
+
+    private function normalizeContents(string $type, array $contents): array
+    {
+        $normalized = array_map(function (string $content) use ($type) {
+            $content = trim($content);
+
+            if ($type === 'TXT') {
+                return trim($content, "\"'");
+            }
+
+            if (in_array($type, ['MX', 'SRV'], true)) {
+                $parts = preg_split('/\s+/', $content) ?: [];
+                $priority = array_shift($parts) ?: '0';
+                $rest = strtolower(rtrim(implode(' ', $parts), '.'));
+
+                return trim($priority . ' ' . $rest);
+            }
+
+            if (in_array($type, ['CNAME', 'NS', 'PTR'], true)) {
+                return strtolower(rtrim($content, '.'));
+            }
+
+            return strtolower($content);
+        }, $contents);
+
+        sort($normalized);
+
+        return array_values($normalized);
+    }
+
+    private function isStandaloneHostZone(DnsZone $zone): bool
+    {
+        if ($zone->domain_id !== null) {
+            return false;
+        }
+
+        $primary = Node::where('is_primary', true)->orderBy('id')->first() ?? Node::orderBy('id')->first();
+        $panelHost = parse_url((string) Config::get('app.url'), PHP_URL_HOST) ?: $primary?->hostname;
+        $baseDomain = $this->baseDomainFor($panelHost ?: $primary?->hostname);
+
+        return $baseDomain !== null
+            && rtrim(strtolower($zone->zone_name), '.') === rtrim(strtolower($baseDomain), '.');
+    }
+
+    private function standaloneHostZoneRecordDefinitions(string $zoneName): array
+    {
+        $zoneName = strtolower(rtrim($zoneName, '.'));
+        $primary = Node::where('is_primary', true)->orderBy('id')->first() ?? Node::orderBy('id')->first();
+        $panelHost = strtolower(rtrim((string) (parse_url((string) Config::get('app.url'), PHP_URL_HOST) ?: $primary?->hostname), '.'));
+        $serverHostname = strtolower(rtrim((string) ($primary?->hostname ?? ''), '.'));
+        $primaryIp = $primary ? $this->publicAddressForNode($primary) : null;
+        $records = [];
+
+        if ($primaryIp) {
+            $addressType = filter_var($primaryIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A';
+            $ipMechanism = $addressType === 'AAAA' ? "ip6:{$primaryIp}" : "ip4:{$primaryIp}";
+
+            $records[] = ['name' => '@', 'type' => $addressType, 'ttl' => 300, 'contents' => [$primaryIp], 'priority' => null];
+            $records[] = ['name' => 'mail', 'type' => $addressType, 'ttl' => 300, 'contents' => [$primaryIp], 'priority' => null];
+            $records[] = ['name' => '@', 'type' => 'TXT', 'ttl' => 300, 'contents' => ["v=spf1 a mx {$ipMechanism} -all"], 'priority' => null];
+        } else {
+            $records[] = ['name' => '@', 'type' => 'TXT', 'ttl' => 300, 'contents' => ['v=spf1 a mx -all'], 'priority' => null];
+        }
+
+        $mailHost = 'mail.' . $zoneName . '.';
+        $records[] = ['name' => '@', 'type' => 'NS', 'ttl' => 3600, 'contents' => $this->authoritativeNameservers(), 'priority' => null];
+        $records[] = ['name' => '@', 'type' => 'MX', 'ttl' => 300, 'contents' => [$mailHost], 'priority' => 10];
+        $records[] = ['name' => '_dmarc', 'type' => 'TXT', 'ttl' => 300, 'contents' => ["v=DMARC1; p=quarantine; pct=100; rua=mailto:postmaster@{$zoneName}"], 'priority' => null];
+        $records[] = ['name' => '@', 'type' => 'CAA', 'ttl' => 300, 'contents' => ['0 issue "letsencrypt.org"'], 'priority' => null];
+
+        foreach (['smtp', 'imap', 'pop', 'webmail'] as $alias) {
+            $records[] = ['name' => $alias, 'type' => 'CNAME', 'ttl' => 300, 'contents' => [$mailHost], 'priority' => null];
+        }
+
+        $dnsNodes = $this->dnsCapableNodes()
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->get()
+            ->values();
+
+        foreach ($dnsNodes as $index => $node) {
+            $nodeIp = $this->publicAddressForNode($node);
+            if (! $nodeIp) {
+                continue;
+            }
+
+            $addressType = filter_var($nodeIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A';
+            $records[] = ['name' => 'ns' . ($index + 1), 'type' => $addressType, 'ttl' => 300, 'contents' => [$nodeIp], 'priority' => null];
+
+            $nodeHostname = strtolower(rtrim((string) $node->hostname, '.'));
+            $relativeHostname = $this->relativeNameForZone($nodeHostname, $zoneName);
+            if ($relativeHostname && $relativeHostname !== '@') {
+                $records[] = ['name' => $relativeHostname, 'type' => $addressType, 'ttl' => 300, 'contents' => [$nodeIp], 'priority' => null];
+            }
+        }
+
+        $panelRelative = $this->relativeNameForZone($panelHost, $zoneName);
+        if ($panelRelative && $panelRelative !== '@' && $primaryIp) {
+            $records[] = ['name' => $panelRelative, 'type' => filter_var($primaryIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A', 'ttl' => 300, 'contents' => [$primaryIp], 'priority' => null];
+        }
+
+        $hostnameRelative = $this->relativeNameForZone($serverHostname, $zoneName);
+        if ($hostnameRelative && $hostnameRelative !== '@' && $hostnameRelative !== $panelRelative && $primaryIp) {
+            $records[] = ['name' => $hostnameRelative, 'type' => filter_var($primaryIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A', 'ttl' => 300, 'contents' => [$primaryIp], 'priority' => null];
+        }
+
+        $deduped = [];
+        foreach ($records as $record) {
+            if ($record['contents'] === []) {
+                continue;
+            }
+
+            $key = implode('|', [
+                strtolower($record['name']),
+                strtoupper($record['type']),
+                implode("\n", $record['contents']),
+                (string) ($record['priority'] ?? ''),
+            ]);
+            $deduped[$key] = $record;
+        }
+
+        return array_values($deduped);
+    }
+
+    private function relativeNameForZone(?string $fqdn, string $zoneName): ?string
+    {
+        $fqdn = strtolower(rtrim((string) $fqdn, '.'));
+        $zoneName = strtolower(rtrim($zoneName, '.'));
+
+        if ($fqdn === '' || $zoneName === '') {
+            return null;
+        }
+
+        if ($fqdn === $zoneName) {
+            return '@';
+        }
+
+        $suffix = '.' . $zoneName;
+        if (! str_ends_with($fqdn, $suffix)) {
+            return null;
+        }
+
+        return substr($fqdn, 0, -strlen($suffix));
     }
 }

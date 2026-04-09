@@ -11,7 +11,7 @@
                 <span class="rounded-full bg-gray-700 px-2.5 py-0.5 text-xs text-gray-300">{{ zone.type }} zone</span>
             </div>
             <button type="button" @click="syncBackups" class="ml-auto rounded-lg border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-200 transition-colors hover:border-indigo-500 hover:text-white">
-                Repair Backup DNS
+                Repair DNS Sync
             </button>
         </div>
 
@@ -108,7 +108,7 @@ function submitRecord() {
 }
 
 function syncBackups() {
-    if (!confirm(`Sync ${props.zone.zone_name} to backup DNS nodes now?`)) return;
+    if (!confirm(`Verify and repair ${props.zone.zone_name} on the authoritative node and backup DNS nodes now?`)) return;
     router.post(route('admin.dns.server.sync-zone-backups', props.zone.id), {}, { preserveScroll: true });
 }
 

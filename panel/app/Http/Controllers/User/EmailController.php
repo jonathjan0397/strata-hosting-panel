@@ -192,6 +192,40 @@ class EmailController extends Controller
         return back()->with('success', 'Recommended SPF record restored and published to the managed DNS zone.');
     }
 
+    public function restoreDmarcRecord(Domain $domain): RedirectResponse
+    {
+        $account = $this->account();
+        abort_unless($domain->account_id === $account->id, 403);
+
+        if (! $domain->mail_enabled) {
+            return back()->with('error', 'Mail is not enabled for this domain.');
+        }
+
+        $dmarcRecord = $this->recommendedDmarcRecord($domain);
+        $previous = $domain->dmarc_dns_record;
+
+        $domain->update([
+            'dmarc_enabled' => true,
+            'dmarc_dns_record' => $dmarcRecord,
+        ]);
+
+        if (! $domain->dnsZone()->exists()) {
+            return back()->with('success', 'Recommended DMARC record restored. Publish the displayed TXT record with your DNS provider.');
+        }
+
+        $zone = $domain->dnsZone()->firstOrFail();
+        $dns = new DnsProvisioner(AgentClient::for($domain->node));
+        [$published, $error] = $dns->addRecord($zone, '_dmarc', 'TXT', 300, [$dmarcRecord], true);
+
+        if (! $published) {
+            $domain->update(['dmarc_dns_record' => $previous]);
+
+            return back()->with('error', "Recommended DMARC record was not restored: {$error}");
+        }
+
+        return back()->with('success', 'Recommended DMARC record restored and published to the managed DNS zone.');
+    }
+
     public function createMailbox(Request $request, Domain $domain): RedirectResponse
     {
         $account = $this->account();
@@ -557,5 +591,10 @@ class EmailController extends Controller
         $serverIp = $domain->server_ip ?: $domain->node?->ip_address;
 
         return $serverIp ? "v=spf1 a mx ip4:{$serverIp} -all" : 'v=spf1 a mx -all';
+    }
+
+    private function recommendedDmarcRecord(Domain $domain): string
+    {
+        return "v=DMARC1; p=quarantine; pct=100; rua=mailto:postmaster@{$domain->domain}";
     }
 }

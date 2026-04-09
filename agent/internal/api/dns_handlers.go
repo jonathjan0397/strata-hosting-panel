@@ -54,6 +54,15 @@ func handleDNSGetZone(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, zone)
 }
 
+func handleDNSRectifyZone(w http.ResponseWriter, r *http.Request) {
+	domain := chi.URLParam(r, "domain")
+	if err := dns.RectifyZone(domain); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "rectified", "domain": domain})
+}
+
 func handleDNSUpsertRecord(w http.ResponseWriter, r *http.Request) {
 	domain := chi.URLParam(r, "domain")
 	var req struct {

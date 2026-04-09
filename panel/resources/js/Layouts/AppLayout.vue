@@ -59,6 +59,14 @@
                 <!-- Admin nav (continued) -->
                 <template v-if="$page.props.auth.user.roles?.includes('admin')">
                     <NavGroup label="System">
+                        <NavItem :href="route('admin.troubleshooting.index')" :active="$page.url.startsWith('/admin/troubleshooting')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 3.75h1.5m-7.5 3h12a2.25 2.25 0 0 1 2.25 2.25v6a2.25 2.25 0 0 1-2.25 2.25h-4.5l-3.75 3v-3H6.75A2.25 2.25 0 0 1 4.5 15V9A2.25 2.25 0 0 1 6.75 6.75Zm.75 4.5h.008v.008H7.5V11.25Zm4.5 0h.008v.008H12V11.25Zm4.5 0h.008v.008H16.5V11.25Z" />
+                                </svg>
+                            </template>
+                            Troubleshooting
+                        </NavItem>
                         <NavItem :href="route('admin.audit-log.index')" :active="$page.url.startsWith('/admin/audit-log')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -286,6 +294,14 @@
                             </template>
                             Settings
                         </NavItem>
+                        <NavItem :href="route('reseller.troubleshooting.index')" :active="$page.url.startsWith('/reseller/troubleshooting')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 3.75h1.5m-7.5 3h12a2.25 2.25 0 0 1 2.25 2.25v6a2.25 2.25 0 0 1-2.25 2.25h-4.5l-3.75 3v-3H6.75A2.25 2.25 0 0 1 4.5 15V9A2.25 2.25 0 0 1 6.75 6.75Zm.75 4.5h.008v.008H7.5V11.25Zm4.5 0h.008v.008H12V11.25Zm4.5 0h.008v.008H16.5V11.25Z" />
+                                </svg>
+                            </template>
+                            Troubleshooting
+                        </NavItem>
                     </NavGroup>
                 </template>
 
@@ -371,6 +387,14 @@
                                 </svg>
                             </template>
                             Deliverability
+                        </NavItem>
+                        <NavItem :href="route('my.troubleshooting.index')" :active="$page.url.startsWith('/my/troubleshooting')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 3.75h1.5m-7.5 3h12a2.25 2.25 0 0 1 2.25 2.25v6a2.25 2.25 0 0 1-2.25 2.25h-4.5l-3.75 3v-3H6.75A2.25 2.25 0 0 1 4.5 15V9A2.25 2.25 0 0 1 6.75 6.75Zm.75 4.5h.008v.008H7.5V11.25Zm4.5 0h.008v.008H12V11.25Zm4.5 0h.008v.008H16.5V11.25Z" />
+                                </svg>
+                            </template>
+                            Troubleshooting
                         </NavItem>
                         <NavItem v-if="hasFeature('backups')" :href="route('my.backups.index')" :active="$page.url.startsWith('/my/backups')">
                             <template #icon>
@@ -697,6 +721,7 @@ const navActions = computed(() => {
             { label: 'Fail2Ban Administration', group: 'Security', href: route('admin.security.fail2ban.index') },
             { label: 'Email Accounts', group: 'Mail', href: route('email-accounts.index') },
             { label: 'Mail Queue', group: 'Mail', href: route('admin.mail-queue.index') },
+            { label: 'Troubleshooting', group: 'System', href: route('admin.troubleshooting.index') },
             { label: 'Audit Log', group: 'System', href: route('admin.audit-log.index') },
             { label: 'Webhooks', group: 'System', href: route('admin.webhooks.index') },
         );
@@ -706,11 +731,13 @@ const navActions = computed(() => {
             { label: 'Email Accounts', group: 'Mail', href: route('email-accounts.index') },
             { label: 'Packages', group: 'Reseller', href: route('reseller.packages.index') },
             { label: 'Reseller Settings', group: 'Reseller', href: route('reseller.branding') },
+            { label: 'Troubleshooting', group: 'Reseller', href: route('reseller.troubleshooting.index') },
         );
     } else if (roles.includes('user')) {
         addUserAction(items, 'domains', 'Domains', 'Websites', route('my.domains.index'));
         addUserAction(items, 'email', 'Email Accounts', 'Mail', route('email-accounts.index'));
         addUserAction(items, 'email', 'Email Delivery', 'Mail', route('my.email.delivery'));
+        items.push({ label: 'Troubleshooting', group: 'Diagnostics', href: route('my.troubleshooting.index') });
         addUserAction(items, 'file_manager', 'File Manager', 'Files', route('my.files.index'));
         addUserAction(items, 'web_disk', 'Web Disk', 'Files', route('my.web-disk.index'));
         addUserAction(items, 'databases', 'Databases', 'Data', route('my.databases.index'));

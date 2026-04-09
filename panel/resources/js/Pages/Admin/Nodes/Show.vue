@@ -12,6 +12,7 @@
                     <h2 class="text-lg font-semibold text-gray-100">{{ node.name }}</h2>
                     <NodeStatusBadge :status="node.status" />
                     <span v-if="node.is_primary" class="rounded-full bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">Primary</span>
+                    <span v-if="node.hosts_dns" class="rounded-full bg-cyan-900/40 px-2 py-0.5 text-xs text-cyan-300">DNS</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <Link
@@ -190,6 +191,10 @@
                         </template>
                         <span v-else class="text-gray-500">None</span>
                     </span>
+                </div>
+                <div class="grid grid-cols-3 px-5 py-3.5 text-sm">
+                    <span class="text-gray-500">DNS Role</span>
+                    <span class="col-span-2 text-gray-200">{{ node.hosts_dns ? 'Hosts authoritative DNS' : 'Not used for DNS' }}</span>
                 </div>
                 <div class="grid grid-cols-3 px-5 py-3.5 text-sm">
                     <span class="text-gray-500">Last Seen</span>

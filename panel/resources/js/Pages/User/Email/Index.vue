@@ -28,8 +28,11 @@
                         {{ emailDns.dkim.published ? 'Managed DNS published' : 'Needs DNS publish' }}
                     </span>
                 </div>
+                <p class="mb-4 text-xs" :class="emailDns.managed_dns ? 'text-emerald-300/80' : 'text-amber-200/80'">
+                    {{ emailDns.managed_dns ? 'Managed DNS is attached to this domain. Use these values to confirm the zone is publishing what Strata expects.' : 'Managed DNS is not attached. Copy these records into the external DNS provider for this domain.' }}
+                </p>
 
-                <DnsValue label="Host" :value="emailDns.dkim.host" />
+                <DnsValue label="Host" :value="emailDns.dkim.fqdn" />
                 <DnsValue label="Type" :value="emailDns.dkim.type" />
                 <DnsValue label="Value" :value="emailDns.dkim.value || 'No DKIM key stored yet.'" multiline />
 
@@ -55,6 +58,7 @@
                         {{ emailDns.spf.published ? 'Managed DNS published' : 'Needs DNS publish' }}
                     </span>
                 </div>
+                <p class="mb-4 text-xs text-gray-500">Recommended host: <span class="font-mono text-gray-300">{{ emailDns.spf.fqdn }}</span></p>
 
                 <form @submit.prevent="updateSpfRecord" class="space-y-3">
                     <DnsValue label="Host" :value="emailDns.spf.host" />
@@ -79,6 +83,38 @@
                     </div>
                 </form>
             </section>
+        </div>
+
+        <div v-if="domain.mail_enabled" class="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">DMARC Policy</p>
+                    <h3 class="mt-1 text-sm font-semibold text-gray-200">Domain-based reporting and policy</h3>
+                    <p class="mt-1 text-sm text-gray-400">Use this record to tell receiving mail servers how to handle messages that fail SPF and DKIM checks.</p>
+                </div>
+                <span :class="statusClass(emailDns.dmarc.published)">
+                    {{ emailDns.dmarc.published ? 'Managed DNS published' : 'Needs DNS publish' }}
+                </span>
+            </div>
+
+                <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                    <div>
+                        <DnsValue label="Host" :value="emailDns.dmarc.fqdn" />
+                        <DnsValue label="Type" :value="emailDns.dmarc.type" />
+                        <DnsValue label="Value" :value="emailDns.dmarc.value || 'No DMARC record stored yet.'" multiline />
+                    </div>
+                    <div class="flex flex-col gap-3 lg:items-end">
+                        <button type="button" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800" @click="copy(emailDns.dmarc.value)">
+                            Copy DMARC
+                        </button>
+                        <button type="button" :disabled="dmarcRestoreForm.processing" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-60" @click="restoreDmarcRecord">
+                            {{ dmarcRestoreForm.processing ? 'Restoring...' : 'Restore Recommended' }}
+                        </button>
+                        <Link :href="route('my.troubleshooting.index')" class="text-sm font-semibold text-sky-400 hover:text-sky-300">
+                            Open troubleshooting
+                        </Link>
+                    </div>
+                </div>
         </div>
 
         <form v-if="domain.mail_enabled" @submit.prevent="submitDomainSpamPolicy" class="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
@@ -273,7 +309,7 @@
 </template>
 
 <script setup>
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ActionCard from '@/Components/ActionCard.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
@@ -302,6 +338,7 @@ const spfForm = useForm({
     spf_record: props.emailDns.spf.value ?? props.emailDns.spf.recommended,
 });
 const spfRestoreForm = useForm({});
+const dmarcRestoreForm = useForm({});
 
 function submitMailbox() {
     mbForm.post(route('my.email.mailbox.store', props.domain.id), {
@@ -339,6 +376,7 @@ function submitDomainSpamPolicy() {
 function regenerateDomainKey() {
     domainKeyForm.post(route('my.email.domain-key.regenerate', props.domain.id), {
         preserveScroll: true,
+        onSuccess: refreshMailDnsState,
     });
 }
 
@@ -352,8 +390,22 @@ function restoreSpfRecord() {
     spfRestoreForm.post(route('my.email.spf.restore', props.domain.id), {
         preserveScroll: true,
         onSuccess: () => {
-            spfForm.spf_record = props.emailDns.spf.recommended;
+            refreshMailDnsState();
         },
+    });
+}
+
+function restoreDmarcRecord() {
+    dmarcRestoreForm.post(route('my.email.dmarc.restore', props.domain.id), {
+        preserveScroll: true,
+        onSuccess: refreshMailDnsState,
+    });
+}
+
+function refreshMailDnsState() {
+    router.reload({
+        only: ['domain', 'emailDns'],
+        preserveScroll: true,
     });
 }
 

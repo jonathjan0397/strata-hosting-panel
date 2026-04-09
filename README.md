@@ -122,6 +122,18 @@ Navigate to `https://panel.example.com` in a browser and log in with the admin e
 
 ---
 
+## Local Development on Windows
+
+For local panel work on Windows, use the repo bootstrap script documented in [docs/LOCAL-DEVELOPMENT-WINDOWS.md](docs/LOCAL-DEVELOPMENT-WINDOWS.md):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\bootstrap-local-windows.ps1
+```
+
+This prepares the local Laravel app, SQLite database, npm dependencies, frontend build, and the repo-local PHP runtime used for development validation.
+
+---
+
 ## Live Deployment Certificate Handling
 
 Fresh installs can come up with temporary self-signed certificates if public DNS is not ready when the installer reaches the Let's Encrypt step. That is recoverable without reinstalling.
@@ -370,6 +382,7 @@ A single install gives you a functional hosting server. Remote nodes can be adde
 
 - Project plan and phases: [docs/PLAN.md](docs/PLAN.md)
 - Billing/provisioning API: [docs/API.md](docs/API.md)
+- DNS troubleshooting guide: [docs/DNS-TROUBLESHOOTING.md](docs/DNS-TROUBLESHOOTING.md)
 - Beta validation criteria and known limitations: [BETA-RELEASE-CHECKLIST.md](BETA-RELEASE-CHECKLIST.md)
 - Public demo credentials and reset instructions: [docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)
 

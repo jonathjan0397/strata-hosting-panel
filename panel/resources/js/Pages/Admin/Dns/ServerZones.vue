@@ -7,7 +7,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <button @click="syncBackups" class="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-200 transition-colors hover:border-indigo-500 hover:text-white">
-                    Sync Backup DNS
+                    Repair DNS Sync
                 </button>
                 <button @click="showCreate = !showCreate" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
                     + New Zone
@@ -177,7 +177,7 @@ function submitCreate() {
 }
 
 function syncBackups() {
-    if (!confirm('Run backup DNS zone sync now?')) return;
+    if (!confirm('Run DNS verification and sync now? This will verify authoritative zones and repair backup DNS copies where needed.')) return;
     router.post(route('admin.dns.server.sync-backups'), {}, { preserveScroll: true });
 }
 </script>

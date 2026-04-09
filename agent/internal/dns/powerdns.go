@@ -173,6 +173,19 @@ func GetZone(domain string) (*Zone, error) {
 	return &z, nil
 }
 
+// RectifyZone asks PowerDNS to rectify a zone after RRSet mutations.
+func RectifyZone(domain string) error {
+	name := canonical(domain)
+	data, status, err := pdnsRequest("PUT", "/servers/"+serverID+"/zones/"+name+"/rectify", nil)
+	if err != nil {
+		return err
+	}
+	if status != 200 && status != 204 {
+		return fmt.Errorf("pdns rectify zone: status %d: %s", status, string(data))
+	}
+	return nil
+}
+
 // UpsertRecord creates or replaces an RRset in a zone.
 // name may be relative (e.g. "@", "www") or absolute with trailing dot.
 func UpsertRecord(domain, name, recType string, ttl int, contents []string) error {

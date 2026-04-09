@@ -43,6 +43,8 @@ if [[ "$HOSTNAME_PARENT_DOMAIN" == "$HOSTNAME_FQDN" || -z "$HOSTNAME_PARENT_DOMA
 fi
 WEB_SERVER="${STRATA_WEB_SERVER:-nginx}"
 AGENT_PORT="${STRATA_PORT:-8743}"
+MAIL_DOMAIN="mail.${HOSTNAME_PARENT_DOMAIN}"
+MAIL_TLS_DIR="/etc/strata-agent/mail-tls"
 REQUESTED_DB_PASSWORD="${STRATA_DB_ROOT_PASSWORD:-}"
 REQUESTED_PDNS_DB_PASSWORD="${STRATA_PDNS_DB_PASSWORD:-}"
 REQUESTED_PDNS_API_KEY="${STRATA_PDNS_API_KEY:-}"
@@ -220,6 +222,7 @@ fi
 mkdir -p /var/mail/vhosts /etc/strata-agent/tls
 chown -R vmail:vmail /var/mail/vhosts
 chmod 0750 /var/mail/vhosts
+mkdir -p "$MAIL_TLS_DIR"
 
 openssl req -x509 -newkey rsa:4096 \
     -keyout /etc/strata-agent/tls/key.pem \
@@ -228,6 +231,14 @@ openssl req -x509 -newkey rsa:4096 \
     -subj "/CN=${HOSTNAME_FQDN}" \
     -addext "subjectAltName=DNS:${HOSTNAME_FQDN},IP:127.0.0.1" >/dev/null 2>&1
 chmod 600 /etc/strata-agent/tls/key.pem
+
+openssl req -x509 -newkey rsa:4096 \
+    -keyout "${MAIL_TLS_DIR}/privkey.pem" \
+    -out "${MAIL_TLS_DIR}/fullchain.pem" \
+    -days 3650 -nodes \
+    -subj "/CN=${MAIL_DOMAIN}" \
+    -addext "subjectAltName=DNS:${MAIL_DOMAIN}" >/dev/null 2>&1
+chmod 600 "${MAIL_TLS_DIR}/privkey.pem"
 
 postconf -e "myhostname = ${HOSTNAME_FQDN}"
 postconf -e "myorigin = \$myhostname"
@@ -249,9 +260,9 @@ postconf -e "virtual_mailbox_maps = hash:/etc/postfix/virtual_mailboxes"
 postconf -e "virtual_alias_maps = hash:/etc/postfix/virtual_aliases"
 postconf -e "smtpd_sasl_type = dovecot"
 postconf -e "smtpd_sasl_path = private/auth"
-postconf -e "smtpd_sasl_auth_enable = yes"
-postconf -e "smtpd_tls_cert_file = /etc/strata-agent/tls/cert.pem"
-postconf -e "smtpd_tls_key_file = /etc/strata-agent/tls/key.pem"
+postconf -e "smtpd_sasl_auth_enable = no"
+postconf -e "smtpd_tls_cert_file = ${MAIL_TLS_DIR}/fullchain.pem"
+postconf -e "smtpd_tls_key_file = ${MAIL_TLS_DIR}/privkey.pem"
 postconf -e "smtpd_tls_security_level = may"
 postconf -e "smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination"
 postconf -e "milter_default_action = accept"
@@ -342,8 +353,8 @@ service auth-worker {
 EOF
 cat > /etc/dovecot/conf.d/10-ssl.conf <<EOF
 ssl = yes
-ssl_server_cert_file = /etc/strata-agent/tls/cert.pem
-ssl_server_key_file = /etc/strata-agent/tls/key.pem
+ssl_server_cert_file = ${MAIL_TLS_DIR}/fullchain.pem
+ssl_server_key_file = ${MAIL_TLS_DIR}/privkey.pem
 EOF
 systemctl enable --now postfix dovecot
 systemctl enable --now rspamd

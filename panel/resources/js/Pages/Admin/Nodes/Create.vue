@@ -61,6 +61,21 @@
 
                     <hr class="border-gray-800" />
 
+                    <div>
+                        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">DNS Role</h3>
+                        <p class="text-xs text-gray-500 mb-3">Enable this only for nodes that should host authoritative DNS zones and nameserver records.</p>
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3">
+                            <input v-model="form.hosts_dns" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-900 text-indigo-500 focus:ring-indigo-500" />
+                            <span>
+                                <span class="block text-sm font-medium text-gray-200">This node hosts DNS</span>
+                                <span class="mt-1 block text-xs text-gray-500">Used for nameserver glue, authoritative zone serving, and DNS sync targets.</span>
+                            </span>
+                        </label>
+                        <p v-if="form.errors.hosts_dns" class="mt-1 text-xs text-red-400">{{ form.errors.hosts_dns }}</p>
+                    </div>
+
+                    <hr class="border-gray-800" />
+
                     <!-- Accelerators -->
                     <div>
                         <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Accelerators</h3>
@@ -125,6 +140,7 @@ const form = useForm({
     ip_address:   '',
     port:         8743,
     web_server:   'nginx',
+    hosts_dns:    false,
     accelerators: [],
 });
 

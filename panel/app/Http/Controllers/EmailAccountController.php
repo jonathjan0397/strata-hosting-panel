@@ -18,7 +18,7 @@ class EmailAccountController extends Controller
     public function index(Request $request): Response
     {
         $domains = $this->domainQuery($request)
-            ->with(['account.user', 'node'])
+            ->with(['account.user', 'node', 'dnsZone.records'])
             ->orderBy('domain')
             ->get();
 
@@ -39,10 +39,14 @@ class EmailAccountController extends Controller
                 ],
                 'dkim' => [
                     'enabled' => $domain->dkim_enabled,
+                    'selector' => 'default',
                     'host' => 'default._domainkey',
+                    'fqdn' => "default._domainkey.{$domain->domain}",
                     'type' => 'TXT',
                     'value' => $domain->dkim_dns_record,
+                    'published' => $this->recordContains($domain, 'default._domainkey', 'TXT', $domain->dkim_dns_record),
                 ],
+                'managed_dns' => $domain->dnsZone !== null,
             ]),
             'mailboxes' => EmailAccount::query()
                 ->with(['domain.account.user', 'domain.node'])
@@ -242,5 +246,23 @@ class EmailAccountController extends Controller
             ->first();
 
         abort_unless($domain, 403);
+    }
+
+    private function recordContains(Domain $domain, string $name, string $type, ?string $value): bool
+    {
+        if (! $domain->dnsZone || ! $value) {
+            return false;
+        }
+
+        $record = $domain->dnsZone->records
+            ->first(fn ($record) => $record->name === $name && $record->type === $type);
+
+        if (! $record) {
+            return false;
+        }
+
+        $values = preg_split('/\R/', (string) $record->value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return in_array(trim($value), array_map('trim', $values), true);
     }
 }

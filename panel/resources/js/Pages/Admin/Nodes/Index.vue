@@ -15,6 +15,7 @@
                 <StatCard label="Registered Nodes" :value="nodes.length" color="indigo" />
                 <StatCard label="Online" :value="onlineCount" color="emerald" />
                 <StatCard label="Primary Nodes" :value="primaryCount" color="gray" />
+                <StatCard label="DNS Nodes" :value="dnsNodeCount" color="cyan" />
             </div>
 
             <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
@@ -34,6 +35,7 @@
                             <td class="px-5 py-3.5 text-sm font-medium text-gray-100">
                                 {{ node.name }}
                                 <span v-if="node.is_primary" class="ml-1.5 rounded-full bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">Primary</span>
+                                <span v-if="node.hosts_dns" class="ml-1.5 rounded-full bg-cyan-900/40 px-2 py-0.5 text-xs text-cyan-300">DNS</span>
                             </td>
                             <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ node.hostname }}</td>
                             <td class="px-5 py-3.5 text-sm">
@@ -94,4 +96,5 @@ const props = defineProps({ nodes: Array });
 
 const onlineCount = computed(() => props.nodes.filter((node) => node.status === 'online').length);
 const primaryCount = computed(() => props.nodes.filter((node) => node.is_primary).length);
+const dnsNodeCount = computed(() => props.nodes.filter((node) => node.hosts_dns).length);
 </script>

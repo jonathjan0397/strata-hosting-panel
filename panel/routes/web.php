@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliverabilityController;
+use App\Http\Controllers\TroubleshootingController;
 use App\Http\Controllers\EmailAccountController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\ProfileController;
@@ -129,6 +130,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('domains/{domain}/email/domain-key/regenerate', [User\EmailController::class, 'regenerateDomainKey'])->name('email.domain-key.regenerate');
             Route::put('domains/{domain}/email/spf', [User\EmailController::class, 'updateSpfRecord'])->name('email.spf.update');
             Route::post('domains/{domain}/email/spf/restore', [User\EmailController::class, 'restoreSpfRecord'])->name('email.spf.restore');
+            Route::post('domains/{domain}/email/dmarc/restore', [User\EmailController::class, 'restoreDmarcRecord'])->name('email.dmarc.restore');
             Route::post('domains/{domain}/email/mailboxes', [User\EmailController::class, 'createMailbox'])->name('email.mailbox.store');
             Route::post('domains/{domain}/email/mailboxes/import', [User\EmailController::class, 'importMailboxes'])->name('email.mailbox.import');
             Route::delete('email/mailboxes/{mailbox}', [User\EmailController::class, 'deleteMailbox'])->name('email.mailbox.destroy');
@@ -221,6 +223,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('deliverability', [DeliverabilityController::class, 'userIndex'])->name('deliverability.index');
             Route::post('deliverability/check', [DeliverabilityController::class, 'check'])->name('deliverability.check');
         });
+
+        Route::get('troubleshooting', [TroubleshootingController::class, 'userIndex'])->name('troubleshooting.index');
+        Route::post('troubleshooting/check', [TroubleshootingController::class, 'check'])->name('troubleshooting.check');
 
         // Backups
         Route::middleware('account.feature:backups')->group(function () {
@@ -339,6 +344,9 @@ Route::middleware(['auth'])->group(function () {
         // Email management
         Route::get('domains/{domain}/email', [EmailController::class, 'domainIndex'])->name('email.domain');
         Route::post('domains/{domain}/email/enable', [EmailController::class, 'enableDomain'])->name('email.enable');
+        Route::post('domains/{domain}/email/domain-key/regenerate', [EmailController::class, 'regenerateDomainKey'])->name('email.domain-key.regenerate');
+        Route::post('domains/{domain}/email/spf/restore', [EmailController::class, 'restoreSpfRecord'])->name('email.spf.restore');
+        Route::post('domains/{domain}/email/dmarc/restore', [EmailController::class, 'restoreDmarcRecord'])->name('email.dmarc.restore');
         Route::post('domains/{domain}/email/mailboxes', [EmailController::class, 'createMailbox'])->name('email.mailbox.store');
         Route::delete('email/mailboxes/{mailbox}', [EmailController::class, 'deleteMailbox'])->name('email.mailbox.destroy');
         Route::put('email/mailboxes/{mailbox}/password', [EmailController::class, 'changePassword'])->name('email.mailbox.password');
@@ -355,6 +363,8 @@ Route::middleware(['auth'])->group(function () {
         // Email deliverability troubleshooter
         Route::get('deliverability', [DeliverabilityController::class, 'adminIndex'])->name('deliverability.index');
         Route::post('deliverability/check', [DeliverabilityController::class, 'check'])->name('deliverability.check');
+        Route::get('troubleshooting', [TroubleshootingController::class, 'adminIndex'])->name('troubleshooting.index');
+        Route::post('troubleshooting/check', [TroubleshootingController::class, 'check'])->name('troubleshooting.check');
         Route::get('mail-queue', [MailQueueController::class, 'index'])->name('mail-queue.index');
         Route::post('mail-queue/flush', [MailQueueController::class, 'flush'])->name('mail-queue.flush');
         Route::delete('mail-queue/messages/{queueId}', [MailQueueController::class, 'delete'])->name('mail-queue.delete');
@@ -441,6 +451,8 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware('role:reseller')->prefix('reseller')->name('reseller.')->group(function () {
         Route::get('/', [Reseller\DashboardController::class, 'index'])->name('dashboard');
         Route::get('packages', [Reseller\PackageController::class, 'index'])->name('packages.index');
+        Route::get('troubleshooting', [TroubleshootingController::class, 'resellerIndex'])->name('troubleshooting.index');
+        Route::post('troubleshooting/check', [TroubleshootingController::class, 'check'])->name('troubleshooting.check');
 
         // Client account management
         Route::get('accounts', [Reseller\AccountController::class, 'index'])->name('accounts.index');

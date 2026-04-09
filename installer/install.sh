@@ -257,6 +257,9 @@ WEBMAIL_DIR="/var/www/webmail"
 WEBMAIL_DATA="/var/lib/snappymail"
 INSTALL_DIR="/opt/strata-panel"
 PANEL_USER="strata"
+MAIL_DOMAIN="mail.${HOSTNAME_PARENT_DOMAIN}"
+MAIL_TLS_DIR="/etc/strata-panel/mail-tls"
+MAIL_HTTP_ROOT="/var/www/strata-mail"
 
 # ── Pre-flight: repair broken package manager state ───────────────────────────
 # Runs before the confirm prompt so any failure exits cleanly without the rollback trap.
@@ -575,6 +578,15 @@ fi
 mkdir -p /var/mail/vmail /var/mail/vhosts
 chown -R vmail:vmail /var/mail/vmail /var/mail/vhosts
 chmod 0750 /var/mail/vhosts
+mkdir -p "$MAIL_TLS_DIR"
+
+openssl req -x509 -newkey rsa:4096 \
+    -keyout "${MAIL_TLS_DIR}/privkey.pem" \
+    -out    "${MAIL_TLS_DIR}/fullchain.pem" \
+    -days   3650 -nodes \
+    -subj "/CN=${MAIL_DOMAIN}" \
+    -addext "subjectAltName=DNS:${MAIL_DOMAIN}" >/dev/null 2>&1
+chmod 600 "${MAIL_TLS_DIR}/privkey.pem"
 
 info "Installing Postfix + Dovecot + OpenDKIM…"
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -611,9 +623,9 @@ postconf -e "virtual_mailbox_maps = hash:/etc/postfix/virtual_mailboxes"
 postconf -e "virtual_alias_maps = hash:/etc/postfix/virtual_aliases"
 postconf -e "smtpd_sasl_type = dovecot"
 postconf -e "smtpd_sasl_path = private/auth"
-postconf -e "smtpd_sasl_auth_enable = yes"
-postconf -e "smtpd_tls_cert_file = /etc/strata-panel/tls/fullchain.pem"
-postconf -e "smtpd_tls_key_file = /etc/strata-panel/tls/privkey.pem"
+postconf -e "smtpd_sasl_auth_enable = no"
+postconf -e "smtpd_tls_cert_file = ${MAIL_TLS_DIR}/fullchain.pem"
+postconf -e "smtpd_tls_key_file = ${MAIL_TLS_DIR}/privkey.pem"
 postconf -e "smtpd_tls_security_level = may"
 postconf -e "smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination"
 postconf -e "milter_default_action = accept"
@@ -712,8 +724,8 @@ DOVEOF
 
 cat > /etc/dovecot/conf.d/10-ssl.conf <<EOF
 ssl = yes
-ssl_server_cert_file = /etc/strata-panel/tls/fullchain.pem
-ssl_server_key_file = /etc/strata-panel/tls/privkey.pem
+ssl_server_cert_file = ${MAIL_TLS_DIR}/fullchain.pem
+ssl_server_key_file = ${MAIL_TLS_DIR}/privkey.pem
 ssl_min_protocol = TLSv1.2
 EOF
 
@@ -1033,9 +1045,35 @@ success "Scheduler cron added."
 
 # ── Step 18. Nginx/Apache vhost for panel ─────────────────────────────────────
 mkdir -p /etc/strata-panel/tls
+mkdir -p "${MAIL_HTTP_ROOT}/.well-known/acme-challenge"
+cat > "${MAIL_HTTP_ROOT}/index.html" <<EOF
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${MAIL_DOMAIN}</title>
+</head>
+<body>
+  <p>${MAIL_DOMAIN}</p>
+</body>
+</html>
+EOF
 
 if [[ "$WEB_SERVER" == "apache" ]]; then
     info "Configuring Apache2 for $PANEL_DOMAIN…"
+    cat > /etc/apache2/sites-available/strata-mail-http.conf <<EOF
+<VirtualHost *:80>
+    ServerName ${MAIL_DOMAIN}
+    DocumentRoot ${MAIL_HTTP_ROOT}
+
+    <Directory ${MAIL_HTTP_ROOT}>
+        Options -Indexes +FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+</VirtualHost>
+EOF
     cat > /etc/apache2/sites-available/strata-panel.conf <<EOF
 <VirtualHost *:80>
     ServerName ${PANEL_DOMAIN}
@@ -1102,6 +1140,7 @@ if [[ "$WEB_SERVER" == "apache" ]]; then
 </VirtualHost>
 EOF
 
+    a2ensite strata-mail-http.conf >/dev/null 2>&1
     a2ensite strata-panel.conf >/dev/null 2>&1
     a2dissite 000-default.conf >/dev/null 2>&1 || true
 
@@ -1138,6 +1177,22 @@ EOF
 
 else
     info "Configuring Nginx for $PANEL_DOMAIN…"
+    cat > /etc/nginx/sites-available/strata-mail-http <<EOF
+server {
+    listen 80;
+    server_name ${MAIL_DOMAIN};
+    root ${MAIL_HTTP_ROOT};
+    index index.html;
+
+    location /.well-known/acme-challenge/ {
+        try_files \$uri =404;
+    }
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+}
+EOF
     cat > /etc/nginx/sites-available/strata-panel <<EOF
 server {
     listen 80;
@@ -1230,6 +1285,7 @@ server {
 }
 EOF
 
+    ln -sf /etc/nginx/sites-available/strata-mail-http /etc/nginx/sites-enabled/strata-mail-http
     ln -sf /etc/nginx/sites-available/strata-panel /etc/nginx/sites-enabled/strata-panel
     rm -f /etc/nginx/sites-enabled/default
 
@@ -1495,6 +1551,7 @@ Node::updateOrCreate(
         'web_server'   => getenv('WEB_SERVER'),
         'status'       => 'online',
         'is_primary'   => true,
+        'hosts_dns'    => true,
         'last_seen_at' => now(),
     ]
 );
@@ -1591,9 +1648,9 @@ if ($hostnameRelative && $hostnameRelative !== '@' && $hostnameRelative !== $pan
     $records[] = [$hostnameRelative, $addressType, 300, [$serverIp], null];
 }
 
-$dnsNodes = Node::whereNull('deleted_at')->where('status', 'online')->orderByDesc('is_primary')->orderBy('id')->get();
+$dnsNodes = Node::whereNull('deleted_at')->where('hosts_dns', true)->where('status', 'online')->orderByDesc('is_primary')->orderBy('id')->get();
 if ($dnsNodes->isEmpty()) {
-    $dnsNodes = Node::whereNull('deleted_at')->orderByDesc('is_primary')->orderBy('id')->get();
+    $dnsNodes = Node::whereNull('deleted_at')->where('hosts_dns', true)->orderByDesc('is_primary')->orderBy('id')->get();
 }
 
 foreach ($dnsNodes as $index => $node) {
@@ -1652,6 +1709,19 @@ if [[ "$WEB_SERVER" == "apache" ]]; then
             warn "Apex placeholder TLS certificate is still self-signed; retry once public DNS propagation completes."
         fi
     fi
+
+    if [[ -f /etc/apache2/sites-available/strata-mail-http.conf ]]; then
+        if /root/.acme.sh/acme.sh --issue -d "$MAIL_DOMAIN" -w "$MAIL_HTTP_ROOT" --server letsencrypt --keylength ec-256 >/dev/null 2>&1; then
+            /root/.acme.sh/acme.sh --install-cert -d "$MAIL_DOMAIN" --ecc \
+                --key-file       "${MAIL_TLS_DIR}/privkey.pem" \
+                --fullchain-file "${MAIL_TLS_DIR}/fullchain.pem" \
+                --reloadcmd      "systemctl restart dovecot postfix"
+            systemctl restart dovecot postfix
+            success "Mail TLS certificate issued."
+        else
+            warn "Mail TLS certificate is still self-signed; retry once public DNS propagation completes."
+        fi
+    fi
 else
     if /root/.acme.sh/acme.sh --issue --nginx -d "$PANEL_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
         /root/.acme.sh/acme.sh --install-cert -d "$PANEL_DOMAIN" \
@@ -1674,6 +1744,19 @@ else
             success "Apex placeholder TLS certificate issued."
         else
             warn "Apex placeholder TLS certificate is still self-signed; retry once public DNS propagation completes."
+        fi
+    fi
+
+    if [[ -f /etc/nginx/sites-available/strata-mail-http ]]; then
+        if /root/.acme.sh/acme.sh --issue -d "$MAIL_DOMAIN" -w "$MAIL_HTTP_ROOT" --server letsencrypt --keylength ec-256 >/dev/null 2>&1; then
+            /root/.acme.sh/acme.sh --install-cert -d "$MAIL_DOMAIN" --ecc \
+                --key-file       "${MAIL_TLS_DIR}/privkey.pem" \
+                --fullchain-file "${MAIL_TLS_DIR}/fullchain.pem" \
+                --reloadcmd      "systemctl restart dovecot postfix"
+            systemctl restart dovecot postfix
+            success "Mail TLS certificate issued."
+        else
+            warn "Mail TLS certificate is still self-signed; retry once public DNS propagation completes."
         fi
     fi
 fi

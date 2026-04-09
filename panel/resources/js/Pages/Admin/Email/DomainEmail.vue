@@ -55,11 +55,46 @@
                     </svg>
                     Add these DNS records
                 </h3>
+                <p class="mb-4 text-xs" :class="emailDns?.managed_dns ? 'text-emerald-300/80' : 'text-amber-200/80'">
+                    {{ emailDns?.managed_dns ? 'Managed DNS is attached to this domain. Use the records below to confirm that publishing succeeded.' : 'Managed DNS is not attached. Copy these records into the external DNS provider for this domain.' }}
+                </p>
                 <div class="space-y-3">
-                    <DnsRecordRow label="DKIM" type="TXT" :host="`default._domainkey`" :value="domain.dkim_dns_record" />
-                    <DnsRecordRow label="SPF" type="TXT" host="@" :value="domain.spf_dns_record" />
-                    <DnsRecordRow label="DMARC" type="TXT" host="_dmarc" :value="domain.dmarc_dns_record" />
+                    <DnsRecordRow label="DKIM" type="TXT" :host="emailDns?.dkim?.fqdn || `default._domainkey.${domain.domain}`" :value="domain.dkim_dns_record" />
+                    <DnsRecordRow label="SPF" type="TXT" :host="emailDns?.spf?.fqdn || domain.domain" :value="domain.spf_dns_record" />
+                    <DnsRecordRow label="DMARC" type="TXT" :host="emailDns?.dmarc?.fqdn || `_dmarc.${domain.domain}`" :value="domain.dmarc_dns_record" />
                     <DnsRecordRow label="MX" type="MX" host="@" :value="domain.node?.hostname" extra="Priority 10" />
+                </div>
+                <div class="mt-4 grid gap-3 md:grid-cols-3">
+                    <div class="rounded-lg border border-gray-800 bg-black/20 p-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">DKIM</p>
+                        <p class="mt-2 text-xs" :class="emailDns?.dkim?.published ? 'text-emerald-400' : 'text-amber-300'">
+                            {{ emailDns?.dkim?.published ? 'Published in managed DNS.' : 'Needs publishing.' }}
+                        </p>
+                    </div>
+                    <div class="rounded-lg border border-gray-800 bg-black/20 p-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">SPF</p>
+                        <p class="mt-2 text-xs" :class="emailDns?.spf?.published ? 'text-emerald-400' : 'text-amber-300'">
+                            {{ emailDns?.spf?.published ? 'Published in managed DNS.' : 'Needs publishing.' }}
+                        </p>
+                    </div>
+                    <div class="rounded-lg border border-gray-800 bg-black/20 p-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">DMARC</p>
+                        <p class="mt-2 text-xs" :class="emailDns?.dmarc?.published ? 'text-emerald-400' : 'text-amber-300'">
+                            {{ emailDns?.dmarc?.published ? 'Published in managed DNS.' : 'Needs publishing.' }}
+                        </p>
+                    </div>
+                </div>
+                <div class="mt-4 flex flex-wrap justify-end gap-3">
+                    <button type="button" :disabled="dkimRepairForm.processing" class="rounded-lg border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-60" @click="regenerateDomainKey">
+                        {{ dkimRepairForm.processing ? 'Regenerating DKIM...' : 'Regenerate DKIM' }}
+                    </button>
+                    <button type="button" :disabled="spfRepairForm.processing" class="rounded-lg border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-60" @click="restoreSpfRecord">
+                        {{ spfRepairForm.processing ? 'Restoring SPF...' : 'Restore SPF' }}
+                    </button>
+                    <button type="button" :disabled="dmarcRepairForm.processing" class="rounded-lg border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-60" @click="restoreDmarcRecord">
+                        {{ dmarcRepairForm.processing ? 'Restoring DMARC...' : 'Restore DMARC' }}
+                    </button>
+                    <Link :href="route('admin.troubleshooting.index')" class="text-xs font-semibold text-sky-400 hover:text-sky-300 self-center">Open troubleshooting</Link>
                 </div>
             </div>
 
@@ -243,6 +278,7 @@ const props = defineProps({
     domain:     Object,
     mailboxes:  Array,
     forwarders: Array,
+    emailDns:   Object,
 });
 
 // ── Mailbox form ──────────────────────────────────────────────────────────────
@@ -279,6 +315,9 @@ function submitForwarder() {
 
 // ── Password modal ────────────────────────────────────────────────────────────
 const pwdModal = reactive({ show: false, email: '', mailboxId: null, password: '', busy: false });
+const dkimRepairForm = useForm({});
+const spfRepairForm = useForm({});
+const dmarcRepairForm = useForm({});
 
 function openPasswordModal(mbox) {
     pwdModal.email      = mbox.email;
@@ -296,6 +335,34 @@ function submitPassword() {
             pwdModal.busy = false;
             pwdModal.show = false;
         },
+    });
+}
+
+function regenerateDomainKey() {
+    dkimRepairForm.post(route('admin.email.domain-key.regenerate', props.domain.id), {
+        preserveScroll: true,
+        onSuccess: refreshMailDnsState,
+    });
+}
+
+function restoreSpfRecord() {
+    spfRepairForm.post(route('admin.email.spf.restore', props.domain.id), {
+        preserveScroll: true,
+        onSuccess: refreshMailDnsState,
+    });
+}
+
+function restoreDmarcRecord() {
+    dmarcRepairForm.post(route('admin.email.dmarc.restore', props.domain.id), {
+        preserveScroll: true,
+        onSuccess: refreshMailDnsState,
+    });
+}
+
+function refreshMailDnsState() {
+    router.reload({
+        only: ['domain', 'emailDns'],
+        preserveScroll: true,
     });
 }
 </script>

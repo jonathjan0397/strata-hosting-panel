@@ -90,6 +90,7 @@ func Routes() chi.Router {
 	r.Post("/dns/zone", handleDNSCreateZone)
 	r.Delete("/dns/zone/{domain}", handleDNSDeleteZone)
 	r.Get("/dns/zone/{domain}", handleDNSGetZone)
+	r.Post("/dns/zone/{domain}/rectify", handleDNSRectifyZone)
 	r.Patch("/dns/zone/{domain}/record", handleDNSUpsertRecord)
 	r.Delete("/dns/zone/{domain}/record", handleDNSDeleteRecord)
 

@@ -238,6 +238,11 @@ class AgentClient
         return $this->get("/dns/zone/{$domain}");
     }
 
+    public function rectifyDnsZone(string $domain): Response
+    {
+        return $this->post("/dns/zone/{$domain}/rectify");
+    }
+
     public function upsertDnsRecord(string $domain, string $name, string $type, int $ttl, array $contents): Response
     {
         return $this->patch("/dns/zone/{$domain}/record", [
