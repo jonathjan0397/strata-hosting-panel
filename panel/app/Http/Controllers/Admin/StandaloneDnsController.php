@@ -307,66 +307,204 @@ class StandaloneDnsController extends Controller
         $baseDomain = $this->baseDomain($hostname);
         $zone = DnsZone::with('records')->where('zone_name', $baseDomain)->first();
         $nodes = Node::orderByDesc('is_primary')->orderBy('name')->get(['name', 'hostname', 'ip_address', 'is_primary']);
+        $panelHost = parse_url((string) config('app.url'), PHP_URL_HOST) ?: $hostname;
+        $recommendedRecords = $this->hostDnsRecommendedRecords($baseDomain, $hostname, (string) $panelHost, $nodes);
 
-        $recommendedRecords = $nodes->flatMap(function (Node $node, int $index) use ($baseDomain) {
-            $number = $node->is_primary ? 1 : $index + 1;
-            $records = [
-                [
-                    'name' => "ns{$number}.{$baseDomain}",
-                    'type' => 'A',
-                    'value' => $this->publicAddressForNode($node) ?: $node->ip_address,
-                    'ttl' => 3600,
-                    'source' => $node->name,
-                ],
-            ];
-
-            if ($node->hostname) {
-                $records[] = [
-                    'name' => $node->hostname,
-                    'type' => 'A',
-                    'value' => $this->publicAddressForNode($node) ?: $node->ip_address,
-                    'ttl' => 3600,
-                    'source' => $node->name,
-                ];
-            }
-
-            return $records;
-        })->values();
-
-        $recommendedRecords->prepend([
-            'name' => $baseDomain,
-            'type' => 'NS',
-            'value' => "ns1.{$baseDomain}",
-            'ttl' => 3600,
-            'source' => 'Primary DNS',
-        ]);
-
-        if ($nodes->count() > 1) {
-            $recommendedRecords->push([
-                'name' => $baseDomain,
-                'type' => 'NS',
-                'value' => "ns2.{$baseDomain}",
-                'ttl' => 3600,
-                'source' => 'Backup DNS',
-            ]);
-        }
+        $records = $zone
+            ? $this->mergeRecommendedHostRecords($recommendedRecords, $zone->records)
+            : $recommendedRecords;
 
         return [
             'base_domain' => $baseDomain,
             'panel_hostname' => $hostname,
             'zone_id' => $zone?->id,
             'zone_exists' => (bool) $zone,
-            'records' => $zone
-                ? $zone->records->map(fn (DnsRecord $record) => [
-                    'name' => $record->name,
-                    'type' => $record->type,
-                    'value' => $record->value,
-                    'ttl' => $record->ttl,
-                    'priority' => $record->priority,
-                    'source' => 'Managed zone',
-                ])->values()
-                : $recommendedRecords,
+            'records' => $records,
         ];
+    }
+
+    private function hostDnsRecommendedRecords(string $baseDomain, string $hostname, string $panelHost, $nodes)
+    {
+        $primaryNode = $nodes->firstWhere('is_primary', true) ?? $nodes->first();
+        $primaryIp = $primaryNode ? ($this->publicAddressForNode($primaryNode) ?: $primaryNode->ip_address) : null;
+
+        $records = collect();
+
+        if ($primaryIp) {
+            $records->push([
+                'name' => $baseDomain,
+                'type' => 'A',
+                'value' => $primaryIp,
+                'ttl' => 300,
+                'priority' => null,
+                'source' => 'Recommended',
+            ]);
+
+            $records->push([
+                'name' => "mail.{$baseDomain}",
+                'type' => 'A',
+                'value' => $primaryIp,
+                'ttl' => 300,
+                'priority' => null,
+                'source' => 'Recommended',
+            ]);
+        }
+
+        $records->push([
+            'name' => $baseDomain,
+            'type' => 'MX',
+            'value' => "mail.{$baseDomain}.",
+            'ttl' => 300,
+            'priority' => 10,
+            'source' => 'Recommended',
+        ]);
+
+        $records->push([
+            'name' => $baseDomain,
+            'type' => 'TXT',
+            'value' => $primaryIp ? "v=spf1 a mx ip4:{$primaryIp} -all" : 'v=spf1 a mx -all',
+            'ttl' => 300,
+            'priority' => null,
+            'source' => 'Recommended',
+        ]);
+
+        $records->push([
+            'name' => "_dmarc.{$baseDomain}",
+            'type' => 'TXT',
+            'value' => "v=DMARC1; p=quarantine; pct=100; rua=mailto:postmaster@{$baseDomain}",
+            'ttl' => 300,
+            'priority' => null,
+            'source' => 'Recommended',
+        ]);
+
+        $records->push([
+            'name' => $baseDomain,
+            'type' => 'CAA',
+            'value' => '0 issue "letsencrypt.org"',
+            'ttl' => 300,
+            'priority' => null,
+            'source' => 'Recommended',
+        ]);
+
+        foreach (['smtp', 'imap', 'pop', 'webmail'] as $alias) {
+            $records->push([
+                'name' => "{$alias}.{$baseDomain}",
+                'type' => 'CNAME',
+                'value' => "mail.{$baseDomain}.",
+                'ttl' => 300,
+                'priority' => null,
+                'source' => 'Recommended',
+            ]);
+        }
+
+        $nodes->each(function (Node $node, int $index) use ($baseDomain, $records) {
+            $number = $node->is_primary ? 1 : $index + 1;
+            $address = $this->publicAddressForNode($node) ?: $node->ip_address;
+
+            if ($address) {
+                $records->push([
+                    'name' => "ns{$number}.{$baseDomain}",
+                    'type' => 'A',
+                    'value' => $address,
+                    'ttl' => 300,
+                    'priority' => null,
+                    'source' => 'Recommended',
+                ]);
+            }
+
+            if ($node->hostname && $address) {
+                $records->push([
+                    'name' => $node->hostname,
+                    'type' => 'A',
+                    'value' => $address,
+                    'ttl' => 300,
+                    'priority' => null,
+                    'source' => 'Recommended',
+                ]);
+            }
+        });
+
+        $records->push([
+            'name' => $baseDomain,
+            'type' => 'NS',
+            'value' => "ns1.{$baseDomain}.",
+            'ttl' => 3600,
+            'priority' => null,
+            'source' => 'Recommended',
+        ]);
+
+        if ($nodes->count() > 1) {
+            $records->push([
+                'name' => $baseDomain,
+                'type' => 'NS',
+                'value' => "ns2.{$baseDomain}.",
+                'ttl' => 3600,
+                'priority' => null,
+                'source' => 'Recommended',
+            ]);
+        }
+
+        if ($panelHost !== $baseDomain && $primaryIp) {
+            $records->push([
+                'name' => $panelHost,
+                'type' => 'A',
+                'value' => $primaryIp,
+                'ttl' => 300,
+                'priority' => null,
+                'source' => 'Recommended',
+            ]);
+        }
+
+        if ($hostname !== $baseDomain && $hostname !== $panelHost && $primaryIp) {
+            $records->push([
+                'name' => $hostname,
+                'type' => 'A',
+                'value' => $primaryIp,
+                'ttl' => 300,
+                'priority' => null,
+                'source' => 'Recommended',
+            ]);
+        }
+
+        return $records
+            ->unique(fn (array $record) => implode('|', [$record['name'], $record['type'], $record['value'], $record['priority'] ?? '']))
+            ->values();
+    }
+
+    private function mergeRecommendedHostRecords($recommendedRecords, $managedRecords)
+    {
+        $managed = $managedRecords->map(fn (DnsRecord $record) => [
+            'name' => rtrim($record->name, '.'),
+            'type' => $record->type,
+            'value' => $record->value,
+            'ttl' => $record->ttl,
+            'priority' => $record->priority,
+            'source' => 'Managed zone',
+        ]);
+
+        $merged = collect();
+
+        foreach ($recommendedRecords as $record) {
+            $matched = $managed->first(fn (array $managedRecord) => $this->hostRecordMatches($managedRecord, $record));
+            $merged->push($matched ?: $record);
+        }
+
+        foreach ($managed as $record) {
+            $exists = $merged->contains(fn (array $mergedRecord) => $this->hostRecordMatches($mergedRecord, $record));
+            if (! $exists) {
+                $merged->push($record);
+            }
+        }
+
+        return $merged->values();
+    }
+
+    private function hostRecordMatches(array $left, array $right): bool
+    {
+        return rtrim(strtolower((string) $left['name']), '.') === rtrim(strtolower((string) $right['name']), '.')
+            && strtoupper((string) $left['type']) === strtoupper((string) $right['type'])
+            && trim((string) $left['value']) === trim((string) $right['value'])
+            && (int) ($left['priority'] ?? 0) === (int) ($right['priority'] ?? 0);
     }
 
     private function baseDomain(string $hostname): string

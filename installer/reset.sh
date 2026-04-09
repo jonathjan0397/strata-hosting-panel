@@ -33,7 +33,7 @@ echo -e "  This script will ${BOLD}permanently remove${NC}:"
 echo -e "    • All Strata Hosting Panel files, databases, and configuration"
 echo -e "    • MariaDB, PowerDNS, Redis, Pure-FTPd, Postfix, Dovecot"
 echo -e "    • Rspamd, OpenDKIM, fail2ban, Nginx/Apache2"
-echo -e "    • PHP 8.1 / 8.2 / 8.3, Node.js, Go, Composer, acme.sh"
+echo -e "    • PHP 8.1 / 8.2 / 8.3 / 8.4 / 8.5, Node.js, Go, Composer, acme.sh"
 echo -e "    • System users: strata, vmail"
 echo -e "    • All mail data in /var/mail/vmail and /var/mail/vhosts"
 echo ""
@@ -94,7 +94,8 @@ DEBIAN_FRONTEND=noninteractive apt-get purge -y \
 
 # Purge all PHP versions
 DEBIAN_FRONTEND=noninteractive apt-get purge -y \
-    'php8.1*' 'php8.2*' 'php8.3*' \
+    'php8.1*' 'php8.2*' 'php8.3*' 'php8.4*' 'php8.5*' \
+    php-common php-bz2 php-mysql php-pgsql php-mcrypt \
     2>/dev/null || true
 
 DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y 2>/dev/null || true
@@ -107,6 +108,7 @@ rm -rf /opt/strata-panel
 rm -rf /etc/strata-agent
 rm -rf /etc/strata-webdav
 rm -rf /etc/strata-panel
+rm -rf /var/www/strata-placeholder
 rm -f  /usr/sbin/strata-agent
 rm -f  /usr/sbin/strata-webdav
 rm -f  /root/.my.cnf
@@ -132,6 +134,7 @@ rm -rf /etc/powerdns
 rm -rf /etc/opendkim
 rm -f  /etc/opendkim.conf
 rm -f  /etc/fail2ban/jail.local
+rm -f  /etc/fail2ban/jail.d/strata-defaults.local
 rm -rf /etc/pureftpd
 rm -f  /etc/pure-ftpd/conf/VirtualChroot
 rm -f  /etc/pure-ftpd/conf/PureDB
@@ -145,8 +148,16 @@ rm -f  /etc/postfix/mysql-virtual-mailbox-maps.cf
 rm -f  /etc/postfix/mysql-virtual-alias-maps.cf
 rm -f  /etc/nginx/sites-available/strata-panel
 rm -f  /etc/nginx/sites-enabled/strata-panel
+rm -f  /etc/nginx/sites-available/zzzz-strata-placeholder
+rm -f  /etc/nginx/sites-enabled/zzzz-strata-placeholder
 rm -f  /etc/apache2/sites-available/strata-panel.conf
 rm -f  /etc/apache2/sites-enabled/strata-panel.conf
+rm -f  /etc/apache2/sites-available/zzzz-strata-placeholder.conf
+rm -f  /etc/apache2/sites-enabled/zzzz-strata-placeholder.conf
+rm -rf /etc/dovecot
+rm -rf /var/lib/dovecot
+rm -rf /etc/php
+rm -rf /etc/mysql
 ok "Config remnants removed."
 
 # ── 8. Remove apt sources added by installer ─────────────────────────────────
@@ -154,6 +165,7 @@ step "Removing apt sources…"
 rm -f /etc/apt/sources.list.d/php.list
 rm -f /etc/apt/sources.list.d/rspamd.list
 rm -f /etc/apt/sources.list.d/nodesource.list
+rm -f /etc/apt/sources.list.d/nodesource.sources
 rm -f /usr/share/keyrings/deb.sury.org-php.gpg
 rm -f /usr/share/keyrings/rspamd.gpg
 apt-get update -q 2>/dev/null || true
@@ -166,13 +178,18 @@ rm -f  /etc/profile.d/go.sh
 rm -f  /usr/local/bin/composer
 rm -rf /root/.acme.sh
 rm -rf /root/.composer
+sed -i '\|/root/.acme.sh/acme.sh.env|d' /root/.bashrc 2>/dev/null || true
+sed -i '\|/root/.acme.sh/acme.sh.env|d' /root/.profile 2>/dev/null || true
+sed -i '\|/root/.acme.sh/acme.sh.env|d' /root/.bash_profile 2>/dev/null || true
 ok "Go / Composer / acme.sh removed."
 
 # ── 10. Remove system users ───────────────────────────────────────────────────
 step "Removing system users…"
+pkill -u strata 2>/dev/null || true
+pkill -u vmail 2>/dev/null || true
 crontab -r -u strata 2>/dev/null || true
-/usr/sbin/userdel -r strata  2>/dev/null || true
-/usr/sbin/userdel -r vmail   2>/dev/null || true
+/usr/sbin/userdel -f -r strata  2>/dev/null || true
+/usr/sbin/userdel -f -r vmail   2>/dev/null || true
 /usr/sbin/groupdel  vmail    2>/dev/null || true
 ok "System users removed."
 
@@ -196,6 +213,7 @@ fi
 step "Resetting UFW firewall…"
 ufw --force reset >/dev/null 2>&1 || true
 ufw disable       >/dev/null 2>&1 || true
+systemctl reset-failed >/dev/null 2>&1 || true
 ok "UFW reset and disabled."
 
 # ── Done ──────────────────────────────────────────────────────────────────────

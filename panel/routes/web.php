@@ -286,6 +286,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('nodes/{node}/api/logs/{service}', [NodeStatusController::class, 'logs'])->name('nodes.api.logs');
         Route::post('nodes/{node}/api/services/{service}/action', [NodeStatusController::class, 'serviceAction'])->name('nodes.api.service-action');
         Route::post('nodes/{node}/certificate/renew', [NodeController::class, 'renewCertificate'])->name('nodes.certificate.renew');
+        Route::post('nodes/{node}/public-https/repair', [NodeController::class, 'repairPublicHttps'])->name('nodes.public-https.repair');
 
         // Accounts
         Route::resource('accounts', AccountController::class)->except(['edit', 'update']);

@@ -48,8 +48,23 @@ class Node extends Model
 
     public function url(string $path = ''): string
     {
-        $host = $this->hostname ?: $this->ip_address;
+        $host = $this->agentTlsHost();
 
         return "https://{$host}:{$this->port}{$path}";
+    }
+
+    public function agentTlsHost(): string
+    {
+        return $this->hostname ?: $this->ip_address;
+    }
+
+    public function agentConnectAddress(): string
+    {
+        return $this->ip_address ?: $this->hostname;
+    }
+
+    public function agentCaBundlePath(): string
+    {
+        return storage_path('app/node-certs/' . ($this->node_id ?: $this->id) . '.pem');
     }
 }

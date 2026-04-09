@@ -147,8 +147,29 @@ GRANT ALL PRIVILEGES ON pdns.* TO 'pdns'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 )
-if ! "$MC" -e "$SQL" 2>/dev/null; then
-    "$MC" -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$SQL"
+run_mariadb_setup() {
+    "$MC" -e "$SQL" 2>/dev/null \
+        || "$MC" -u root -p"${DB_PASSWORD}" -h 127.0.0.1 -e "$SQL" 2>/dev/null
+}
+
+if ! run_mariadb_setup; then
+    # Debian 13 can initialize MariaDB with a root auth mode that blocks both
+    # local socket login and the generated password on a fresh node install.
+    if [[ ! -f /etc/strata-agent/mysql.cnf && ! -f /etc/systemd/system/strata-agent.service ]]; then
+        warn "MariaDB root auth is not usable yet; reinitializing for a fresh node install."
+        systemctl stop mariadb || true
+        find /var/lib/mysql -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+        mariadb-install-db --user=mysql --datadir=/var/lib/mysql --auth-root-authentication-method=normal >/dev/null
+        chown -R mysql:mysql /var/lib/mysql
+        systemctl start mariadb
+        for _i in $(seq 1 30); do
+            [[ -S /run/mysqld/mysqld.sock ]] && break
+            sleep 1
+        done
+        run_mariadb_setup || die "Unable to initialize MariaDB root credentials after reinitialization."
+    else
+        die "Unable to authenticate to MariaDB as root. Reset the node or provide STRATA_DB_ROOT_PASSWORD matching the existing MariaDB root password."
+    fi
 fi
 
 info "Installing PowerDNS..."
@@ -171,7 +192,7 @@ webserver-address=127.0.0.1
 webserver-port=8053
 webserver-allow-from=127.0.0.1,::1
 local-address=0.0.0.0
-default-soa-content=ns1.${HOSTNAME_PARENT_DOMAIN} hostmaster.${HOSTNAME_PARENT_DOMAIN} 0 10800 3600 604800 3600
+default-soa-content=ns1.${HOSTNAME_PARENT_DOMAIN} hostmaster.${HOSTNAME_PARENT_DOMAIN} 0 10800 3600 1209600 3600
 EOF
 systemctl enable --now pdns
 

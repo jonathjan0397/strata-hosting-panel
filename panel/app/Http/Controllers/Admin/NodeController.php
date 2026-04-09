@@ -19,6 +19,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -93,6 +94,7 @@ class NodeController extends Controller
             'health' => $health,
             'healthError' => $healthError,
             'certificate' => $this->inspectCertificate($node),
+            'publicTls' => $this->inspectPublicTls($node),
             'installSecret' => $node->hmac_secret,
         ]);
     }
@@ -108,6 +110,44 @@ class NodeController extends Controller
         AuditLog::record('node.certificate_renewal_started', $node);
 
         return back()->with('success', "Certificate renewal started for {$node->hostname}. Refresh this page in a minute to verify the result.");
+    }
+
+    public function repairPublicHttps(Node $node): RedirectResponse
+    {
+        if (! $node->is_primary) {
+            return back()->with('error', 'Public HTTPS repair is only available on the primary node.');
+        }
+
+        $panelDomain = $this->panelDomain();
+        if (! $panelDomain) {
+            return back()->with('error', 'Panel domain could not be determined from APP_URL.');
+        }
+
+        $panelResponse = AgentClient::for($node)->repairManagedCertificate($panelDomain, 'panel');
+        if (! $panelResponse->successful()) {
+            return back()->with('error', $panelResponse->body() ?: 'Panel HTTPS repair could not be started.');
+        }
+
+        $messages = ["Panel HTTPS repair started for {$panelDomain}."];
+        $auditContext = ['panel_domain' => $panelDomain];
+
+        $apexDomain = $this->apexPlaceholderDomain($node);
+        if ($apexDomain) {
+            $apexResponse = AgentClient::for($node)->repairManagedCertificate($apexDomain, 'apex_placeholder');
+            if (! $apexResponse->successful()) {
+                return back()->with(
+                    'error',
+                    "Panel certificate repair started, but apex placeholder repair failed: " . ($apexResponse->body() ?: 'request rejected.')
+                );
+            }
+
+            $messages[] = "Apex placeholder HTTPS repair started for {$apexDomain}.";
+            $auditContext['apex_domain'] = $apexDomain;
+        }
+
+        AuditLog::record('node.public_https_repair_started', $node, $auditContext);
+
+        return back()->with('success', implode(' ', $messages) . ' Refresh this page in a minute to verify the result.');
     }
 
     public function destroy(Node $node): RedirectResponse
@@ -145,6 +185,29 @@ class NodeController extends Controller
     {
         $host = $node->hostname ?: $node->ip_address;
         $port = $node->port ?: 8743;
+
+        return $this->inspectTlsEndpoint($host, $port, 'Certificate is self-signed. Renew it before relying on remote operations.');
+    }
+
+    private function inspectPublicTls(Node $node): array
+    {
+        $panelDomain = $this->panelDomain();
+        $apexDomain = $this->apexPlaceholderDomain($node);
+
+        return [
+            'panel_domain' => $panelDomain,
+            'panel' => $panelDomain
+                ? $this->inspectTlsEndpoint($panelDomain, 443, 'Certificate is self-signed. Public HTTPS will show browser trust warnings until it is repaired.')
+                : ['status' => 'unknown', 'message' => 'Panel domain could not be determined from APP_URL.'],
+            'apex_domain' => $apexDomain,
+            'apex' => $apexDomain
+                ? $this->inspectTlsEndpoint($apexDomain, 443, 'Certificate is self-signed. Apex placeholder HTTPS will show browser trust warnings until it is repaired.')
+                : null,
+        ];
+    }
+
+    private function inspectTlsEndpoint(string $host, int $port, string $selfSignedMessage): array
+    {
         $context = stream_context_create([
             'ssl' => [
                 'capture_peer_cert' => true,
@@ -203,10 +266,10 @@ class NodeController extends Controller
             $message = 'Certificate is expired.';
         } elseif ($isSelfSigned) {
             $status = 'self_signed';
-            $message = 'Certificate is self-signed. Renew it before relying on remote operations.';
+            $message = $selfSignedMessage;
         } elseif (! $matchesHost) {
             $status = 'hostname_mismatch';
-            $message = 'Certificate does not match the node hostname.';
+            $message = 'Certificate does not match the requested hostname.';
         } elseif ($expiresSoon) {
             $status = 'expires_soon';
             $message = 'Certificate expires within 14 days.';
@@ -265,5 +328,36 @@ class NodeController extends Controller
         }
 
         return false;
+    }
+
+    private function panelDomain(): ?string
+    {
+        $host = parse_url((string) Config::get('app.url'), PHP_URL_HOST);
+
+        return is_string($host) && $host !== '' ? strtolower($host) : null;
+    }
+
+    private function apexPlaceholderDomain(Node $node): ?string
+    {
+        $panelDomain = $this->panelDomain();
+        $hostname = strtolower(trim((string) $node->hostname, '. '));
+        if ($panelDomain === null || $hostname === '') {
+            return null;
+        }
+
+        $parent = $this->parentDomain($hostname);
+
+        return $parent !== '' && $parent !== $panelDomain ? $parent : null;
+    }
+
+    private function parentDomain(string $hostname): string
+    {
+        $parts = array_values(array_filter(explode('.', strtolower(trim($hostname, '. ')))));
+
+        if (count($parts) < 2) {
+            return '';
+        }
+
+        return implode('.', array_slice($parts, -2));
     }
 }

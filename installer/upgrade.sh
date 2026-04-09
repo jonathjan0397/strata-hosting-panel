@@ -208,7 +208,7 @@ repair_powerdns_soa_defaults() {
     parent_domain="$(derive_parent_domain)"
     [[ -n "$parent_domain" ]] || return 0
 
-    soa_content="ns1.${parent_domain} hostmaster.${parent_domain} 0 10800 3600 604800 3600"
+    soa_content="ns1.${parent_domain} hostmaster.${parent_domain} 0 10800 3600 1209600 3600"
 
     sed -i '/^default-soa-name=/d;/^default-soa-mail=/d;/^default-soa-content=/d' "$pdns_conf"
     printf '\ndefault-soa-content=%s\n' "$soa_content" >> "$pdns_conf"

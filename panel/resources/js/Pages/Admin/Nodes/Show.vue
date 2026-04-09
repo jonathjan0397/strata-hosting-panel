@@ -47,6 +47,59 @@
             </div>
 
             <!-- Agent certificate -->
+            <div v-if="node.is_primary" class="mb-5 rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="mb-4 flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-200">Public HTTPS</h3>
+                        <p class="mt-1 text-xs text-gray-400">
+                            Repairs the panel certificate after install if Let&apos;s Encrypt was not ready yet. When the panel is on a subdomain, this also repairs the apex placeholder certificate.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="rounded-lg border border-gray-800 bg-gray-950 px-4 py-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-500">Panel</p>
+                                <p class="mt-1 font-mono text-sm text-gray-200">{{ publicTls?.panel_domain ?? 'Unknown' }}</p>
+                            </div>
+                            <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="publicTlsBadgeClass(publicTls?.panel)">
+                                {{ publicTls?.panel?.status ?? 'unknown' }}
+                            </span>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-400">{{ publicTls?.panel?.message ?? 'Certificate status unavailable.' }}</p>
+                    </div>
+
+                    <div v-if="publicTls?.apex_domain" class="rounded-lg border border-gray-800 bg-gray-950 px-4 py-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-500">Apex Placeholder</p>
+                                <p class="mt-1 font-mono text-sm text-gray-200">{{ publicTls.apex_domain }}</p>
+                            </div>
+                            <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="publicTlsBadgeClass(publicTls?.apex)">
+                                {{ publicTls?.apex?.status ?? 'unknown' }}
+                            </span>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-400">{{ publicTls?.apex?.message ?? 'Certificate status unavailable.' }}</p>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                        type="button"
+                        class="btn-primary"
+                        :disabled="publicTlsForm.processing"
+                        @click="repairPublicHttps"
+                    >
+                        {{ publicTlsForm.processing ? 'Starting repair...' : 'Repair Public HTTPS' }}
+                    </button>
+                    <p class="text-xs text-gray-500">
+                        This retries Let&apos;s Encrypt from the primary node using the managed webroots created during install.
+                    </p>
+                </div>
+            </div>
+
             <div class="mb-5 rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <div class="mb-4 flex items-start justify-between gap-4">
                     <div>
@@ -179,10 +232,12 @@ const props = defineProps({
     health: Object,
     healthError: String,
     certificate: Object,
+    publicTls: Object,
     installSecret: String,
 });
 
 const certificateForm = useForm({});
+const publicTlsForm = useForm({});
 
 const certificateBadgeClass = computed(() => {
     if (props.certificate?.status === 'valid') {
@@ -198,6 +253,22 @@ function renewCertificate() {
     certificateForm.post(route('admin.nodes.certificate.renew', props.node.id), {
         preserveScroll: true,
     });
+}
+
+function repairPublicHttps() {
+    publicTlsForm.post(route('admin.nodes.public-https.repair', props.node.id), {
+        preserveScroll: true,
+    });
+}
+
+function publicTlsBadgeClass(certificate) {
+    if (certificate?.status === 'valid') {
+        return 'bg-emerald-500/15 text-emerald-300';
+    }
+    if (certificate?.status === 'expires_soon') {
+        return 'bg-amber-500/15 text-amber-300';
+    }
+    return 'bg-red-500/15 text-red-300';
 }
 
 const installCommand = computed(() => {

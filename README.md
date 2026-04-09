@@ -1,19 +1,19 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.0.0--beta.2-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/v1.0.0-beta.2)
+[![Release](https://img.shields.io/badge/Release-v1.0.0--alpha.3-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/v1.0.0-alpha.3)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** v1.0.0-beta.2 public testing
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** v1.0.0-alpha.3 public testing
 
 ---
 
-> **Pre-release Beta Software**
+> **Pre-release Alpha Software**
 >
-> v1.0.0-beta.2 is available for public testing and should not be treated as production-ready.
+> v1.0.0-alpha.3 is available for public testing and should not be treated as production-ready.
 > **Do not use in production without reviewing the code and hardening the server yourself.**
 >
 > Public testers: please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
@@ -122,6 +122,162 @@ Navigate to `https://panel.example.com` in a browser and log in with the admin e
 
 ---
 
+## Live Deployment Certificate Handling
+
+Fresh installs can come up with temporary self-signed certificates if public DNS is not ready when the installer reaches the Let's Encrypt step. That is recoverable without reinstalling.
+
+### Panel and apex HTTPS
+
+If the panel is hosted on a subdomain such as `panel.example.com`, the installer now creates:
+
+- the panel certificate target for `panel.example.com`
+- an apex placeholder site and certificate target for `example.com`
+
+After install, go to **Admin -> Nodes -> Primary Node** and use **Repair Public HTTPS**.
+
+That action:
+
+- retries Let's Encrypt for the panel hostname
+- retries Let's Encrypt for the apex placeholder when the panel is on a subdomain
+- does not require SSH access for the normal repair path
+
+Use it when:
+
+- the browser shows an invalid certificate on the panel after first install
+- the apex placeholder site is serving a self-signed certificate
+- DNS was delegated or corrected after the installer already finished
+
+### Remote node agent certificates
+
+Remote nodes use TLS for panel-to-agent traffic. If a child node is reachable but still shows as unavailable in the panel, check its agent certificate first.
+
+Expected behavior:
+
+- the node hostname must match the certificate hostname
+- the panel should trust that certificate for agent API calls
+
+Current live-safe handling:
+
+- the panel supports pinned per-node certificate bundles for agent trust
+- if a remote node is still on a bootstrap self-signed cert, the primary can store that exact cert and use it only for that node
+- this is safer than disabling TLS verification globally
+
+Recommended recovery order:
+
+1. Confirm the node hostname in the panel matches the node certificate hostname.
+2. Confirm the node IP address in the panel is the real public server IP, not `127.0.0.1`.
+3. Try the normal certificate repair flow from the panel.
+4. If the node still uses a self-signed certificate, install or pin that node certificate on the primary until a public certificate can be issued.
+
+### What to verify before opening support issues
+
+- `panel.example.com` resolves to the primary server IP
+- `node1.example.com` resolves to the remote node IP
+- ports `80`, `443`, and `8743` are reachable where expected
+- the node hostname shown in **Admin -> Nodes** matches the actual node certificate subject
+- the primary node record does not use `127.0.0.1` as its public/control-plane IP
+
+### Operational guidance
+
+- Prefer hosting the panel on a subdomain, not the apex/root domain.
+- Treat browser certificate issues and panel-to-agent certificate issues as separate problems.
+- Do not leave a global TLS verification bypass in place for normal agent traffic.
+- If a temporary bypass is ever used during incident recovery, replace it with a trusted public certificate or a pinned per-node certificate as soon as possible.
+
+---
+
+## DNS Troubleshooting
+
+If the server is intended to act as an authoritative nameserver, there are two separate things to verify:
+
+1. the live PowerDNS zone data is actually present on the server
+2. the panel UI is showing the full expected base-install record set
+
+### What a base install should publish for the primary server domain
+
+For a host domain such as `stratadevplatform.net` with the panel on `panel.stratadevplatform.net`, a base install should normally include:
+
+- apex `A`
+- panel hostname `A`
+- node hostname `A`
+- `ns1` / `ns2` glue `A`
+- apex `NS`
+- apex `SOA`
+- apex `CAA`
+- `mail A`
+- apex `MX`
+- apex `SPF`
+- `_dmarc TXT`
+- `smtp` / `imap` / `pop` / `webmail` aliases
+
+If those records are missing, the server may resolve the panel but still fail a basic DNS health check for mail and nameserver readiness.
+
+### If the Server DNS card does not show the expected records
+
+Check the **Admin -> DNS -> Server DNS** card first.
+
+Expected behavior:
+
+- it should show the complete primary-server baseline for the base domain
+- when a managed host zone exists, it should still show missing recommended records instead of hiding them
+
+If the card only shows a reduced subset such as `A`, `NS`, `SOA`, and `CAA`, then either:
+
+- the underlying host zone is incomplete
+- or the panel is still running older code that only displays already-existing managed records
+
+### If the live zone itself is incomplete
+
+Verify directly on the primary server:
+
+```bash
+pdnsutil list-zone example.com
+```
+
+or query the PowerDNS database:
+
+```bash
+mysql -uroot pdns -e "select name,type,content,ttl,prio from records where domain_id=(select id from domains where name='example.com') order by name,type,content"
+```
+
+Use this when:
+
+- the panel UI looks wrong and you need to confirm whether the problem is data or presentation
+- the domain does not pass a basic MXToolbox-style DNS check
+- the server answers authoritatively but does not have the mail/bootstrap records expected for a base install
+
+### Common causes
+
+- The base zone was never bootstrapped during install.
+- DNS was created manually once, but only the minimum web records were added.
+- The primary node was registered with the wrong IP, such as `127.0.0.1`.
+- The panel UI is serving older code and the Server DNS card is not merging recommended records with the managed zone.
+- `ns2` was published before the backup DNS node was actually ready to answer authoritatively.
+
+### Recommended repair order
+
+1. Confirm the base domain exists as a managed or standalone zone.
+2. Confirm the live zone contains the full base-install record set, not just apex/panel/ns records.
+3. Confirm `ns1` and `ns2` glue records point to the correct public IPs.
+4. Confirm the apex `NS` records match the published nameservers.
+5. Confirm the panel UI is showing the full baseline and not just the subset already present in the zone.
+
+### Practical checks
+
+- `pdnsutil list-zone example.com`
+- `dig @PRIMARY_IP example.com NS`
+- `dig @PRIMARY_IP example.com MX`
+- `dig @PRIMARY_IP _dmarc.example.com TXT`
+- `dig @PRIMARY_IP mail.example.com A`
+
+### Operational guidance
+
+- Do not treat “the panel resolves” as proof that the base install DNS is complete.
+- For a nameserver-ready base install, mail and policy records matter too.
+- Prefer fixing the live zone data first, then fixing the UI if the Server DNS card still does not reflect the expected baseline.
+
+---
+
 ## Upgrading
 
 Production-style installs should use the fail-safe upgrade utility instead of `git pull`.
@@ -131,7 +287,7 @@ Upgrade to a tagged release:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /root/strata-upgrade.sh
 chmod +x /root/strata-upgrade.sh
-/root/strata-upgrade.sh --version v1.0.0-beta.2
+/root/strata-upgrade.sh --version v1.0.0-alpha.3
 ```
 
 Public testers can upgrade from the latest `main` branch:
@@ -143,7 +299,7 @@ Public testers can upgrade from the latest `main` branch:
 Manual archive upgrades are also supported:
 
 ```bash
-/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-beta.2.tar.gz
+/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-alpha.3.tar.gz
 ```
 
 The upgrade utility preserves `.env`, `storage`, service secrets, certificates, hosted files, databases, and mail data. It creates a rollback backup under `/opt/strata-panel-backups/` and automatically restores it if a critical upgrade step fails.
@@ -187,7 +343,7 @@ Remote node installs and upgrades apply the same PowerDNS SOA defaults automatic
 | Database | MariaDB + PostgreSQL |
 | Firewall / Malware | UFW + fail2ban + ClamAV |
 
-## Features (v1.0.0-beta.2)
+## Features (v1.0.0-alpha.3)
 
 | Category | Features |
 |---|---|
@@ -219,7 +375,7 @@ A single install gives you a functional hosting server. Remote nodes can be adde
 
 ## Contributing & Feedback
 
-This is a beta release for public testing. Issues are expected.
+This is an alpha release for public testing. Issues are expected.
 
 - **Bugs / broken features:** [Open an issue](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 - **Installer or demo-server problems:** [Open an issue](https://github.com/jonathjan0397/strata-hosting-panel/issues) and include the page, action, expected result, and actual result.

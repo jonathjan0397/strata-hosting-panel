@@ -90,6 +90,7 @@ SQLEOF
     rm -rf /etc/strata-agent
     rm -rf /etc/strata-webdav
     rm -rf /etc/strata-panel
+    rm -rf /var/www/strata-placeholder
     rm -f  /usr/sbin/strata-agent
     rm -f  /usr/sbin/strata-webdav
     rm -f  /root/.my.cnf
@@ -103,8 +104,12 @@ SQLEOF
     # Remove web vhost configs
     rm -f /etc/nginx/sites-enabled/strata-panel
     rm -f /etc/nginx/sites-available/strata-panel
+    rm -f /etc/nginx/sites-enabled/zzzz-strata-placeholder
+    rm -f /etc/nginx/sites-available/zzzz-strata-placeholder
     rm -f /etc/apache2/sites-enabled/strata-panel.conf
     rm -f /etc/apache2/sites-available/strata-panel.conf
+    rm -f /etc/apache2/sites-enabled/zzzz-strata-placeholder.conf
+    rm -f /etc/apache2/sites-available/zzzz-strata-placeholder.conf
     systemctl reload nginx  2>/dev/null || true
     systemctl reload apache2 2>/dev/null || true
 
@@ -501,7 +506,7 @@ webserver=yes
 webserver-address=127.0.0.1
 webserver-port=8053
 webserver-allow-from=127.0.0.1
-default-soa-content=ns1.${HOSTNAME_PARENT_DOMAIN} hostmaster.${HOSTNAME_PARENT_DOMAIN} 0 10800 3600 604800 3600
+default-soa-content=ns1.${HOSTNAME_PARENT_DOMAIN} hostmaster.${HOSTNAME_PARENT_DOMAIN} 0 10800 3600 1209600 3600
 
 # Logging
 log-dns-queries=no
@@ -1261,6 +1266,133 @@ EOF
 fi
 
 # ── Step 19. Firewall (UFW) ───────────────────────────────────────────────────
+if [[ "$PANEL_DOMAIN" != "$HOSTNAME_PARENT_DOMAIN" ]]; then
+    info "Configuring placeholder site for ${HOSTNAME_PARENT_DOMAIN}…"
+    PLACEHOLDER_ROOT="/var/www/strata-placeholder"
+    PLACEHOLDER_TLS_DIR="/etc/strata-panel/apex-tls"
+    mkdir -p "$PLACEHOLDER_ROOT" "$PLACEHOLDER_TLS_DIR"
+
+    cat > "${PLACEHOLDER_ROOT}/index.html" <<EOF
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${HOSTNAME_PARENT_DOMAIN}</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #f4efe6, #d9e7f5);
+      color: #18222f;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    main {
+      width: min(92vw, 720px);
+      padding: 48px;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.85);
+      box-shadow: 0 24px 80px rgba(24,34,47,0.16);
+    }
+    h1 { margin: 0 0 16px; font-size: clamp(2rem, 5vw, 3.5rem); }
+    p { margin: 0 0 12px; line-height: 1.6; font-size: 1.05rem; }
+    .muted { color: #51606f; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>${HOSTNAME_PARENT_DOMAIN}</h1>
+    <p>This server is online and managed by Strata Hosting Panel.</p>
+    <p class="muted">The root domain is reserved for the admin website and is currently showing this placeholder page.</p>
+  </main>
+</body>
+</html>
+EOF
+
+    openssl req -x509 -newkey rsa:4096 \
+        -keyout "${PLACEHOLDER_TLS_DIR}/privkey.pem" \
+        -out    "${PLACEHOLDER_TLS_DIR}/fullchain.pem" \
+        -days   90 -nodes -subj "/CN=${HOSTNAME_PARENT_DOMAIN}" >/dev/null 2>&1
+
+    if [[ "$WEB_SERVER" == "apache" ]]; then
+        cat > /etc/apache2/sites-available/zzzz-strata-placeholder.conf <<EOF
+<VirtualHost *:80>
+    ServerName ${HOSTNAME_PARENT_DOMAIN}
+    DocumentRoot ${PLACEHOLDER_ROOT}
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName ${HOSTNAME_PARENT_DOMAIN}
+    DocumentRoot ${PLACEHOLDER_ROOT}
+
+    SSLEngine on
+    SSLCertificateFile    ${PLACEHOLDER_TLS_DIR}/fullchain.pem
+    SSLCertificateKeyFile ${PLACEHOLDER_TLS_DIR}/privkey.pem
+
+    <Directory ${PLACEHOLDER_ROOT}>
+        Options -Indexes +FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+</VirtualHost>
+EOF
+        a2ensite zzzz-strata-placeholder.conf >/dev/null 2>&1
+        apache2ctl configtest && systemctl reload apache2
+        if /root/.acme.sh/acme.sh --issue --apache -d "$HOSTNAME_PARENT_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
+            /root/.acme.sh/acme.sh --install-cert -d "$HOSTNAME_PARENT_DOMAIN" \
+                --key-file       "${PLACEHOLDER_TLS_DIR}/privkey.pem" \
+                --fullchain-file "${PLACEHOLDER_TLS_DIR}/fullchain.pem" \
+                --reloadcmd      "systemctl reload apache2"
+        else
+            warn "Placeholder HTTPS certificate for ${HOSTNAME_PARENT_DOMAIN} is self-signed until Let's Encrypt succeeds."
+        fi
+        apache2ctl configtest && systemctl reload apache2
+    else
+        cat > /etc/nginx/sites-available/zzzz-strata-placeholder <<EOF
+server {
+    listen 80;
+    server_name ${HOSTNAME_PARENT_DOMAIN};
+    root ${PLACEHOLDER_ROOT};
+    index index.html;
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${HOSTNAME_PARENT_DOMAIN};
+    root ${PLACEHOLDER_ROOT};
+    index index.html;
+
+    ssl_certificate     ${PLACEHOLDER_TLS_DIR}/fullchain.pem;
+    ssl_certificate_key ${PLACEHOLDER_TLS_DIR}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+}
+EOF
+        ln -sf /etc/nginx/sites-available/zzzz-strata-placeholder /etc/nginx/sites-enabled/zzzz-strata-placeholder
+        nginx -t && systemctl reload nginx
+        if /root/.acme.sh/acme.sh --issue --nginx -d "$HOSTNAME_PARENT_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
+            /root/.acme.sh/acme.sh --install-cert -d "$HOSTNAME_PARENT_DOMAIN" \
+                --key-file       "${PLACEHOLDER_TLS_DIR}/privkey.pem" \
+                --fullchain-file "${PLACEHOLDER_TLS_DIR}/fullchain.pem" \
+                --reloadcmd      "systemctl reload nginx"
+        else
+            warn "Placeholder HTTPS certificate for ${HOSTNAME_PARENT_DOMAIN} is self-signed until Let's Encrypt succeeds."
+        fi
+        nginx -t && systemctl reload nginx
+    fi
+
+    success "Placeholder site configured for ${HOSTNAME_PARENT_DOMAIN}."
+fi
+
 info "Configuring UFW firewall…"
 ufw --force reset >/dev/null
 ufw default deny incoming >/dev/null
@@ -1357,7 +1489,7 @@ Node::updateOrCreate(
     [
         'name'         => 'Primary',
         'hostname'     => getenv('PANEL_DOMAIN'),
-        'ip_address'   => '127.0.0.1',
+        'ip_address'   => getenv('SERVER_IP'),
         'port'         => 8743,
         'hmac_secret'  => getenv('AGENT_HMAC_SECRET'),
         'web_server'   => getenv('WEB_SERVER'),
@@ -1369,10 +1501,182 @@ Node::updateOrCreate(
 echo "done\n";
 PHPEOF
 INSTALL_DIR="$INSTALL_DIR" AGENT_NODE_ID="$AGENT_NODE_ID" PANEL_DOMAIN="$PANEL_DOMAIN" \
-    AGENT_HMAC_SECRET="$AGENT_HMAC_SECRET" WEB_SERVER="$WEB_SERVER" \
+    AGENT_HMAC_SECRET="$AGENT_HMAC_SECRET" WEB_SERVER="$WEB_SERVER" SERVER_IP="$SERVER_IP" \
     php /tmp/strata-register-node.php || die "Failed to register primary node"
 rm -f /tmp/strata-register-node.php
 success "Primary node registered."
+
+info "Bootstrapping host DNS zone..."
+cat > /tmp/strata-bootstrap-host-dns.php <<'PHPEOF'
+<?php
+require getenv('INSTALL_DIR') . '/panel/vendor/autoload.php';
+$app = require getenv('INSTALL_DIR') . '/panel/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use App\Models\DnsZone;
+use App\Models\Node;
+use App\Services\AgentClient;
+use App\Services\DnsProvisioner;
+
+$zoneName = strtolower(trim((string) getenv('HOSTNAME_PARENT_DOMAIN'), '.'));
+$panelDomain = strtolower(trim((string) getenv('PANEL_DOMAIN'), '.'));
+$serverHostname = strtolower(trim((string) getenv('HOSTNAME_FQDN'), '.'));
+$serverIp = trim((string) getenv('SERVER_IP'));
+
+if ($zoneName === '' || $serverIp === '') {
+    fwrite(STDERR, "Host DNS bootstrap requires HOSTNAME_PARENT_DOMAIN and SERVER_IP.\n");
+    exit(1);
+}
+
+$primary = Node::where('is_primary', true)->orderBy('id')->firstOrFail();
+$client = AgentClient::for($primary);
+$provisioner = new DnsProvisioner($client);
+$nameservers = $provisioner->authoritativeNameservers();
+
+$response = $client->createDnsZone($zoneName, $nameservers);
+if (! DnsProvisioner::zoneProvisionResponseIsUsable($response)) {
+    fwrite(STDERR, "Zone creation failed: " . trim($response->body()) . "\n");
+    exit(1);
+}
+
+$zone = DnsZone::firstOrCreate(
+    ['zone_name' => $zoneName],
+    ['domain_id' => null, 'account_id' => null, 'node_id' => $primary->id, 'active' => true]
+);
+
+$relativeName = static function (string $fqdn, string $zone): ?string {
+    $fqdn = strtolower(trim($fqdn, '.'));
+    $zone = strtolower(trim($zone, '.'));
+
+    if ($fqdn === '' || $zone === '') {
+        return null;
+    }
+
+    if ($fqdn === $zone) {
+        return '@';
+    }
+
+    $suffix = '.' . $zone;
+    if (! str_ends_with($fqdn, $suffix)) {
+        return null;
+    }
+
+    return substr($fqdn, 0, -strlen($suffix));
+};
+
+$addressType = filter_var($serverIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A';
+$mailHost = 'mail.' . $zoneName . '.';
+$ipMechanism = $addressType === 'AAAA' ? "ip6:{$serverIp}" : "ip4:{$serverIp}";
+$records = [
+    ['@', 'NS', 3600, $nameservers, null],
+    ['@', $addressType, 300, [$serverIp], null],
+    ['mail', $addressType, 300, [$serverIp], null],
+    ['@', 'MX', 300, [$mailHost], 10],
+    ['@', 'TXT', 300, ["v=spf1 a mx {$ipMechanism} -all"], null],
+    ['_dmarc', 'TXT', 300, ["v=DMARC1; p=quarantine; pct=100; rua=mailto:postmaster@{$zoneName}"], null],
+    ['smtp', 'CNAME', 300, [$mailHost], null],
+    ['imap', 'CNAME', 300, [$mailHost], null],
+    ['pop', 'CNAME', 300, [$mailHost], null],
+    ['webmail', 'CNAME', 300, [$mailHost], null],
+    ['@', 'CAA', 300, ['0 issue "letsencrypt.org"'], null],
+];
+
+$panelRelative = $relativeName($panelDomain, $zoneName);
+if ($panelRelative && $panelRelative !== '@') {
+    $records[] = [$panelRelative, $addressType, 300, [$serverIp], null];
+}
+
+$hostnameRelative = $relativeName($serverHostname, $zoneName);
+if ($hostnameRelative && $hostnameRelative !== '@' && $hostnameRelative !== $panelRelative) {
+    $records[] = [$hostnameRelative, $addressType, 300, [$serverIp], null];
+}
+
+$dnsNodes = Node::whereNull('deleted_at')->where('status', 'online')->orderByDesc('is_primary')->orderBy('id')->get();
+if ($dnsNodes->isEmpty()) {
+    $dnsNodes = Node::whereNull('deleted_at')->orderByDesc('is_primary')->orderBy('id')->get();
+}
+
+foreach ($dnsNodes as $index => $node) {
+    $nodeIp = trim((string) $node->ip_address);
+    if ($nodeIp === '') {
+        continue;
+    }
+
+    $records[] = [
+        'ns' . ($index + 1),
+        filter_var($nodeIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A',
+        300,
+        [$nodeIp],
+        null,
+    ];
+}
+
+foreach ($records as [$name, $type, $ttl, $contents, $priority]) {
+    [$ok, $error] = $provisioner->addRecord($zone, $name, $type, $ttl, $contents, true, $priority);
+    if (! $ok) {
+        fwrite(STDERR, sprintf("Record bootstrap failed for %s %s: %s\n", $type, $name, $error));
+        exit(1);
+    }
+}
+
+echo "done\n";
+PHPEOF
+INSTALL_DIR="$INSTALL_DIR" HOSTNAME_PARENT_DOMAIN="$HOSTNAME_PARENT_DOMAIN" PANEL_DOMAIN="$PANEL_DOMAIN" \
+    HOSTNAME_FQDN="$HOSTNAME_FQDN" SERVER_IP="$SERVER_IP" \
+    php /tmp/strata-bootstrap-host-dns.php || die "Failed to bootstrap host DNS zone"
+rm -f /tmp/strata-bootstrap-host-dns.php
+success "Host DNS zone bootstrapped."
+
+info "Retrying public TLS issuance after DNS bootstrap..."
+if [[ "$WEB_SERVER" == "apache" ]]; then
+    if /root/.acme.sh/acme.sh --issue --apache -d "$PANEL_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
+        /root/.acme.sh/acme.sh --install-cert -d "$PANEL_DOMAIN" \
+            --key-file       /etc/strata-panel/tls/privkey.pem \
+            --fullchain-file /etc/strata-panel/tls/fullchain.pem \
+            --reloadcmd      "systemctl reload apache2"
+        systemctl reload apache2
+        success "Panel TLS certificate refreshed after DNS bootstrap."
+    else
+        warn "Panel TLS certificate is still self-signed; retry once public DNS propagation completes."
+    fi
+
+    if [[ "$PANEL_DOMAIN" != "$HOSTNAME_PARENT_DOMAIN" ]] && [[ -f /etc/apache2/sites-available/zzzz-strata-placeholder.conf ]]; then
+        if /root/.acme.sh/acme.sh --issue --apache -d "$HOSTNAME_PARENT_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
+            /root/.acme.sh/acme.sh --install-cert -d "$HOSTNAME_PARENT_DOMAIN" \
+                --key-file       /etc/strata-panel/apex-tls/privkey.pem \
+                --fullchain-file /etc/strata-panel/apex-tls/fullchain.pem \
+                --reloadcmd      "systemctl reload apache2"
+            systemctl reload apache2
+            success "Apex placeholder TLS certificate issued."
+        else
+            warn "Apex placeholder TLS certificate is still self-signed; retry once public DNS propagation completes."
+        fi
+    fi
+else
+    if /root/.acme.sh/acme.sh --issue --nginx -d "$PANEL_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
+        /root/.acme.sh/acme.sh --install-cert -d "$PANEL_DOMAIN" \
+            --key-file       /etc/strata-panel/tls/privkey.pem \
+            --fullchain-file /etc/strata-panel/tls/fullchain.pem \
+            --reloadcmd      "systemctl reload nginx"
+        systemctl reload nginx
+        success "Panel TLS certificate refreshed after DNS bootstrap."
+    else
+        warn "Panel TLS certificate is still self-signed; retry once public DNS propagation completes."
+    fi
+
+    if [[ "$PANEL_DOMAIN" != "$HOSTNAME_PARENT_DOMAIN" ]] && [[ -f /etc/nginx/sites-available/zzzz-strata-placeholder ]]; then
+        if /root/.acme.sh/acme.sh --issue --nginx -d "$HOSTNAME_PARENT_DOMAIN" --keylength 4096 >/dev/null 2>&1; then
+            /root/.acme.sh/acme.sh --install-cert -d "$HOSTNAME_PARENT_DOMAIN" \
+                --key-file       /etc/strata-panel/apex-tls/privkey.pem \
+                --fullchain-file /etc/strata-panel/apex-tls/fullchain.pem \
+                --reloadcmd      "systemctl reload nginx"
+            systemctl reload nginx
+            success "Apex placeholder TLS certificate issued."
+        else
+            warn "Apex placeholder TLS certificate is still self-signed; retry once public DNS propagation completes."
+        fi
+    fi
+fi
 
 # ── Step 22. SnappyMail webmail ───────────────────────────────────────────────
 info "Installing SnappyMail v${SNAPPYMAIL_VERSION}…"

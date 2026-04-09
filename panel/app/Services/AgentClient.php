@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Node;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class AgentClient
 {
@@ -38,6 +39,17 @@ class AgentClient
             'POST',
             '/agent/certificate/renew',
             ['hostname' => $hostname ?: $this->node->hostname],
+            timeout: 60,
+            verify: false,
+        );
+    }
+
+    public function repairManagedCertificate(string $hostname, string $profile = 'panel'): Response
+    {
+        return $this->request(
+            'POST',
+            '/agent/certificate/repair',
+            ['hostname' => $hostname, 'profile' => $profile],
             timeout: 60,
             verify: false,
         );
@@ -730,11 +742,14 @@ class AgentClient
         ])
             ->timeout($timeout);
 
+        $http = $this->applyNodeVerification($http);
+
         if (! $verify) {
             $http = $http->withoutVerifying();
         }
 
         $url = $this->node->apiUrl($path);
+        $http = $this->applyDirectNodeRouting($http);
 
         return match ($method) {
             'GET'    => $http->get($url),
@@ -756,10 +771,44 @@ class AgentClient
             'X-Strata-Timestamp' => $timestamp,
             'Accept'             => 'application/json',
         ])->timeout($timeout);
+        $http = $this->applyNodeVerification($http);
+        $http = $this->applyDirectNodeRouting($http);
 
         return match ($method) {
             'POST' => $http->withBody($body, $contentType)->post($this->node->apiUrl($path)),
             default => throw new \InvalidArgumentException("Unsupported raw method: {$method}"),
         };
+    }
+
+    private function applyDirectNodeRouting(\Illuminate\Http\Client\PendingRequest $http): \Illuminate\Http\Client\PendingRequest
+    {
+        $tlsHost = $this->node->agentTlsHost();
+        $connectAddress = $this->node->agentConnectAddress();
+        $port = $this->node->port ?: 8743;
+
+        if ($tlsHost === '' || $connectAddress === '' || ! filter_var($connectAddress, FILTER_VALIDATE_IP)) {
+            return $http;
+        }
+
+        if (filter_var($tlsHost, FILTER_VALIDATE_IP) || Str::lower($tlsHost) === Str::lower($connectAddress)) {
+            return $http;
+        }
+
+        return $http->withOptions([
+            'curl' => [
+                CURLOPT_RESOLVE => ["{$tlsHost}:{$port}:{$connectAddress}"],
+            ],
+        ]);
+    }
+
+    private function applyNodeVerification(\Illuminate\Http\Client\PendingRequest $http): \Illuminate\Http\Client\PendingRequest
+    {
+        $caBundle = $this->node->agentCaBundlePath();
+
+        if (is_file($caBundle)) {
+            return $http->withOptions(['verify' => $caBundle]);
+        }
+
+        return $http;
     }
 }

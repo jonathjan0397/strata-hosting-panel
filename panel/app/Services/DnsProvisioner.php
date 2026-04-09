@@ -60,7 +60,7 @@ class DnsProvisioner
             ['pop', 'CNAME', [$mailHost], null],
             ['webmail', 'CNAME', [$mailHost], null],
             ['@', 'MX', [$mailHost], 10],
-            ['_dmarc', 'TXT', ["v=DMARC1; p=none; rua=mailto:postmaster@{$domain->domain}"], null],
+            ['_dmarc', 'TXT', ["v=DMARC1; p=quarantine; pct=100; rua=mailto:postmaster@{$domain->domain}"], null],
             ['@', 'CAA', ['0 issue "letsencrypt.org"'], null],
         ];
 
@@ -298,7 +298,7 @@ class DnsProvisioner
             return [];
         }
 
-        return Node::whereNull('deleted_at')
+        return $this->dnsCapableNodes()
             ->orderByDesc('is_primary')
             ->orderBy('id')
             ->get()
@@ -318,7 +318,7 @@ class DnsProvisioner
             return [];
         }
 
-        return Node::whereNull('deleted_at')
+        return $this->dnsCapableNodes()
             ->orderByDesc('is_primary')
             ->orderBy('id')
             ->get()
@@ -339,6 +339,18 @@ class DnsProvisioner
             ->filter()
             ->values()
             ->all();
+    }
+
+    private function dnsCapableNodes()
+    {
+        $online = Node::whereNull('deleted_at')
+            ->where('status', 'online');
+
+        if ($online->exists()) {
+            return $online;
+        }
+
+        return Node::whereNull('deleted_at');
     }
 
     private function baseDomainFor(?string $hostname): ?string

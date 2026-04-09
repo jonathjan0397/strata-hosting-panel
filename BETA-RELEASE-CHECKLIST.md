@@ -1,6 +1,6 @@
 # Beta Release Checklist
 
-Target release: `v1.0.0-beta.2`
+Target release: `v1.0.0-alpha.3`
 
 Target validation OS: Debian 13 (trixie)
 
@@ -9,7 +9,7 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 ## Release Gate
 
 - [x] Public `main` branch upgrade completes using `installer/upgrade.sh --branch main`.
-- [x] Tagged release upgrade path is documented using `installer/upgrade.sh --version v1.0.0-beta.2`.
+- [x] Tagged release upgrade path is documented using `installer/upgrade.sh --version v1.0.0-alpha.3`.
 - [x] Rollback backup is created before upgrade.
 - [x] Remote node agent cascade command runs after branch/tag upgrades.
 - [x] Panel login page returns HTTP 200.
@@ -44,7 +44,7 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 - Verified SnappyMail `default` and `stratadevplatform.net` profiles use IMAPS `993`, authenticated SMTP `587`, and full mailbox logins.
 - Verified active Fail2Ban jails: `dovecot`, `nginx-http-auth`, `postfix`, `postfix-sasl`, and `sshd`.
 
-## Known Beta Limitations
+## Known Alpha.3 Limitations
 
 - Migration cutover is intentionally conservative and blocks accounts with mailboxes, FTP users, databases, database grants, or app installs. Credentialless forwarders are now re-provisioned during cutover.
 - Full two-node migration prepare/transfer/restore/cutover should be tested before claiming production-grade multi-node migration support.
@@ -52,8 +52,8 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 - phpMyAdmin and phpPgAdmin use manual login, not automatic SSO.
 - Web Disk parity is currently FTPS connection guidance backed by jailed FTP accounts, not a full WebDAV server.
 - Migration, malware scans, manual backup creation, backup restore, and path restore are queued. Some less common maintenance workflows may still run synchronously.
-- Debian 13 is the primary beta validation target; Debian 11/12 are intended targets but need fresh-install beta validation before stronger claims.
+- Debian 13 is the primary alpha validation target; Debian 11/12 are intended targets but need fresh-install alpha validation before stronger claims.
 
 ## Tagging Criteria
 
-Tag `v1.0.0-beta.2` only after the release gate passes or any remaining failures are documented here as accepted beta limitations.
+Tag `v1.0.0-alpha.3` only after the release gate passes or any remaining failures are documented here as accepted alpha limitations.

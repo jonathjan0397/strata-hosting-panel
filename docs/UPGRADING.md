@@ -9,7 +9,7 @@ Upgrade from a tagged release:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /root/strata-upgrade.sh
 chmod +x /root/strata-upgrade.sh
-/root/strata-upgrade.sh --version v1.0.0-beta.2
+/root/strata-upgrade.sh --version v1.0.0-alpha.3
 ```
 
 Upgrade from the latest `main` branch for public testing:
@@ -21,7 +21,7 @@ Upgrade from the latest `main` branch for public testing:
 Upgrade from a manually uploaded archive:
 
 ```bash
-/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-beta.2.tar.gz
+/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-alpha.3.tar.gz
 ```
 
 The file may be a GitHub source archive or an equivalent `.tar`, `.tar.gz`, or `.tgz` archive containing the repository root.
