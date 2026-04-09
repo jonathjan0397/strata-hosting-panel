@@ -16,6 +16,16 @@ class DnsProvisioner
 {
     public function __construct(private readonly AgentClient $client) {}
 
+    public function zoneForDomain(Domain $domain): ?DnsZone
+    {
+        return $this->resolveZoneForDomain($domain);
+    }
+
+    public function hasZoneForDomain(Domain $domain): bool
+    {
+        return $this->zoneForDomain($domain) !== null;
+    }
+
     /**
      * Create a DNS zone for a domain and seed default records.
      * Returns [bool $success, ?string $error].
@@ -23,21 +33,35 @@ class DnsProvisioner
     public function createZone(Domain $domain): array
     {
         try {
+            $existingZone = $this->resolveZoneForDomain($domain);
+            if ($existingZone) {
+                [$recordsCreated, $recordError] = $this->addDefaultRecords($domain, $existingZone);
+                if (! $recordsCreated) {
+                    return [false, 'Default DNS record provisioning failed: ' . $recordError];
+                }
+
+                return [true, null];
+            }
+
             $response = $this->client->createDnsZone($domain->domain, $this->authoritativeNameservers());
-            if (! $response->successful()) {
+            if (! self::zoneProvisionResponseIsUsable($response)) {
                 return [false, $response->body()];
             }
 
-            $zone = DnsZone::create([
-                'domain_id'  => $domain->id,
-                'account_id' => $domain->account_id,
-                'node_id'    => $domain->node_id,
-                'zone_name'  => $domain->domain,
-            ]);
+            $zone = DnsZone::firstOrCreate(
+                ['zone_name' => $domain->domain],
+                [
+                    'domain_id'  => $domain->id,
+                    'account_id' => $domain->account_id,
+                    'node_id'    => $domain->node_id,
+                ]
+            );
 
             [$recordsCreated, $recordError] = $this->addDefaultRecords($domain, $zone);
             if (! $recordsCreated) {
-                $this->deleteZone($domain);
+                if ($zone->domain_id === $domain->id) {
+                    $this->deleteZone($domain);
+                }
                 return [false, 'Default DNS record provisioning failed: ' . $recordError];
             }
 
@@ -149,6 +173,15 @@ class DnsProvisioner
     public function deleteZone(Domain $domain): array
     {
         try {
+            $zone = $this->resolveZoneForDomain($domain);
+            if (! $zone) {
+                return [true, null];
+            }
+
+            if ($zone->domain_id !== $domain->id) {
+                return [true, null];
+            }
+
             $response = $this->client->deleteDnsZone($domain->domain);
             if (! $response->successful()) {
                 return [false, $response->body()];
@@ -161,7 +194,7 @@ class DnsProvisioner
                 }
             }
 
-            DnsZone::where('domain_id', $domain->id)->delete();
+            $zone->delete();
 
             return [true, null];
         } catch (Throwable $e) {
@@ -245,7 +278,7 @@ class DnsProvisioner
      */
     public function addMailRecords(Domain $domain): void
     {
-        $zone = DnsZone::where('domain_id', $domain->id)->first();
+        $zone = $this->resolveZoneForDomain($domain);
         if (! $zone) {
             return;
         }
@@ -277,7 +310,7 @@ class DnsProvisioner
      */
     public function updateSpfRecord(Domain $domain, string $spfRecord): array
     {
-        $zone = DnsZone::where('domain_id', $domain->id)->first();
+        $zone = $this->resolveZoneForDomain($domain);
         if (! $zone) {
             return [false, 'DNS zone has not been provisioned for this domain.'];
         }
@@ -862,6 +895,29 @@ class DnsProvisioner
         }
 
         return array_values($deduped);
+    }
+
+    private function resolveZoneForDomain(Domain $domain): ?DnsZone
+    {
+        $domainName = rtrim(strtolower($domain->domain), '.');
+
+        $zone = DnsZone::with('records')
+            ->where('domain_id', $domain->id)
+            ->first();
+        if ($zone) {
+            return $zone;
+        }
+
+        $sharedZone = DnsZone::with('records')
+            ->where('zone_name', $domainName)
+            ->where(function ($query) use ($domain) {
+                $query->whereNull('domain_id')
+                    ->orWhere('account_id', $domain->account_id);
+            })
+            ->orderByRaw('domain_id is null desc')
+            ->first();
+
+        return $sharedZone;
     }
 
     private function relativeNameForZone(?string $fqdn, string $zoneName): ?string

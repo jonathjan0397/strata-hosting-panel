@@ -41,8 +41,9 @@ class DnsController extends Controller
     public function show(Domain $domain): Response
     {
         $domain->load(['account', 'node']);
+        $provisioner = new DnsProvisioner(AgentClient::for($domain->node));
 
-        $zone    = DnsZone::with('records')->where('domain_id', $domain->id)->first();
+        $zone    = $provisioner->zoneForDomain($domain);
         $records = $zone?->records()->orderBy('type')->orderBy('name')->get() ?? collect();
 
         return Inertia::render('Admin/Dns/ZoneShow', [
@@ -57,13 +58,11 @@ class DnsController extends Controller
      */
     public function provision(Domain $domain): RedirectResponse
     {
-        $existing = DnsZone::where('domain_id', $domain->id)->first();
+        $provisioner = new DnsProvisioner(AgentClient::for($domain->node));
+        $existing = $provisioner->zoneForDomain($domain);
         if ($existing) {
             return back()->with('error', 'A DNS zone already exists for this domain.');
         }
-
-        $client    = AgentClient::for($domain->node);
-        $provisioner = new DnsProvisioner($client);
 
         [$success, $error] = $provisioner->createZone($domain);
 
@@ -82,7 +81,8 @@ class DnsController extends Controller
      */
     public function export(Domain $domain): HttpResponse
     {
-        $zone    = DnsZone::with('records')->where('domain_id', $domain->id)->firstOrFail();
+        $zone = (new DnsProvisioner(AgentClient::for($domain->node)))->zoneForDomain($domain);
+        abort_unless($zone, 404);
         $records = $zone->records()->orderByRaw("FIELD(type,'SOA','NS','A','AAAA','MX','CNAME','TXT','SRV','CAA')")->get();
 
         $serial = date('Ymd') . '01';
@@ -180,7 +180,8 @@ class DnsController extends Controller
             'zone_text' => ['required', 'string', 'max:65536'],
         ]);
 
-        $zone = DnsZone::where('domain_id', $domain->id)->firstOrFail();
+        $zone = (new DnsProvisioner(AgentClient::for($domain->node)))->zoneForDomain($domain);
+        abort_unless($zone, 404);
         $records = $this->parseZoneText($data['zone_text'], $domain->domain);
 
         if (empty($records)) {

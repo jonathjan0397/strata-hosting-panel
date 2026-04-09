@@ -40,7 +40,7 @@ class DnsController extends Controller
         abort_unless($domain->account_id === $account->id, 403);
 
         $domain->load('node');
-        $zone    = DnsZone::with('records')->where('domain_id', $domain->id)->first();
+        $zone    = (new DnsProvisioner(AgentClient::for($domain->node)))->zoneForDomain($domain);
         $records = $zone?->records()->orderBy('type')->orderBy('name')->get() ?? collect();
 
         return Inertia::render('User/Dns/ZoneShow', [
@@ -55,7 +55,8 @@ class DnsController extends Controller
         $account = $this->account();
         abort_unless($domain->account_id === $account->id, 403);
 
-        $zone    = DnsZone::with('records')->where('domain_id', $domain->id)->firstOrFail();
+        $zone = (new DnsProvisioner(AgentClient::for($domain->node)))->zoneForDomain($domain);
+        abort_unless($zone, 404);
         $records = $zone->records()->orderByRaw("FIELD(type,'SOA','NS','A','AAAA','MX','CNAME','TXT','SRV','CAA')")->get();
 
         $fqdn  = rtrim($domain->domain, '.') . '.';
@@ -136,7 +137,8 @@ class DnsController extends Controller
             'zone_text' => ['required', 'string', 'max:65536'],
         ]);
 
-        $zone = DnsZone::where('domain_id', $domain->id)->firstOrFail();
+        $zone = (new DnsProvisioner(AgentClient::for($domain->node)))->zoneForDomain($domain);
+        abort_unless($zone, 404);
         $domain->load('node');
         $records = $this->parseZoneText($data['zone_text'], $domain->domain);
 

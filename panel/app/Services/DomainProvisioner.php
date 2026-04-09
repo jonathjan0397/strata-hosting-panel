@@ -133,15 +133,17 @@ class DomainProvisioner
 
     public function ensureMailProvisioned(Domain $domain): array
     {
-        if (! DnsZone::where('domain_id', $domain->id)->exists()) {
-            [$dnsCreated, $dnsError] = (new DnsProvisioner(AgentClient::for($domain->node)))->createZone($domain);
+        $dnsProvisioner = new DnsProvisioner(AgentClient::for($domain->node));
+
+        if (! $dnsProvisioner->hasZoneForDomain($domain)) {
+            [$dnsCreated, $dnsError] = $dnsProvisioner->createZone($domain);
             if (! $dnsCreated) {
                 return [false, 'DNS zone provisioning failed: ' . $dnsError];
             }
         }
 
         if ($domain->mail_enabled) {
-            (new DnsProvisioner(AgentClient::for($domain->node)))->addMailRecords($domain);
+            $dnsProvisioner->addMailRecords($domain);
             return [true, null];
         }
 
@@ -150,7 +152,7 @@ class DomainProvisioner
             return [false, $error];
         }
 
-        (new DnsProvisioner(AgentClient::for($domain->node)))->addMailRecords($domain->fresh());
+        $dnsProvisioner->addMailRecords($domain->fresh());
 
         return [true, null];
     }
@@ -227,7 +229,7 @@ class DomainProvisioner
 
     public function supportsWildcardSsl(Domain $domain): bool
     {
-        return DnsZone::where('domain_id', $domain->id)->exists();
+        return (new DnsProvisioner(AgentClient::for($domain->node)))->hasZoneForDomain($domain);
     }
 
     /**
