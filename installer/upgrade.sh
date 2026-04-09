@@ -11,6 +11,7 @@ export PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PAT
 SOURCE_VERSION=""
 SOURCE_FILE=""
 SOURCE_BRANCH=""
+SOURCE_CHANNEL=""
 ROLLBACK_ON_FAIL=1
 KEEP_WORKDIR=0
 SKIP_REMOTE_AGENTS=0
@@ -37,11 +38,14 @@ Strata Hosting Panel upgrade utility
 
 Usage:
   $0 --version v1.0.0-beta.2
+  $0 --channel main
   $0 --branch main
   $0 --file /root/strata-hosting-panel.tar.gz
 
 Options:
   --version <tag>      Download and install a GitHub release/tag archive.
+  --channel <name>     Install from a supported update channel:
+                       main, latest-untested, experimental.
   --branch <branch>    Download and install a GitHub branch archive.
   --file <path>        Install from a local .tar.gz/.tgz/.tar archive.
   --install-dir <dir>  Override install path. Default: /opt/strata-panel
@@ -53,9 +57,19 @@ Options:
 EOF
 }
 
+resolve_channel_branch() {
+    case "$1" in
+        main) echo "main" ;;
+        latest-untested) echo "latest-untested" ;;
+        experimental) echo "experimental" ;;
+        *) die "Unknown update channel: $1. Supported channels: main, latest-untested, experimental." ;;
+    esac
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --version) SOURCE_VERSION="${2:-}"; shift 2 ;;
+        --channel) SOURCE_CHANNEL="${2:-}"; shift 2 ;;
         --branch) SOURCE_BRANCH="${2:-}"; shift 2 ;;
         --file) SOURCE_FILE="${2:-}"; shift 2 ;;
         --install-dir) INSTALL_DIR="${2:-}"; shift 2 ;;
@@ -72,9 +86,10 @@ done
 
 source_count=0
 [[ -n "$SOURCE_VERSION" ]] && ((source_count+=1))
+[[ -n "$SOURCE_CHANNEL" ]] && ((source_count+=1))
 [[ -n "$SOURCE_BRANCH" ]] && ((source_count+=1))
 [[ -n "$SOURCE_FILE" ]] && ((source_count+=1))
-[[ $source_count -eq 1 ]] || die "Choose exactly one source: --version, --branch, or --file."
+[[ $source_count -eq 1 ]] || die "Choose exactly one source: --version, --channel, --branch, or --file."
 
 [[ -d "$INSTALL_DIR/panel" ]] || die "Panel install not found at $INSTALL_DIR/panel."
 [[ -f "$INSTALL_DIR/panel/.env" ]] || die "Panel .env not found at $INSTALL_DIR/panel/.env."
@@ -355,6 +370,10 @@ if [[ -n "$SOURCE_FILE" ]]; then
 elif [[ -n "$SOURCE_VERSION" ]]; then
     info "Downloading $REPO tag $SOURCE_VERSION..."
     curl -fL "https://github.com/${REPO}/archive/refs/tags/${SOURCE_VERSION}.tar.gz" -o "$archive"
+elif [[ -n "$SOURCE_CHANNEL" ]]; then
+    SOURCE_BRANCH="$(resolve_channel_branch "$SOURCE_CHANNEL")"
+    info "Downloading $REPO update channel $SOURCE_CHANNEL (branch $SOURCE_BRANCH)..."
+    curl -fL "https://github.com/${REPO}/archive/refs/heads/${SOURCE_BRANCH}.tar.gz" -o "$archive"
 else
     info "Downloading $REPO branch $SOURCE_BRANCH..."
     curl -fL "https://github.com/${REPO}/archive/refs/heads/${SOURCE_BRANCH}.tar.gz" -o "$archive"
@@ -367,6 +386,8 @@ tar -xf "$archive" -C "$extract_dir" --strip-components=1
 target_version="$(cat "$extract_dir/VERSION" 2>/dev/null || true)"
 if [[ -n "$SOURCE_VERSION" ]]; then
     target_version="$SOURCE_VERSION"
+elif [[ -n "$SOURCE_CHANNEL" ]]; then
+    target_version="channel-${SOURCE_CHANNEL}"
 elif [[ -n "$SOURCE_BRANCH" ]]; then
     target_version="$SOURCE_BRANCH"
 elif [[ -z "$target_version" ]]; then
@@ -510,10 +531,12 @@ systemctl is-active --quiet strata-queue
 
 if [[ $SKIP_REMOTE_AGENTS -eq 1 ]]; then
     warn "Skipping automatic remote node agent upgrades by request."
-elif [[ -n "$SOURCE_VERSION" || -n "$SOURCE_BRANCH" ]]; then
+elif [[ -n "$SOURCE_VERSION" || -n "$SOURCE_CHANNEL" || -n "$SOURCE_BRANCH" ]]; then
     info "Queuing remote node agent upgrades..."
     if [[ -n "$SOURCE_VERSION" ]]; then
         "$PHP_BIN" "$INSTALL_DIR/panel/artisan" strata:nodes-upgrade-agents --target-version="$SOURCE_VERSION" || warn "One or more remote agent upgrades failed to queue."
+    elif [[ -n "$SOURCE_CHANNEL" ]]; then
+        "$PHP_BIN" "$INSTALL_DIR/panel/artisan" strata:nodes-upgrade-agents --channel="$SOURCE_CHANNEL" || warn "One or more remote agent upgrades failed to queue."
     else
         "$PHP_BIN" "$INSTALL_DIR/panel/artisan" strata:nodes-upgrade-agents --branch="$SOURCE_BRANCH" || warn "One or more remote agent upgrades failed to queue."
     fi

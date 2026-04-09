@@ -62,10 +62,16 @@
 
                     <div class="grid gap-3 md:grid-cols-[180px_1fr_auto]">
                         <select v-model="panelForm.source_type" class="field">
-                            <option value="branch">Branch</option>
+                            <option value="channel">Update Channel</option>
+                            <option value="branch">Custom Branch</option>
                             <option value="version">Version Tag</option>
                         </select>
-                        <input v-model="panelForm.source_value" type="text" class="field" :placeholder="panelForm.source_type === 'branch' ? 'main' : 'v1.0.0-beta.2'" />
+                        <select v-if="panelForm.source_type === 'channel'" v-model="panelForm.source_value" class="field">
+                            <option v-for="channel in panel.channels || []" :key="channel.value" :value="channel.value">
+                                {{ channel.label }} ({{ channel.value }})
+                            </option>
+                        </select>
+                        <input v-else v-model="panelForm.source_value" type="text" class="field" :placeholder="panelForm.source_type === 'branch' ? 'main' : 'v1.0.0-beta.2'" />
                         <button
                             @click="startPanelUpgrade"
                             :disabled="panelApplying || !panel.upgrade_script || !panelForm.source_value"
@@ -73,9 +79,16 @@
                         >{{ panelApplying ? 'Starting...' : 'Start Panel Upgrade' }}</button>
                     </div>
 
-                    <p class="text-xs text-gray-500">
-                        Recommended for public testing: <span class="font-mono text-gray-300">branch main</span>
-                    </p>
+                    <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4 space-y-2 text-xs text-gray-400">
+                        <div class="font-medium uppercase tracking-wide text-gray-500">Supported Update Channels</div>
+                        <div v-for="channel in panel.channels || []" :key="channel.value" class="flex items-start justify-between gap-4">
+                            <div>
+                                <div class="text-sm text-gray-200">{{ channel.label }}</div>
+                                <div>{{ channel.description }}</div>
+                            </div>
+                            <div class="font-mono text-gray-300">{{ channel.value }}</div>
+                        </div>
+                    </div>
 
                     <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4">
                         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -178,7 +191,7 @@ const panelApplying = ref(false);
 const panelMessage = ref(null);
 const panelSettingsSaving = ref(false);
 const panelForm = ref({
-    source_type: props.panel?.default_source_type || 'branch',
+    source_type: props.panel?.default_source_type || 'channel',
     source_value: props.panel?.default_source_value || 'main',
 });
 const panelSettings = ref({

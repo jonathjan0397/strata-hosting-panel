@@ -293,6 +293,7 @@ Use this when:
 ## Upgrading
 
 Production-style installs should use the fail-safe upgrade utility instead of `git pull`.
+Normal deployments should not be made by pushing directly to `main` and patching live servers manually. Use tagged releases and the upgrade utility.
 
 Upgrade to a tagged release:
 
@@ -302,11 +303,17 @@ chmod +x /root/strata-upgrade.sh
 /root/strata-upgrade.sh --version v1.0.0-alpha.3
 ```
 
-Public testers can upgrade from the latest `main` branch:
+Public testers can upgrade from a supported update channel:
 
 ```bash
-/root/strata-upgrade.sh --branch main
+/root/strata-upgrade.sh --channel main
 ```
+
+Supported channels:
+
+- `main` - latest supported integration branch
+- `latest-untested` - newer pre-release branch with less validation
+- `experimental` - unstable branch for active experiments
 
 Manual archive upgrades are also supported:
 
@@ -321,6 +328,7 @@ Upgrades also repair older PowerDNS installs by removing unsupported SOA setting
 When upgrading from `--version` or `--branch`, the primary server also queues matching agent upgrades for online remote nodes. Local archive upgrades are safe for the primary server but cannot be cascaded automatically unless the same build is available from a trusted GitHub URL.
 
 See [docs/UPGRADING.md](docs/UPGRADING.md) for the full workflow and manual rollback notes.
+Deployment policy is documented in [docs/DEPLOYMENT-POLICY.md](docs/DEPLOYMENT-POLICY.md), and the recommended release pipeline is in [docs/RELEASE-UPGRADE-WORKFLOW.md](docs/RELEASE-UPGRADE-WORKFLOW.md).
 
 ---
 

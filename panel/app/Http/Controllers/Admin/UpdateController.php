@@ -16,6 +16,12 @@ use Symfony\Component\Process\Process;
 
 class UpdateController extends Controller
 {
+    private const SUPPORTED_CHANNELS = [
+        ['value' => 'main', 'label' => 'Main', 'description' => 'Latest supported integration branch.'],
+        ['value' => 'latest-untested', 'label' => 'Latest-Untested', 'description' => 'Newer branch for early validation before normal release use.'],
+        ['value' => 'experimental', 'label' => 'Experimental', 'description' => 'High-risk branch for active experiments and unfinished work.'],
+    ];
+
     public function index(): Response
     {
         $nodes = Node::where('status', 'online')->select('id', 'name', 'hostname')->get();
@@ -26,8 +32,9 @@ class UpdateController extends Controller
                 'version' => config('strata.version'),
                 'upgrade_script' => File::exists('/root/strata-upgrade.sh'),
                 'log_path' => storage_path('logs/strata-panel-upgrade.log'),
-                'default_source_type' => 'branch',
+                'default_source_type' => 'channel',
                 'default_source_value' => 'main',
+                'channels' => self::SUPPORTED_CHANNELS,
                 'auto_remote_agents' => SystemSetting::getValue('updates.auto_remote_agents', '0') === '1',
             ],
         ]);
@@ -93,7 +100,7 @@ class UpdateController extends Controller
     public function panelUpgrade(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'source_type' => ['required', 'in:branch,version'],
+            'source_type' => ['required', 'in:channel,branch,version'],
             'source_value' => ['required', 'string', 'max:100'],
         ]);
 
@@ -104,8 +111,8 @@ class UpdateController extends Controller
             ], 500);
         }
 
-        $sourceFlag = $data['source_type'] === 'version' ? '--version' : '--branch';
         $sourceValue = trim($data['source_value']);
+        [$sourceFlag, $normalizedValue] = $this->resolveUpgradeSource($data['source_type'], $sourceValue);
         $logPath = storage_path('logs/strata-panel-upgrade.log');
 
         File::ensureDirectoryExists(dirname($logPath));
@@ -116,7 +123,7 @@ class UpdateController extends Controller
                 now()->toDateTimeString(),
                 $request->user()->email,
                 $sourceFlag,
-                $sourceValue,
+                $normalizedValue,
                 SystemSetting::getValue('updates.auto_remote_agents', '0')
             )
         );
@@ -125,7 +132,7 @@ class UpdateController extends Controller
         $command = sprintf(
             "nohup /root/strata-upgrade.sh %s %s%s >> %s 2>&1 < /dev/null &",
             escapeshellarg($sourceFlag),
-            escapeshellarg($sourceValue),
+            escapeshellarg($normalizedValue),
             $autoRemoteAgents ? '' : ' --skip-remote-agents',
             escapeshellarg($logPath)
         );
@@ -134,7 +141,7 @@ class UpdateController extends Controller
 
         AuditLog::record('panel.upgrade.started', null, [
             'source_type' => $data['source_type'],
-            'source_value' => $sourceValue,
+            'source_value' => $normalizedValue,
         ]);
 
         return response()->json([
@@ -147,14 +154,14 @@ class UpdateController extends Controller
     public function remoteAgentsUpgrade(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'source_type' => ['required', 'in:branch,version'],
+            'source_type' => ['required', 'in:channel,branch,version'],
             'source_value' => ['required', 'string', 'max:100'],
         ]);
 
         $sourceValue = trim($data['source_value']);
         $logPath = storage_path('logs/strata-remote-agents-upgrade.log');
         $phpBinary = File::exists('/usr/bin/php8.4') ? '/usr/bin/php8.4' : PHP_BINARY;
-        $flag = $data['source_type'] === 'version' ? '--target-version' : '--branch';
+        [$flag, $normalizedValue] = $this->resolveRemoteAgentUpgradeSource($data['source_type'], $sourceValue);
 
         File::ensureDirectoryExists(dirname($logPath));
         File::append(
@@ -164,7 +171,7 @@ class UpdateController extends Controller
                 now()->toDateTimeString(),
                 $request->user()->email,
                 $flag,
-                $sourceValue
+                $normalizedValue
             )
         );
 
@@ -172,7 +179,7 @@ class UpdateController extends Controller
             "cd /opt/strata-panel/panel && nohup %s artisan strata:nodes-upgrade-agents %s=%s >> %s 2>&1 < /dev/null &",
             escapeshellarg($phpBinary),
             $flag,
-            escapeshellarg($sourceValue),
+            escapeshellarg($normalizedValue),
             escapeshellarg($logPath)
         );
 
@@ -180,7 +187,7 @@ class UpdateController extends Controller
 
         AuditLog::record('panel.remote_agents_upgrade.started', null, [
             'source_type' => $data['source_type'],
-            'source_value' => $sourceValue,
+            'source_value' => $normalizedValue,
         ]);
 
         return response()->json([
@@ -188,5 +195,42 @@ class UpdateController extends Controller
             'message' => 'Remote node agent upgrade started.',
             'log_path' => $logPath,
         ]);
+    }
+
+    private function resolveUpgradeSource(string $sourceType, string $sourceValue): array
+    {
+        if ($sourceType === 'version') {
+            return ['--version', $sourceValue];
+        }
+
+        if ($sourceType === 'channel') {
+            $this->assertSupportedChannel($sourceValue);
+
+            return ['--channel', $sourceValue];
+        }
+
+        return ['--branch', $sourceValue];
+    }
+
+    private function resolveRemoteAgentUpgradeSource(string $sourceType, string $sourceValue): array
+    {
+        if ($sourceType === 'version') {
+            return ['--target-version', $sourceValue];
+        }
+
+        if ($sourceType === 'channel') {
+            $this->assertSupportedChannel($sourceValue);
+
+            return ['--channel', $sourceValue];
+        }
+
+        return ['--branch', $sourceValue];
+    }
+
+    private function assertSupportedChannel(string $channel): void
+    {
+        $supported = collect(self::SUPPORTED_CHANNELS)->pluck('value')->all();
+
+        abort_unless(in_array($channel, $supported, true), 422, 'Unsupported update channel.');
     }
 }

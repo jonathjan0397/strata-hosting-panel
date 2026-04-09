@@ -8,8 +8,15 @@ use Illuminate\Console\Command;
 
 class UpgradeRemoteAgents extends Command
 {
+    private const SUPPORTED_CHANNELS = [
+        'main' => 'main',
+        'latest-untested' => 'latest-untested',
+        'experimental' => 'experimental',
+    ];
+
     protected $signature = 'strata:nodes-upgrade-agents
         {--target-version= : GitHub release/tag version to install on remote agents}
+        {--channel= : Supported update channel (main, latest-untested, experimental)}
         {--branch= : GitHub branch to install on remote agents}
         {--download-url= : Explicit trusted GitHub archive URL}
         {--include-primary : Also ask the primary/local node agent to self-upgrade}';
@@ -19,18 +26,28 @@ class UpgradeRemoteAgents extends Command
     public function handle(): int
     {
         $version = trim((string) $this->option('target-version'));
+        $channel = trim((string) $this->option('channel'));
         $branch = trim((string) $this->option('branch'));
         $downloadUrl = trim((string) $this->option('download-url'));
 
-        $selected = count(array_filter([$version, $branch, $downloadUrl], fn (string $value) => $value !== ''));
+        $selected = count(array_filter([$version, $channel, $branch, $downloadUrl], fn (string $value) => $value !== ''));
         if ($selected !== 1) {
-            $this->error('Choose exactly one of --target-version, --branch, or --download-url.');
+            $this->error('Choose exactly one of --target-version, --channel, --branch, or --download-url.');
             return Command::FAILURE;
         }
 
         if ($version !== '') {
             $targetVersion = $version;
             $downloadUrl = "https://github.com/jonathjan0397/strata-hosting-panel/archive/refs/tags/{$version}.tar.gz";
+        } elseif ($channel !== '') {
+            if (! array_key_exists($channel, self::SUPPORTED_CHANNELS)) {
+                $this->error('channel must be one of: ' . implode(', ', array_keys(self::SUPPORTED_CHANNELS)));
+                return Command::FAILURE;
+            }
+
+            $branch = self::SUPPORTED_CHANNELS[$channel];
+            $targetVersion = 'channel-' . $channel;
+            $downloadUrl = "https://github.com/jonathjan0397/strata-hosting-panel/archive/refs/heads/{$branch}.tar.gz";
         } elseif ($branch !== '') {
             $targetVersion = $branch;
             $downloadUrl = "https://github.com/jonathjan0397/strata-hosting-panel/archive/refs/heads/{$branch}.tar.gz";

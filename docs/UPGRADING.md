@@ -1,6 +1,12 @@
 # Upgrading Strata Hosting Panel
 
 Strata installs are not expected to be Git working copies. Use the upgrade utility so runtime state is preserved and rollback is available.
+Do not treat direct pushes to `main` plus live SSH patching as the normal deployment path.
+
+Related policy documents:
+
+- [DEPLOYMENT-POLICY.md](DEPLOYMENT-POLICY.md)
+- [RELEASE-UPGRADE-WORKFLOW.md](RELEASE-UPGRADE-WORKFLOW.md)
 
 ## Supported Upgrade Sources
 
@@ -12,11 +18,17 @@ chmod +x /root/strata-upgrade.sh
 /root/strata-upgrade.sh --version v1.0.0-alpha.3
 ```
 
-Upgrade from the latest `main` branch for public testing:
+Upgrade from a supported update channel:
 
 ```bash
-/root/strata-upgrade.sh --branch main
+/root/strata-upgrade.sh --channel main
 ```
+
+Supported channels:
+
+- `main` - latest supported integration branch
+- `latest-untested` - newer branch for early validation
+- `experimental` - unstable branch for active experimental work
 
 Upgrade from a manually uploaded archive:
 
@@ -94,9 +106,9 @@ Adjust the backup timestamp and PHP service name if your install differs.
 - Run the upgrade utility as `root`.
 - Keep at least 1 GB of free disk space before upgrading.
 - Do not manually overwrite `/opt/strata-panel/panel` with an archive unless you also preserve `.env`, `storage`, permissions, and services.
-- Public testers can use `--branch main`; stable users should prefer tagged releases.
+- Public testers can use `--channel main`; stable users should prefer tagged releases.
 - Remote node cascade upgrades require the node to have `/usr/sbin/strata-agent-upgrade`, which is installed by the current remote node installer (`installer/agent.sh`) and by the full installer. Older nodes without that helper should be upgraded once manually by rerunning the remote node installer.
 - Local `--file` upgrades cannot be cascaded automatically unless the same build is also available from a trusted GitHub tag or branch URL.
 - The panel and agent version are derived from the release tag, branch name, or the repository `VERSION` file. Node health checks update each node's `agent_version`.
-- The internal remote cascade command is `php artisan strata:nodes-upgrade-agents --target-version <tag>` or `--branch <branch>`. The top-level `/root/strata-upgrade.sh --version <tag>` wrapper handles this for normal upgrades.
+- The internal remote cascade command is `php artisan strata:nodes-upgrade-agents --target-version <tag>`, `--channel <channel>`, or `--branch <branch>`. The top-level `/root/strata-upgrade.sh` wrapper handles this for normal upgrades.
 - If you use Strata as authoritative DNS, verify that your host-domain zone answers with an SOA similar to `ns1.example.com. hostmaster.example.com.` before changing registrar nameservers. Current installs should now be repaired automatically during upgrade.
