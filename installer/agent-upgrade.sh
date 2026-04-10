@@ -135,6 +135,23 @@ repair_mail_tls_defaults() {
     postconf -P "smtps/inet/smtpd_sasl_auth_enable=yes" >/dev/null 2>&1 || true
 
     if [[ -d /etc/dovecot/conf.d ]]; then
+        python3 - <<'PY' >/dev/null 2>&1 || true
+from pathlib import Path
+conf = Path('/etc/dovecot/conf.d/10-auth.conf')
+if conf.exists():
+    lines = conf.read_text().splitlines()
+    updated = []
+    found = False
+    for line in lines:
+        if line.strip().startswith('auth_mechanisms ='):
+            updated.append('auth_mechanisms = plain login')
+            found = True
+        else:
+            updated.append(line)
+    if not found:
+        updated.append('auth_mechanisms = plain login')
+    conf.write_text('\n'.join(updated) + '\n')
+PY
         cat > "$dovecot_ssl" <<EOF
 ssl = yes
 ssl_server_cert_file = ${mail_tls_dir}/fullchain.pem

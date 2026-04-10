@@ -19,7 +19,7 @@ Project:
 
 Current public release line:
 
-- latest published beta at the time of this handoff: `1.0.0-BETA-3.06`
+- latest published beta at the time of this handoff: `1.0.0-BETA-3.07`
 
 Current branch policy:
 
@@ -305,3 +305,4 @@ Before ending a session, leave behind:
 - never rewrite a published tag
 - never commit secrets into the repo
 - never treat live patching as the normal deployment model
+

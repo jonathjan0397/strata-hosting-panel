@@ -63,7 +63,7 @@ Examples:
 Current public test releases use this format:
 
 ```text
-1.0.0-BETA-3.06
+1.0.0-BETA-3.07
 ```
 
 Meaning:
@@ -91,7 +91,7 @@ Examples:
 
 - `1.0.0-BETA-3`
 - `1.0.0-BETA-3.01`
-- `1.0.0-BETA-3.06`
+- `1.0.0-BETA-3.07`
 
 ## Tag Rules
 
@@ -106,8 +106,8 @@ Rules:
 
 Examples:
 
-- correct: `1.0.0-BETA-3.06`
-- incorrect: force-moving `1.0.0-BETA-3.06` after users already upgraded to it
+- correct: `1.0.0-BETA-3.07`
+- incorrect: force-moving `1.0.0-BETA-3.07` after users already upgraded to it
 
 ## GitHub Release Rules
 
@@ -129,7 +129,7 @@ This should use a published release tag.
 
 Examples:
 
-- `1.0.0-BETA-3.06`
+- `1.0.0-BETA-3.07`
 
 This is the default and recommended path.
 
@@ -178,7 +178,7 @@ The intended sequence is:
 Normal live upgrades should use:
 
 ```bash
-/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.06
+/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.07
 ```
 
 Branch-based testing upgrades should use:
@@ -251,3 +251,4 @@ The moment a fix matters to live systems, it should become:
 - [docs/DEPLOYMENT-POLICY.md](DEPLOYMENT-POLICY.md)
 - [docs/RELEASE-UPGRADE-WORKFLOW.md](RELEASE-UPGRADE-WORKFLOW.md)
 - [docs/UPGRADING.md](UPGRADING.md)
+
