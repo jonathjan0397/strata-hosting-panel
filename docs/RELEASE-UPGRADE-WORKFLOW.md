@@ -174,4 +174,14 @@ If a fix is important enough to touch a live server, it is important enough to:
 
 That should be the standard for all future Strata deployments.
 
+## Mail Client Guidance Rule
+
+Until branded per-domain mail TLS is fully implemented and validated, release-ready UI and docs should recommend the hosting server's shared mail hostname for IMAP/POP/SMTP client setup.
+
+That means:
+
+- mailbox identity: `user@their-domain`
+- client transport hostname: shared server mail host
+- do not present `mail.<hosted-domain>` as the default recommended client endpoint unless certificate validity and client compatibility are proven for that deployment model
+
 

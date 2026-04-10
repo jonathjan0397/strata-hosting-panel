@@ -111,6 +111,7 @@ These areas were recently changed and should be assumed to exist unless proven o
 - admin repair flow for public HTTPS
 - pinned per-node certificate handling for agent trust
 - mail TLS handling separated from panel TLS handling
+- current safe mail-client guidance is to use the hosting server's shared mail hostname, not per-domain `mail.<domain>` branding, unless product support for branded mail TLS is explicitly completed and validated
 
 ### Troubleshooting / Mail
 
@@ -120,6 +121,7 @@ These areas were recently changed and should be assumed to exist unless proven o
 - mail pages improved to expose DKIM/SPF/DMARC status directly
 - webmail runtime now depends on `/var/www/webmail/include.php`, not only `_include.php`
 - OpenDKIM socket access should use `UserID opendkim:postfix`; avoid reintroducing the old `postfix` supplementary-group workaround
+- older upgraded installs may miss `auth_mechanisms = plain login` in Dovecot; release `1.0.0-BETA-3.07` added upgrade repairs for that so Outlook submission on port `587` stops failing with `Invalid authentication mechanism: 'LOGIN'`
 
 ### Navigation / UI
 
@@ -194,6 +196,23 @@ Implication:
 
 - do not stop at provider responses
 - verify listeners, TLS identity, local service health, and packet flow
+
+### 5. Do not imply per-domain mail hostnames are ready by default
+
+Observed failure:
+
+- Outlook and other strict clients failed when using `mail.<hosted-domain>` because the product did not yet guarantee matching branded mail TLS for every hosted domain
+
+Decision:
+
+- the mail client guide should recommend the hosting server's shared mail hostname
+- mailbox identity remains `user@their-domain`
+- transport hostname should stay on the certificate-valid shared mail host until branded mail TLS is implemented end-to-end and validated
+
+Implication:
+
+- do not casually switch docs or UI back to `mail.<domain>` defaults
+- treat branded mail TLS as a separate product feature, not assumed behavior
 
 ## Release Expectations
 

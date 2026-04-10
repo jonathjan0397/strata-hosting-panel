@@ -1,7 +1,7 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.07-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.08)
+[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.08-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.08)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
@@ -27,6 +27,12 @@ There is no public demo environment available right now.
 When a shared smoke-test instance is brought back, its URL and access policy will be documented in [docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md).
 
 Please report public testing issues in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
+
+---
+
+## Role Guide
+
+For a role-based feature overview and short how-to guidance for admins, resellers, and end users, see [docs/ROLE-GUIDE.md](docs/ROLE-GUIDE.md).
 
 ---
 
