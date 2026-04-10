@@ -30,11 +30,28 @@ class NodeStatusController extends Controller
         try {
             $infoRes     = $client->systemInfo();
             $servicesRes = $client->services();
+            $version = $node->agent_version;
 
             if ($infoRes->successful()) {
+                try {
+                    $versionRes = $client->version();
+                    if ($versionRes->successful()) {
+                        $reportedVersion = $this->normalizeAgentVersion($versionRes->json('version'));
+                        if ($reportedVersion !== null) {
+                            $version = $reportedVersion;
+                        }
+                    }
+                } catch (\Throwable) {
+                    // Do not fail node status if the version endpoint is missing or unhealthy.
+                }
+
                 $node->update(['status' => 'online', 'last_seen_at' => now()]);
             } else {
                 $node->update(['status' => 'offline']);
+            }
+
+            if ($version !== $node->agent_version) {
+                $node->update(['agent_version' => $version]);
             }
 
             return response()->json([
@@ -46,6 +63,17 @@ class NodeStatusController extends Controller
             $node->update(['status' => 'offline']);
             return response()->json(['error' => 'Agent unreachable: ' . $e->getMessage()], 502);
         }
+    }
+
+    private function normalizeAgentVersion(?string $version): ?string
+    {
+        $value = trim((string) $version);
+
+        if ($value === '' || strtolower($value) === 'dev') {
+            return null;
+        }
+
+        return $value;
     }
 
     /**

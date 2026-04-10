@@ -41,7 +41,7 @@ class UpdateController extends Controller
                 'activity' => $this->upgradeActivityPayload(),
                 'default_source_type' => 'version',
                 'default_source_value' => $latestRelease['tag_name'] ?? '',
-                'auto_remote_agents' => SystemSetting::getValue('updates.auto_remote_agents', '0') === '1',
+                'auto_remote_agents' => SystemSetting::getValue('updates.auto_remote_agents', '1') === '1',
                 'rollback_backups' => $this->availableRollbackBackups(),
             ],
         ]);
@@ -131,11 +131,11 @@ class UpdateController extends Controller
                 $request->user()->email,
                 $sourceFlag,
                 $normalizedValue,
-                SystemSetting::getValue('updates.auto_remote_agents', '0')
+                SystemSetting::getValue('updates.auto_remote_agents', '1')
             )
         );
 
-        $autoRemoteAgents = SystemSetting::getValue('updates.auto_remote_agents', '0') === '1';
+        $autoRemoteAgents = SystemSetting::getValue('updates.auto_remote_agents', '1') === '1';
         $command = sprintf(
             "nohup sudo -n %s %s %s%s >> %s 2>&1 < /dev/null &",
             escapeshellarg(self::PANEL_UPGRADE_BIN),

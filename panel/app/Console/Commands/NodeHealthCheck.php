@@ -30,7 +30,10 @@ class NodeHealthCheck extends Command
                     try {
                         $versionResponse = AgentClient::for($node)->version();
                         if ($versionResponse->successful() && is_string($versionResponse->json('version'))) {
-                            $version = $versionResponse->json('version');
+                            $reportedVersion = $this->normalizeAgentVersion($versionResponse->json('version'));
+                            if ($reportedVersion !== null) {
+                                $version = $reportedVersion;
+                            }
                         }
                     } catch (\Throwable) {
                         // Health should not be marked offline just because an older agent lacks /version.
@@ -54,5 +57,16 @@ class NodeHealthCheck extends Command
         }
 
         return Command::SUCCESS;
+    }
+
+    private function normalizeAgentVersion(?string $version): ?string
+    {
+        $value = trim((string) $version);
+
+        if ($value === '' || strtolower($value) === 'dev') {
+            return null;
+        }
+
+        return $value;
     }
 }
