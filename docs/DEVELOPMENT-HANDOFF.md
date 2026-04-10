@@ -19,7 +19,7 @@ Project:
 
 Current public release line:
 
-- latest published beta at the time of this handoff: `1.0.0-BETA-3.08`
+- latest published beta at the time of this handoff: `1.0.0-BETA-3.09`
 
 Current branch policy:
 
@@ -96,6 +96,8 @@ These areas were recently changed and should be assumed to exist unless proven o
 - upgrade utility exposed through `/usr/sbin/strata-upgrade`
 - panel update metadata cache reduced from 10 minutes to 2 minutes
 - update page now has a live progress indicator and log scroller
+- fresh primary and remote-node installs now prompt for hosting-data and backup-data storage roots
+- installer keeps runtime compatibility by bind-mounting the selected storage roots onto `/var/www` and `/var/backups/strata`
 
 ### DNS
 
@@ -179,6 +181,30 @@ Important lessons:
 - root-domain provisioning must reuse shared host zones
 - secondary DNS must be verified against primary, not assumed correct
 - rectify/reload matters after record changes
+
+### 3b. Large disks may exist even when the panel appears to show only ~40 GB
+
+Observed failure:
+
+- servers were provisioned with roughly 500 GB disks
+- panel node status appeared to show only ~30-40 GB available
+
+Actual cause:
+
+- the servers had separate mounts for `/`, `/var`, and a large data volume such as `/srv`
+- the node status UI was only surfacing the first small mounts prominently
+- hosting data would still land on the small system path unless storage placement was handled explicitly during install
+
+Decision:
+
+- new installs should ask where hosting data and backup data will live
+- the installer should recommend the largest suitable mounted volume
+- product runtime paths remain `/var/www` and `/var/backups/strata` via bind mounts for compatibility
+
+Implication:
+
+- do not change the app to arbitrary new paths casually; too much code still assumes `/var/www`
+- prefer storage-root selection plus bind mounts over direct path rewrites
 
 ### 4. SMTP problems may not be provider blocking
 

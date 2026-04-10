@@ -15,7 +15,7 @@ Upgrade from a tagged release:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /usr/sbin/strata-upgrade
 chmod +x /usr/sbin/strata-upgrade
-/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.08
+/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.09
 ```
 
 Upgrade from a supported update channel:
@@ -33,7 +33,7 @@ Supported channels:
 Upgrade from a manually uploaded archive:
 
 ```bash
-/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.08.tar.gz
+/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.09.tar.gz
 ```
 
 The file may be a GitHub source archive or an equivalent `.tar`, `.tar.gz`, or `.tgz` archive containing the repository root.
@@ -48,8 +48,11 @@ The utility replaces application source code but preserves runtime state:
 - `/etc/strata-agent`
 - `/etc/strata-webdav`
 - existing TLS certificates and service secrets
-- hosted account data under `/var/www`
+- hosted account data exposed under `/var/www`
+- backup data exposed under `/var/backups/strata`
 - databases and mail data
+
+On newer installs, `/var/www` and `/var/backups/strata` may be bind-mounted to larger selected storage roots such as `/srv/strata/www` and `/srv/strata/backups`. The upgrade utility preserves the runtime paths and does not attempt to move those storage roots.
 
 ## What The Upgrade Runs
 

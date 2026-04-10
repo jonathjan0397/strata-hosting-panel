@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0-BETA-3.09] - 2026-04-10
+
+Public beta target: `1.0.0-BETA-3.09`.
+
+### Added - Installer storage selection
+
+**Installer / Storage**
+- Fresh primary installs now detect mounted filesystems, recommend the largest suitable volume, and prompt for hosting-data and backup-data roots
+- Fresh remote node installs now support the same storage-root selection, including non-interactive overrides through `STRATA_HOSTING_STORAGE_ROOT` and `STRATA_BACKUP_STORAGE_ROOT`
+- Selected storage roots are bind-mounted onto `/var/www` and `/var/backups/strata` so the product can use larger data volumes without breaking the existing runtime path assumptions
+
+### Changed - Documentation
+
+**Docs**
+- Installation, upgrading, and handoff docs now describe the new storage-selection flow and the bind-mount compatibility model
+
 ## [1.0.0-BETA-3.08] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.08`.

@@ -24,6 +24,147 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 die()     { echo -e "${RED}[fail]${NC} $*" >&2; exit 1; }
 prompt()  { echo -e "${CYAN}$*${NC}"; }
 
+human_bytes() {
+    local value="${1:-0}"
+    if command -v numfmt >/dev/null 2>&1; then
+        numfmt --to=iec --suffix=B "$value"
+    else
+        awk -v bytes="$value" 'BEGIN {
+            split("B KiB MiB GiB TiB PiB", units, " ");
+            idx = 1;
+            while (bytes >= 1024 && idx < 6) {
+                bytes /= 1024;
+                idx++;
+            }
+            printf "%.1f %s\n", bytes, units[idx];
+        }'
+    fi
+}
+
+collect_storage_mounts() {
+    mapfile -t STORAGE_MOUNTS < <(
+        findmnt -rn -b -o TARGET,SIZE,AVAIL,FSTYPE \
+        | awk '
+            $1 ~ /^\/(boot|efi)(\/|$)/ { next }
+            $4 ~ /^(tmpfs|devtmpfs|squashfs|overlay|proc|sysfs|devpts|cgroup2?|pstore|mqueue|bpf|tracefs|ramfs|autofs|nsfs|fusectl|debugfs|securityfs|configfs)$/ { next }
+            { print $0 }
+        ' \
+        | sort -k2,2nr
+    )
+}
+
+recommended_storage_mount() {
+    local fallback="/"
+    local line mountpoint
+
+    for line in "${STORAGE_MOUNTS[@]:-}"; do
+        read -r mountpoint _ <<< "$line"
+        fallback="$mountpoint"
+        [[ "$mountpoint" != "/" ]] && { echo "$mountpoint"; return; }
+    done
+
+    echo "$fallback"
+}
+
+storage_path_for_mount() {
+    local mountpoint="${1:-/}"
+    local suffix="${2:-strata}"
+
+    if [[ "$mountpoint" == "/" ]]; then
+        echo "/${suffix}"
+    else
+        echo "${mountpoint%/}/${suffix}"
+    fi
+}
+
+prompt_storage_root() {
+    local label="$1"
+    local suffix="$2"
+    local __resultvar="$3"
+    local line mountpoint size avail fstype
+    local recommended_mount default_path choice custom_path selected_mount
+
+    collect_storage_mounts
+    recommended_mount="$(recommended_storage_mount)"
+    default_path="$(storage_path_for_mount "$recommended_mount" "$suffix")"
+
+    echo ""
+    echo -e "${BOLD}-- ${label} storage --${NC}"
+    echo ""
+    echo "  Available mounted filesystems:"
+
+    local index=1
+    for line in "${STORAGE_MOUNTS[@]:-}"; do
+        read -r mountpoint size avail fstype <<< "$line"
+        printf '    %s) %-18s total %-9s free %-9s fs %s\n' \
+            "$index" \
+            "$mountpoint" \
+            "$(human_bytes "$size")" \
+            "$(human_bytes "$avail")" \
+            "$fstype"
+        ((index++))
+    done
+
+    echo ""
+    echo "  Recommended path: ${default_path}"
+    echo "  Press Enter to accept, choose a number from the list above, or type a custom absolute path."
+    read -rp "$(prompt "${label} root [${default_path}]: ")" choice
+    choice="${choice:-$default_path}"
+
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice < index )); then
+        line="${STORAGE_MOUNTS[$((choice - 1))]}"
+        read -r selected_mount _ <<< "$line"
+        custom_path="$(storage_path_for_mount "$selected_mount" "$suffix")"
+        printf -v "$__resultvar" '%s' "$custom_path"
+        return
+    fi
+
+    [[ "$choice" == /* ]] || die "${label} root must be an absolute path."
+    printf -v "$__resultvar" '%s' "${choice%/}"
+}
+
+ensure_bind_mount() {
+    local source_path="$1"
+    local target_path="$2"
+    local fstab_label="$3"
+
+    mkdir -p "$source_path" "$target_path"
+
+    if [[ "$source_path" == "$target_path" ]]; then
+        return
+    fi
+
+    if ! mountpoint -q "$target_path"; then
+        mount --bind "$source_path" "$target_path"
+    fi
+
+    local escaped_source escaped_target
+    escaped_source=$(printf '%s' "$source_path" | sed 's/[.[\*^$(){}?+|/]/\\&/g')
+    escaped_target=$(printf '%s' "$target_path" | sed 's/[.[\*^$(){}?+|/]/\\&/g')
+    grep -qE "^[[:space:]]*${escaped_source}[[:space:]]+${escaped_target}[[:space:]]+none[[:space:]]+bind" /etc/fstab 2>/dev/null \
+        || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$fstab_label" >> /etc/fstab
+}
+
+remove_bind_mount() {
+    local source_path="${1:-}"
+    local target_path="${2:-}"
+    local fstab_label="${3:-}"
+
+    [[ -n "$target_path" ]] || return
+
+    if mountpoint -q "$target_path"; then
+        umount "$target_path" 2>/dev/null || true
+    fi
+
+    if [[ -f /etc/fstab ]]; then
+        grep -vF "# ${fstab_label}" /etc/fstab > /etc/fstab.strata.tmp 2>/dev/null || true
+        if [[ -f /etc/fstab.strata.tmp ]]; then
+            mv /etc/fstab.strata.tmp /etc/fstab
+        fi
+    fi
+
+}
+
 # ── Privilege escalation ──────────────────────────────────────────────────────
 # Re-exec under sudo if not already root so the installer can be run as any
 # user with sudo access (e.g. bash install.sh  or  bash <(curl -fsSL ...)).
@@ -71,6 +212,9 @@ cleanup() {
         rm -f "/etc/systemd/system/${svc}.service"
     done
     systemctl daemon-reload 2>/dev/null || true
+
+    remove_bind_mount "${HOSTING_STORAGE_ROOT:-}" "${HOSTING_BIND_TARGET:-/var/www}" "strata-hosting-storage"
+    remove_bind_mount "${BACKUP_STORAGE_ROOT:-}" "${BACKUP_BIND_TARGET:-/var/backups/strata}" "strata-backup-storage"
 
     # Drop Strata databases and users (best-effort — MariaDB may not be set up yet)
     if command -v mysql &>/dev/null && [[ -n "${DB_PASSWORD:-}" ]]; then
@@ -188,6 +332,8 @@ case "${WEB_SERVER_CHOICE:-1}" in
     *)               WEB_SERVER="nginx"  ;;
 esac
 echo -e "  Selected: ${GREEN}$WEB_SERVER${NC}"
+prompt_storage_root "Hosting data" "strata/www" HOSTING_STORAGE_ROOT
+prompt_storage_root "Backup data" "strata/backups" BACKUP_STORAGE_ROOT
 
 # ── 2. Admin account ──────────────────────────────────────────────────────────
 echo ""
@@ -260,6 +406,8 @@ PANEL_USER="strata"
 MAIL_DOMAIN="mail.${HOSTNAME_PARENT_DOMAIN}"
 MAIL_TLS_DIR="/etc/strata-panel/mail-tls"
 MAIL_HTTP_ROOT="/var/www/strata-mail"
+HOSTING_BIND_TARGET="/var/www"
+BACKUP_BIND_TARGET="/var/backups/strata"
 
 # ── Pre-flight: repair broken package manager state ───────────────────────────
 # Runs before the confirm prompt so any failure exits cleanly without the rollback trap.
@@ -297,6 +445,8 @@ echo -e "  Panel domain:   ${BOLD}${PANEL_DOMAIN}${NC}"
 echo -e "  Web server:     ${BOLD}${WEB_SERVER}${NC}"
 echo -e "  Admin email:    ${BOLD}${ADMIN_EMAIL}${NC}"
 echo -e "  Admin name:     ${BOLD}${ADMIN_NAME}${NC}"
+echo -e "  Hosting data:   ${BOLD}${HOSTING_STORAGE_ROOT}${NC} -> ${HOSTING_BIND_TARGET}"
+echo -e "  Backup data:    ${BOLD}${BACKUP_STORAGE_ROOT}${NC} -> ${BACKUP_BIND_TARGET}"
 echo -e "  Service creds:  will be saved to ${BOLD}/root/strata-credentials.txt${NC}"
 echo ""
 read -rp "$(prompt 'Proceed with installation? [Y/n]: ')" CONFIRM
@@ -309,6 +459,12 @@ trap cleanup ERR
 echo ""
 info "Starting installation…"
 echo ""
+
+info "Preparing storage mounts..."
+ensure_bind_mount "$HOSTING_STORAGE_ROOT" "$HOSTING_BIND_TARGET" "strata-hosting-storage"
+ensure_bind_mount "$BACKUP_STORAGE_ROOT" "$BACKUP_BIND_TARGET" "strata-backup-storage"
+success "Hosting data path: ${HOSTING_STORAGE_ROOT} -> ${HOSTING_BIND_TARGET}"
+success "Backup data path: ${BACKUP_STORAGE_ROOT} -> ${BACKUP_BIND_TARGET}"
 
 # ── Step 1. System update ─────────────────────────────────────────────────────
 dpkg --configure -a 2>/dev/null || true
@@ -1962,6 +2118,8 @@ Server hostname:    ${HOSTNAME_FQDN}
 Server IP:          ${SERVER_IP}
 Panel URL:          https://${PANEL_DOMAIN}
 Webmail URL:        https://${PANEL_DOMAIN}/webmail/
+Hosting data root:  ${HOSTING_STORAGE_ROOT}  (bind-mounted to ${HOSTING_BIND_TARGET})
+Backup data root:   ${BACKUP_STORAGE_ROOT}  (bind-mounted to ${BACKUP_BIND_TARGET})
 
 Admin email:        ${ADMIN_EMAIL}
 Admin name:         ${ADMIN_NAME}
@@ -2040,6 +2198,10 @@ rm -rf /etc/strata-panel
 rm -f  /usr/sbin/strata-agent
 rm -f  /usr/sbin/strata-webdav
 rm -f  /root/.my.cnf
+if mountpoint -q '${HOSTING_BIND_TARGET}'; then umount '${HOSTING_BIND_TARGET}' 2>/dev/null || true; fi
+if mountpoint -q '${BACKUP_BIND_TARGET}'; then umount '${BACKUP_BIND_TARGET}' 2>/dev/null || true; fi
+grep -vF '# strata-hosting-storage' /etc/fstab | grep -vF '# strata-backup-storage' > /etc/fstab.strata.tmp 2>/dev/null || true
+if [[ -f /etc/fstab.strata.tmp ]]; then mv /etc/fstab.strata.tmp /etc/fstab; fi
 
 echo "[*] Removing system user '${PANEL_USER}'…"
 crontab -r -u '${PANEL_USER}' 2>/dev/null || true
@@ -2079,6 +2241,8 @@ echo -e "  ${BOLD}Webmail:${NC}          https://${PANEL_DOMAIN}/webmail/"
 echo -e "  ${BOLD}Admin login:${NC}      ${ADMIN_EMAIL}"
 echo -e "  ${BOLD}Admin password:${NC}   (as entered)"
 echo -e "  ${BOLD}Web server:${NC}       ${WEB_SERVER}"
+echo -e "  ${BOLD}Hosting data:${NC}     ${HOSTING_STORAGE_ROOT} -> ${HOSTING_BIND_TARGET}"
+echo -e "  ${BOLD}Backup data:${NC}      ${BACKUP_STORAGE_ROOT} -> ${BACKUP_BIND_TARGET}"
 echo ""
 echo -e "  ${BOLD}Webmail admin:${NC}    https://${PANEL_DOMAIN}/webmail/?admin"
 echo -e "  ${BOLD}Webmail admin pw:${NC} ${SNAPPYMAIL_ADMIN_PASS}"

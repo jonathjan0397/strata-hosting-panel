@@ -20,6 +20,127 @@ success() { echo -e "${GREEN}[ok]${NC}   $*"; }
 warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 die()     { echo -e "${RED}[fail]${NC} $*" >&2; exit 1; }
 
+human_bytes() {
+    local value="${1:-0}"
+    if command -v numfmt >/dev/null 2>&1; then
+        numfmt --to=iec --suffix=B "$value"
+    else
+        awk -v bytes="$value" 'BEGIN {
+            split("B KiB MiB GiB TiB PiB", units, " ");
+            idx = 1;
+            while (bytes >= 1024 && idx < 6) {
+                bytes /= 1024;
+                idx++;
+            }
+            printf "%.1f %s\n", bytes, units[idx];
+        }'
+    fi
+}
+
+collect_storage_mounts() {
+    mapfile -t STORAGE_MOUNTS < <(
+        findmnt -rn -b -o TARGET,SIZE,AVAIL,FSTYPE \
+        | awk '
+            $1 ~ /^\/(boot|efi)(\/|$)/ { next }
+            $4 ~ /^(tmpfs|devtmpfs|squashfs|overlay|proc|sysfs|devpts|cgroup2?|pstore|mqueue|bpf|tracefs|ramfs|autofs|nsfs|fusectl|debugfs|securityfs|configfs)$/ { next }
+            { print $0 }
+        ' \
+        | sort -k2,2nr
+    )
+}
+
+recommended_storage_mount() {
+    local fallback="/"
+    local line mountpoint
+
+    for line in "${STORAGE_MOUNTS[@]:-}"; do
+        read -r mountpoint _ <<< "$line"
+        fallback="$mountpoint"
+        [[ "$mountpoint" != "/" ]] && { echo "$mountpoint"; return; }
+    done
+
+    echo "$fallback"
+}
+
+storage_path_for_mount() {
+    local mountpoint="${1:-/}"
+    local suffix="${2:-strata}"
+
+    if [[ "$mountpoint" == "/" ]]; then
+        echo "/${suffix}"
+    else
+        echo "${mountpoint%/}/${suffix}"
+    fi
+}
+
+prompt_storage_root() {
+    local label="$1"
+    local suffix="$2"
+    local default_override="${3:-}"
+    local __resultvar="$4"
+    local line mountpoint size avail fstype
+    local recommended_mount default_path choice selected_mount
+
+    collect_storage_mounts
+    recommended_mount="$(recommended_storage_mount)"
+    default_path="${default_override:-$(storage_path_for_mount "$recommended_mount" "$suffix")}"
+
+    echo ""
+    echo -e "${BOLD}-- ${label} storage --${NC}"
+    echo ""
+    echo "  Available mounted filesystems:"
+
+    local index=1
+    for line in "${STORAGE_MOUNTS[@]:-}"; do
+        read -r mountpoint size avail fstype <<< "$line"
+        printf '    %s) %-18s total %-9s free %-9s fs %s\n' \
+            "$index" \
+            "$mountpoint" \
+            "$(human_bytes "$size")" \
+            "$(human_bytes "$avail")" \
+            "$fstype"
+        ((index++))
+    done
+
+    echo ""
+    echo "  Recommended path: ${default_path}"
+    echo "  Press Enter to accept, choose a number from the list above, or type a custom absolute path."
+    read -rp "$(echo -e "${CYAN}${label} root [${default_path}]: ${NC}")" choice
+    choice="${choice:-$default_path}"
+
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice < index )); then
+        line="${STORAGE_MOUNTS[$((choice - 1))]}"
+        read -r selected_mount _ <<< "$line"
+        printf -v "$__resultvar" '%s' "$(storage_path_for_mount "$selected_mount" "$suffix")"
+        return
+    fi
+
+    [[ "$choice" == /* ]] || die "${label} root must be an absolute path."
+    printf -v "$__resultvar" '%s' "${choice%/}"
+}
+
+ensure_bind_mount() {
+    local source_path="$1"
+    local target_path="$2"
+    local fstab_label="$3"
+
+    mkdir -p "$source_path" "$target_path"
+
+    if [[ "$source_path" == "$target_path" ]]; then
+        return
+    fi
+
+    if ! mountpoint -q "$target_path"; then
+        mount --bind "$source_path" "$target_path"
+    fi
+
+    local escaped_source escaped_target
+    escaped_source=$(printf '%s' "$source_path" | sed 's/[.[\*^$(){}?+|/]/\\&/g')
+    escaped_target=$(printf '%s' "$target_path" | sed 's/[.[\*^$(){}?+|/]/\\&/g')
+    grep -qE "^[[:space:]]*${escaped_source}[[:space:]]+${escaped_target}[[:space:]]+none[[:space:]]+bind" /etc/fstab 2>/dev/null \
+        || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$fstab_label" >> /etc/fstab
+}
+
 if [[ $EUID -ne 0 ]]; then
     if command -v sudo &>/dev/null; then
         exec sudo --preserve-env=HOME,USER,LOGNAME,STRATA_HMAC_SECRET,STRATA_NODE_ID,STRATA_NODE_HOSTNAME,STRATA_WEB_SERVER,STRATA_PORT bash "$BASH_SOURCE" "$@"
@@ -45,6 +166,10 @@ WEB_SERVER="${STRATA_WEB_SERVER:-nginx}"
 AGENT_PORT="${STRATA_PORT:-8743}"
 MAIL_DOMAIN="mail.${HOSTNAME_PARENT_DOMAIN}"
 MAIL_TLS_DIR="/etc/strata-agent/mail-tls"
+HOSTING_BIND_TARGET="/var/www"
+BACKUP_BIND_TARGET="/var/backups/strata"
+HOSTING_STORAGE_ROOT="${STRATA_HOSTING_STORAGE_ROOT:-}"
+BACKUP_STORAGE_ROOT="${STRATA_BACKUP_STORAGE_ROOT:-}"
 REQUESTED_DB_PASSWORD="${STRATA_DB_ROOT_PASSWORD:-}"
 REQUESTED_PDNS_DB_PASSWORD="${STRATA_PDNS_DB_PASSWORD:-}"
 REQUESTED_PDNS_API_KEY="${STRATA_PDNS_API_KEY:-}"
@@ -77,6 +202,13 @@ fi
 [[ -n "$HMAC_SECRET" && -n "$NODE_ID" && -n "$HOSTNAME_FQDN" ]] || die "HMAC secret, node ID, and hostname are required."
 [[ "$WEB_SERVER" == "nginx" || "$WEB_SERVER" == "apache" ]] || die "STRATA_WEB_SERVER must be nginx or apache."
 
+if [[ -z "$HOSTING_STORAGE_ROOT" ]]; then
+    prompt_storage_root "Hosting data" "strata/www" "" HOSTING_STORAGE_ROOT
+fi
+if [[ -z "$BACKUP_STORAGE_ROOT" ]]; then
+    prompt_storage_root "Backup data" "strata/backups" "" BACKUP_STORAGE_ROOT
+fi
+
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
 
 mkdir -p /etc/strata-agent
@@ -84,6 +216,8 @@ cat > /etc/strata-agent/install.env <<EOF
 STRATA_DB_ROOT_PASSWORD='${DB_PASSWORD}'
 STRATA_PDNS_DB_PASSWORD='${PDNS_DB_PASSWORD}'
 STRATA_PDNS_API_KEY='${PDNS_API_KEY}'
+STRATA_HOSTING_STORAGE_ROOT='${HOSTING_STORAGE_ROOT}'
+STRATA_BACKUP_STORAGE_ROOT='${BACKUP_STORAGE_ROOT}'
 EOF
 chmod 600 /etc/strata-agent/install.env
 
@@ -94,6 +228,12 @@ hostnamectl set-hostname "$HOSTNAME_FQDN"
 SHORT="${HOSTNAME_FQDN%%.*}"
 sed -i "/^127\.0\.1\.1/d" /etc/hosts
 echo "127.0.1.1  ${HOSTNAME_FQDN} ${SHORT}" >> /etc/hosts
+
+info "Preparing storage mounts..."
+ensure_bind_mount "$HOSTING_STORAGE_ROOT" "$HOSTING_BIND_TARGET" "strata-hosting-storage"
+ensure_bind_mount "$BACKUP_STORAGE_ROOT" "$BACKUP_BIND_TARGET" "strata-backup-storage"
+success "Hosting data path: ${HOSTING_STORAGE_ROOT} -> ${HOSTING_BIND_TARGET}"
+success "Backup data path: ${BACKUP_STORAGE_ROOT} -> ${BACKUP_BIND_TARGET}"
 
 info "Installing base packages..."
 apt-get update
@@ -571,6 +711,8 @@ echo ""
 echo "Node hostname:      ${HOSTNAME_FQDN}"
 echo "Agent port:         ${AGENT_PORT}"
 echo "Agent version:      ${AGENT_VERSION}"
+echo "Hosting data:       ${HOSTING_STORAGE_ROOT} -> ${HOSTING_BIND_TARGET}"
+echo "Backup data:        ${BACKUP_STORAGE_ROOT} -> ${BACKUP_BIND_TARGET}"
 echo "TLS fingerprint:    ${FINGERPRINT}"
 echo "PowerDNS API key:   ${PDNS_API_KEY}"
 echo "MariaDB root pass:  (stored in /etc/systemd/system/strata-agent.service and /etc/strata-agent/mysql.cnf)"

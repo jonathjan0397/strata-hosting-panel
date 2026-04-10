@@ -1,19 +1,19 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.08-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.08)
+[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.09-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.09)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.0-BETA-3.08 public testing
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.0-BETA-3.09 public testing
 
 ---
 
 > **Pre-release Beta Software**
 >
-> 1.0.0-BETA-3.08 is available for public testing and should not be treated as production-ready.
+> 1.0.0-BETA-3.09 is available for public testing and should not be treated as production-ready.
 > **Do not use in production without reviewing the code and hardening the server yourself.**
 >
 > Public testers: please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
@@ -94,12 +94,16 @@ The installer will ask you a series of questions. You can press **Enter** to acc
 | Server hostname | The FQDN for this server, for example `server1.example.com` |
 | Panel domain | The dedicated subdomain for the control panel, for example `panel.example.com`. The installer suggests this form by default so the apex/root domain, for example `example.com`, remains available for the admin website. |
 | Web server | `1` for Nginx or `2` for Apache |
+| Hosting data root | Choose where hosted account data should live. The installer scans mounted filesystems, recommends the largest suitable volume, and bind-mounts the selected path onto `/var/www` so runtime paths stay consistent. |
+| Backup data root | Choose where panel and hosted backup data should live. The installer bind-mounts the selected path onto `/var/backups/strata`. |
 | Admin name | Your full name or display name |
 | Admin email | The email you will log in with |
 | Admin password | Minimum 12 characters, entered twice |
 | Auto-generate service passwords? | Press **Enter** or `Y` to let the installer generate secure random passwords for MariaDB, Redis, and other services. Type `n` to set your own. |
 
 The process usually takes 5-10 minutes depending on server speed and network.
+
+On servers with a large secondary data volume such as `/srv`, accept or choose that larger mount for hosting and backup data. This avoids placing websites on the small root filesystem when the server has a larger dedicated data disk available.
 
 ### Step 4: Save your credentials
 
@@ -322,7 +326,7 @@ Upgrade to a tagged release:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /usr/sbin/strata-upgrade
 chmod +x /usr/sbin/strata-upgrade
-/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.08
+/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.09
 ```
 
 Public testers can upgrade from a supported update channel:
@@ -340,7 +344,7 @@ Supported channels:
 Manual archive upgrades are also supported:
 
 ```bash
-/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.08.tar.gz
+/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.09.tar.gz
 ```
 
 The upgrade utility preserves `.env`, `storage`, service secrets, certificates, hosted files, databases, and mail data. It creates a rollback backup under `/opt/strata-panel-backups/` and automatically restores it if a critical upgrade step fails.
@@ -369,6 +373,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting
 
 Remote node installs and upgrades apply the same PowerDNS SOA defaults automatically, so backup DNS nodes answer with the same authoritative `ns1` / `ns2` SOA data as the primary.
 
+Remote node installs now also prompt for hosting and backup storage roots unless `STRATA_HOSTING_STORAGE_ROOT` and `STRATA_BACKUP_STORAGE_ROOT` are provided up front. The selected paths are bind-mounted onto `/var/www` and `/var/backups/strata`.
+
 ---
 
 ## Stack
@@ -386,7 +392,7 @@ Remote node installs and upgrades apply the same PowerDNS SOA defaults automatic
 | Database | MariaDB + PostgreSQL |
 | Firewall / Malware | UFW + fail2ban + ClamAV |
 
-## Features (1.0.0-BETA-3.08)
+## Features (1.0.0-BETA-3.09)
 
 | Category | Features |
 |---|---|
