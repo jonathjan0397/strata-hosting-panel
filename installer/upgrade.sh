@@ -17,6 +17,7 @@ LIST_BACKUPS=0
 ROLLBACK_ON_FAIL=1
 KEEP_WORKDIR=0
 SKIP_REMOTE_AGENTS=0
+ROLLBACK_RETENTION="${ROLLBACK_RETENTION:-5}"
 BACKUP_DIR=""
 OLD_AGENT=""
 OLD_WEBDAV=""
@@ -426,6 +427,39 @@ list_backups() {
     printf ']\n'
 }
 
+prune_old_backups() {
+    local retention="${ROLLBACK_RETENTION:-5}"
+
+    if ! [[ "$retention" =~ ^[0-9]+$ ]]; then
+        warn "Invalid rollback retention value: $retention. Skipping backup cleanup."
+        return 0
+    fi
+
+    if [[ "$retention" -le 0 || ! -d "$BACKUP_ROOT" ]]; then
+        return 0
+    fi
+
+    local backup_dirs=()
+    while IFS= read -r backup_dir; do
+        [[ -d "$backup_dir/panel" ]] || continue
+        backup_dirs+=("$backup_dir")
+    done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d | sort -r)
+
+    if [[ "${#backup_dirs[@]}" -le "$retention" ]]; then
+        return 0
+    fi
+
+    local removed=0
+    for backup_dir in "${backup_dirs[@]:$retention}"; do
+        rm -rf "$backup_dir"
+        ((removed+=1))
+    done
+
+    if [[ "$removed" -gt 0 ]]; then
+        info "Pruned $removed rollback backup(s); keeping newest $retention."
+    fi
+}
+
 on_error() {
     local exit_code=$?
     FAILED=1
@@ -511,6 +545,7 @@ if [[ -n "$SOURCE_ROLLBACK_BACKUP" ]]; then
     [[ -d "$rollback_dir" ]] || die "Rollback backup not found: $SOURCE_ROLLBACK_BACKUP"
     [[ "$rollback_dir" != "$BACKUP_DIR" ]] || die "Refusing to restore from the fresh safety backup created for this rollback."
     restore_from_backup_dir "$rollback_dir" "Rolling back"
+    prune_old_backups
     success "Rollback completed from backup: $rollback_dir"
     success "Current-state safety backup kept at: $BACKUP_DIR"
     exit 0
@@ -702,5 +737,6 @@ fi
 
 trap - ERR
 FAILED=0
+prune_old_backups
 success "Upgrade completed successfully."
 success "Rollback backup kept at: $BACKUP_DIR"
