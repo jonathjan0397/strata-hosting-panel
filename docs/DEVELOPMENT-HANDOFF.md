@@ -98,6 +98,7 @@ These areas were recently changed and should be assumed to exist unless proven o
 - update page now has a live progress indicator and log scroller
 - fresh primary and remote-node installs now prompt for hosting-data and backup-data storage roots
 - installer keeps runtime compatibility by bind-mounting the selected storage roots onto `/var/www` and `/var/backups/strata`
+- installers now display the exact Strata release version being installed instead of a generic beta label
 
 ### DNS
 
@@ -124,6 +125,8 @@ These areas were recently changed and should be assumed to exist unless proven o
 - webmail runtime now depends on `/var/www/webmail/include.php`, not only `_include.php`
 - OpenDKIM socket access should use `UserID opendkim:postfix`; avoid reintroducing the old `postfix` supplementary-group workaround
 - older upgraded installs may miss `auth_mechanisms = plain login` in Dovecot; release `1.0.0-BETA-3.07` added upgrade repairs for that so Outlook submission on port `587` stops failing with `Invalid authentication mechanism: 'LOGIN'`
+- phpMyAdmin should use normal cookie authentication, not a Strata-managed control user
+- MariaDB app/database user provisioning must force the requested password onto existing users; `CREATE USER IF NOT EXISTS` by itself is not safe for reused usernames
 
 ### Navigation / UI
 
@@ -239,6 +242,30 @@ Implication:
 
 - do not casually switch docs or UI back to `mail.<domain>` defaults
 - treat branded mail TLS as a separate product feature, not assumed behavior
+
+### 6. phpMyAdmin failures can be a mix of panel-created user drift and package config drift
+
+Observed failure:
+
+- phpMyAdmin reported both:
+  - control-user auth failure for `phpmyadmin`
+  - login failure for a panel-created MariaDB user even though the panel had just shown a password
+
+Actual causes:
+
+- phpMyAdmin package config was still trying to use a stale/bad control user
+- MariaDB provisioning used `CREATE USER IF NOT EXISTS`, which preserved an old password when a username already existed from an earlier partial attempt
+
+Decision:
+
+- force phpMyAdmin back to normal cookie auth with a Strata override
+- always `ALTER USER` after MariaDB user creation and during password changes
+- update both `localhost` and `127.0.0.1` MariaDB entries
+
+Implication:
+
+- do not trust `CREATE USER IF NOT EXISTS` as sufficient password management
+- do not introduce a custom phpMyAdmin control-user path unless it is fully owned and repaired by Strata
 
 ## Release Expectations
 
