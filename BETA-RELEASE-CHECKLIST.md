@@ -1,6 +1,6 @@
 # Beta Release Checklist
 
-Target release: `v1.0.0-alpha.3`
+Target release: `v1.0.0-alpha.4`
 
 Target validation OS: Debian 13 (trixie)
 
@@ -9,7 +9,7 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 ## Release Gate
 
 - [x] Public `main` branch upgrade completes using `installer/upgrade.sh --branch main`.
-- [x] Tagged release upgrade path is documented using `installer/upgrade.sh --version v1.0.0-alpha.3`.
+- [x] Tagged release upgrade path is documented using `installer/upgrade.sh --version v1.0.0-alpha.4`.
 - [x] Rollback backup is created before upgrade.
 - [x] Remote node agent cascade command runs after branch/tag upgrades.
 - [x] Panel login page returns HTTP 200.
@@ -20,6 +20,9 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 - [x] PHP syntax lint passes on release-touched files.
 - [x] Bash syntax lint passes on installer scripts.
 - [x] Linux-targeted Go tests pass.
+- [ ] Browser verification passes for admin, reseller, and user sessions with no console errors.
+- [ ] Admin sidebar renders `Resellers`, `Security`, `System`, `Infrastructure`, and `Hosting`.
+- [ ] Ziggy route payload includes the routes used by the visible sidebar sections.
 
 ## Smoke Test Scope
 
@@ -56,4 +59,4 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 
 ## Tagging Criteria
 
-Tag `v1.0.0-alpha.3` only after the release gate passes or any remaining failures are documented here as accepted alpha limitations.
+Tag `v1.0.0-alpha.4` only after the release gate passes or any remaining failures are documented here as accepted alpha limitations.

@@ -13,15 +13,15 @@ Related policy documents:
 Upgrade from a tagged release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /root/strata-upgrade.sh
-chmod +x /root/strata-upgrade.sh
-/root/strata-upgrade.sh --version v1.0.0-alpha.3
+curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /usr/sbin/strata-upgrade
+chmod +x /usr/sbin/strata-upgrade
+/usr/sbin/strata-upgrade --version v1.0.0-alpha.4
 ```
 
 Upgrade from a supported update channel:
 
 ```bash
-/root/strata-upgrade.sh --channel main
+/usr/sbin/strata-upgrade --channel main
 ```
 
 Supported channels:
@@ -33,7 +33,7 @@ Supported channels:
 Upgrade from a manually uploaded archive:
 
 ```bash
-/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-alpha.3.tar.gz
+/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-v1.0.0-alpha.4.tar.gz
 ```
 
 The file may be a GitHub source archive or an equivalent `.tar`, `.tar.gz`, or `.tgz` archive containing the repository root.
@@ -67,7 +67,27 @@ The upgrade process:
 - resets panel permissions
 - restarts `strata-agent`, `strata-webdav`, `strata-queue`, PHP-FPM, and the web server
 - runs health checks
+- should be followed immediately by a browser verification pass against the live panel
 - queues matching agent upgrades for online remote nodes when upgrading from `--version` or `--branch`
+
+## Required Post-Upgrade UI Verification
+
+After every upgrade, verify the live panel in a real browser session. This is required because route drift or stale backend cache can leave the frontend assets updated while the browser still fails to render parts of the sidebar.
+
+Minimum checks:
+
+- admin login works
+- reseller login works
+- user login works
+- admin sidebar includes:
+  - `Resellers`
+  - `Security`
+  - `System`
+  - `Infrastructure`
+  - `Hosting`
+- no browser console errors after login
+
+Also verify that the client-side Ziggy route payload contains the routes used by the sidebar for the active role. Missing Ziggy routes can hide a whole nav section even when the frontend build itself is current.
 
 ## Fail-Safe Rollback
 
@@ -110,5 +130,5 @@ Adjust the backup timestamp and PHP service name if your install differs.
 - Remote node cascade upgrades require the node to have `/usr/sbin/strata-agent-upgrade`, which is installed by the current remote node installer (`installer/agent.sh`) and by the full installer. Older nodes without that helper should be upgraded once manually by rerunning the remote node installer.
 - Local `--file` upgrades cannot be cascaded automatically unless the same build is also available from a trusted GitHub tag or branch URL.
 - The panel and agent version are derived from the release tag, branch name, or the repository `VERSION` file. Node health checks update each node's `agent_version`.
-- The internal remote cascade command is `php artisan strata:nodes-upgrade-agents --target-version <tag>`, `--channel <channel>`, or `--branch <branch>`. The top-level `/root/strata-upgrade.sh` wrapper handles this for normal upgrades.
+- The internal remote cascade command is `php artisan strata:nodes-upgrade-agents --target-version <tag>`, `--channel <channel>`, or `--branch <branch>`. The top-level `/usr/sbin/strata-upgrade` wrapper handles this for normal upgrades.
 - If you use Strata as authoritative DNS, verify that your host-domain zone answers with an SOA similar to `ns1.example.com. hostmaster.example.com.` before changing registrar nameservers. Current installs should now be repaired automatically during upgrade.

@@ -1,6 +1,6 @@
 # Alpha Release Checklist
 
-Target release: `v1.0.0-alpha.3`
+Target release: `v1.0.0-alpha.4`
 
 Target validation OS: Debian 13 (trixie)
 
@@ -18,6 +18,9 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, final pass from public 
 - [x] `npm run build` passes from the panel workspace.
 - [x] PHP syntax lint passes on changed release files.
 - [x] Go tests pass for a Linux target.
+- [ ] Browser verification passes for admin, reseller, and user sessions with no console errors.
+- [ ] Admin sidebar renders `Resellers`, `Security`, `System`, `Infrastructure`, and `Hosting`.
+- [ ] Ziggy route payload includes the routes used by the visible sidebar sections.
 
 ## Smoke Test Scope
 
@@ -47,4 +50,4 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, final pass from public 
 
 ## Tagging Criteria
 
-Tag `v1.0.0-alpha.3` only after the release gate passes or any remaining failures are documented here as accepted Alpha limitations.
+Tag `v1.0.0-alpha.4` only after the release gate passes or any remaining failures are documented here as accepted Alpha limitations.

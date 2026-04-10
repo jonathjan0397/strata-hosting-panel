@@ -9,6 +9,7 @@ Strata should no longer be deployed by pushing directly to `main` and patching l
 3. Release tags are the deployment unit.
 4. Live hotfixes are only for incident recovery, and every hotfix must be pulled back into source control immediately.
 5. Panel, agent, installer, migrations, and built assets must be versioned together as one release.
+6. Every release and upgrade must include a browser-level nav and route verification pass for `admin`, `reseller`, and `user`.
 
 ## Required Git Workflow
 
@@ -21,7 +22,13 @@ Strata should no longer be deployed by pushing directly to `main` and patching l
    - installer / upgrade validation where applicable
 4. Merge into `main`.
 5. Cut a release tag such as `v1.0.0-alpha.4`.
-6. Deploy that tag through `/root/strata-upgrade.sh --version <tag>`.
+6. Run the post-build browser verification gate:
+   - admin sidebar contains `Resellers`, `Security`, `System`, `Infrastructure`, `Hosting`
+   - reseller sidebar contains expected reseller groups
+   - user sidebar contains expected user groups
+   - no browser console errors after login
+   - Ziggy contains required role routes used by the sidebar
+7. Deploy that tag through `/usr/sbin/strata-upgrade --version <tag>`.
 
 ## Branch Protection Recommendations
 
@@ -77,5 +84,6 @@ For normal releases:
 4. upgrade the primary through the upgrade utility
 5. let the upgrade path handle remote nodes
 6. run post-upgrade health checks
+7. run post-upgrade browser verification against the live panel before considering the deploy complete
 
 That is the baseline process Strata should follow from here forward.

@@ -99,6 +99,32 @@ Minimum checks the upgrade system should run automatically:
 - web UI asset presence
 - certificate repair endpoint availability on the primary
 
+## Browser Verification Gate
+
+Laravel and asset health are not sufficient by themselves. Every release candidate and every live upgrade should also pass a browser-level verification gate.
+
+Minimum browser checks:
+
+- admin login succeeds and the sidebar renders:
+  - `Resellers`
+  - `Security`
+  - `System`
+  - `Infrastructure`
+  - `Hosting`
+- reseller login succeeds and expected reseller sections render
+- end-user login succeeds and expected user sections render
+- no browser console errors after login
+- the Ziggy route payload contains the routes used by the active sidebar for that role
+
+This check exists because a stale backend route file or cache can leave the frontend bundle current while the browser still throws runtime route errors, which can hide entire nav sections without breaking the whole page.
+
+Recommended implementation:
+
+- run a headless browser smoke test after asset deploy and cache warmup
+- capture sidebar group labels for `admin`, `reseller`, and `user`
+- capture browser console output and fail on route/runtime errors
+- fail the release or upgrade if any required nav group is missing
+
 ## Rollback Standard
 
 Rollback should restore:
@@ -121,8 +147,9 @@ Short-term:
 
 1. protect `main`
 2. require PRs
-3. deploy only tagged releases through `/root/strata-upgrade.sh`
-4. stop normal live patching
+3. deploy only tagged releases through `/usr/sbin/strata-upgrade`
+4. add browser verification of Ziggy routes and sidebar groups to the release gate
+5. stop normal live patching
 
 Next:
 

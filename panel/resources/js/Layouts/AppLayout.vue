@@ -54,10 +54,6 @@
                             Fail2Ban
                         </NavItem>
                     </NavGroup>
-                </template>
-
-                <!-- Admin nav (continued) -->
-                <template v-if="$page.props.auth.user.roles?.includes('admin')">
                     <NavGroup label="System">
                         <NavItem :href="route('admin.troubleshooting.index')" :active="$page.url.startsWith('/admin/troubleshooting')">
                             <template #icon>

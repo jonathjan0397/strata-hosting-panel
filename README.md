@@ -1,19 +1,19 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.0.0--alpha.3-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/v1.0.0-alpha.3)
+[![Release](https://img.shields.io/badge/Release-v1.0.0--alpha.4-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/v1.0.0-alpha.4)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** v1.0.0-alpha.3 public testing
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** v1.0.0-alpha.4 public testing
 
 ---
 
 > **Pre-release Alpha Software**
 >
-> v1.0.0-alpha.3 is available for public testing and should not be treated as production-ready.
+> v1.0.0-alpha.4 is available for public testing and should not be treated as production-ready.
 > **Do not use in production without reviewing the code and hardening the server yourself.**
 >
 > Public testers: please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
@@ -131,6 +131,28 @@ powershell -ExecutionPolicy Bypass -File .\tools\bootstrap-local-windows.ps1
 ```
 
 This prepares the local Laravel app, SQLite database, npm dependencies, frontend build, and the repo-local PHP runtime used for development validation.
+
+---
+
+## Release Verification
+
+Do not treat a successful asset build or `artisan` boot as a complete release verification.
+
+Every tagged release and every live upgrade should also pass a browser-level verification gate:
+
+- admin login renders `Resellers`, `Security`, `System`, `Infrastructure`, and `Hosting`
+- reseller login renders the expected reseller sections
+- user login renders the expected user sections
+- no browser console errors occur after login
+- the client-side Ziggy route payload contains the routes used by the sidebar for the current role
+
+This catches a real failure mode where frontend assets are current but live backend route drift or stale cache removes routes from Ziggy and causes entire sidebar sections to disappear at runtime.
+
+Related docs:
+
+- [docs/DEPLOYMENT-POLICY.md](docs/DEPLOYMENT-POLICY.md)
+- [docs/RELEASE-UPGRADE-WORKFLOW.md](docs/RELEASE-UPGRADE-WORKFLOW.md)
+- [docs/UPGRADING.md](docs/UPGRADING.md)
 
 ---
 
@@ -298,15 +320,15 @@ Normal deployments should not be made by pushing directly to `main` and patching
 Upgrade to a tagged release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /root/strata-upgrade.sh
-chmod +x /root/strata-upgrade.sh
-/root/strata-upgrade.sh --version v1.0.0-alpha.3
+curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /usr/sbin/strata-upgrade
+chmod +x /usr/sbin/strata-upgrade
+/usr/sbin/strata-upgrade --version v1.0.0-alpha.4
 ```
 
 Public testers can upgrade from a supported update channel:
 
 ```bash
-/root/strata-upgrade.sh --channel main
+/usr/sbin/strata-upgrade --channel main
 ```
 
 Supported channels:
@@ -318,7 +340,7 @@ Supported channels:
 Manual archive upgrades are also supported:
 
 ```bash
-/root/strata-upgrade.sh --file /root/strata-hosting-panel-v1.0.0-alpha.3.tar.gz
+/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-v1.0.0-alpha.4.tar.gz
 ```
 
 The upgrade utility preserves `.env`, `storage`, service secrets, certificates, hosted files, databases, and mail data. It creates a rollback backup under `/opt/strata-panel-backups/` and automatically restores it if a critical upgrade step fails.
@@ -363,7 +385,7 @@ Remote node installs and upgrades apply the same PowerDNS SOA defaults automatic
 | Database | MariaDB + PostgreSQL |
 | Firewall / Malware | UFW + fail2ban + ClamAV |
 
-## Features (v1.0.0-alpha.3)
+## Features (v1.0.0-alpha.4)
 
 | Category | Features |
 |---|---|
