@@ -9,6 +9,7 @@ use App\Models\SystemSetting;
 use App\Services\AgentClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -19,6 +20,60 @@ use Symfony\Component\Process\Process;
 class UpdateController extends Controller
 {
     private const PANEL_UPGRADE_BIN = '/usr/sbin/strata-upgrade';
+    private const LOG_DEFINITIONS = [
+        'backup_jobs' => [
+            'label' => 'Backup Jobs',
+            'path' => 'strata-backup-jobs.log',
+            'process_needles' => ['queue:work', 'artisan queue:work'],
+            'stages' => [
+                ['match' => 'started backup job', 'progress' => 5, 'label' => 'Queued'],
+                ['match' => 'backup job queued', 'progress' => 12, 'label' => 'Queued'],
+                ['match' => 'processing backup job', 'progress' => 40, 'label' => 'Processing'],
+                ['match' => 'backup job completed', 'progress' => 100, 'label' => 'Completed'],
+                ['match' => 'backup restore completed', 'progress' => 100, 'label' => 'Restore completed'],
+            ],
+        ],
+        'panel_upgrade' => [
+            'label' => 'Panel Upgrade',
+            'path' => 'strata-panel-upgrade.log',
+            'process_needles' => ['/usr/sbin/strata-upgrade'],
+            'stages' => [
+                ['match' => 'started panel upgrade', 'progress' => 5, 'label' => 'Queued'],
+                ['match' => 'Creating rollback backup', 'progress' => 15, 'label' => 'Creating rollback backup'],
+                ['match' => 'Downloading', 'progress' => 28, 'label' => 'Downloading release source'],
+                ['match' => 'Installing new source', 'progress' => 42, 'label' => 'Installing source'],
+                ['match' => 'Installing panel dependencies and running migrations', 'progress' => 56, 'label' => 'Installing dependencies and migrations'],
+                ['match' => 'Building frontend assets', 'progress' => 68, 'label' => 'Building frontend assets'],
+                ['match' => 'Building strata-agent', 'progress' => 78, 'label' => 'Building agent binaries'],
+                ['match' => 'Restarting services', 'progress' => 88, 'label' => 'Restarting services'],
+                ['match' => 'Running health checks', 'progress' => 95, 'label' => 'Running health checks'],
+                ['match' => 'Upgrade completed successfully.', 'progress' => 100, 'label' => 'Completed'],
+            ],
+        ],
+        'panel_rollback' => [
+            'label' => 'Panel Rollback',
+            'path' => 'strata-panel-rollback.log',
+            'process_needles' => ['/usr/sbin/strata-upgrade'],
+            'stages' => [
+                ['match' => 'started panel rollback from backup', 'progress' => 5, 'label' => 'Queued'],
+                ['match' => 'Creating rollback backup', 'progress' => 18, 'label' => 'Creating safety backup'],
+                ['match' => 'Rolling back', 'progress' => 60, 'label' => 'Restoring backup'],
+                ['match' => 'Rollback completed from backup', 'progress' => 100, 'label' => 'Completed'],
+            ],
+        ],
+        'remote_agents' => [
+            'label' => 'Remote Agent Upgrade',
+            'path' => 'strata-remote-agents-upgrade.log',
+            'process_needles' => ['artisan strata:nodes-upgrade-agents'],
+            'stages' => [
+                ['match' => 'started remote agent upgrade', 'progress' => 5, 'label' => 'Queued'],
+                ['match' => 'started single-node agent upgrade', 'progress' => 15, 'label' => 'Queued'],
+                ['match' => 'Starting agent upgrades', 'progress' => 25, 'label' => 'Preparing upgrade jobs'],
+                ['match' => 'Queued upgrade for', 'progress' => 55, 'label' => 'Queueing remote upgrades'],
+                ['match' => 'All remote node agent upgrades have been queued', 'progress' => 100, 'label' => 'Completed'],
+            ],
+        ],
+    ];
     private const SUPPORTED_CHANNELS = [
         ['value' => 'main', 'label' => 'Main', 'description' => 'Latest supported integration branch.'],
         ['value' => 'latest-untested', 'label' => 'Latest-Untested', 'description' => 'Newer branch for early validation before normal release use.'],
@@ -260,6 +315,52 @@ class UpdateController extends Controller
         return response()->json($this->upgradeActivityPayload());
     }
 
+    public function exportLog(Request $request): HttpResponse
+    {
+        $activity = $this->activityForKey((string) $request->query('key', ''));
+        $filename = sprintf('%s-%s.log', $activity['key'], now()->format('Ymd-His'));
+
+        return response(implode("\n", $activity['lines'] ?? []), 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    public function popupLog(Request $request): HttpResponse
+    {
+        $activity = $this->activityForKey((string) $request->query('key', ''));
+        $body = e(($activity['lines'] ?? []) !== [] ? implode("\n", $activity['lines']) : 'No log output yet.');
+        $title = e(($activity['label'] ?? 'Log') . ' Viewer');
+
+        return response(<<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{$title}</title>
+    <style>
+        body { margin: 0; background: #07111e; color: #dbeafe; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        header { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 16px 20px; border-bottom: 1px solid #1f2937; background: #0f172a; position: sticky; top: 0; }
+        .meta { color: #94a3b8; font-family: ui-sans-serif, system-ui, sans-serif; }
+        pre { margin: 0; padding: 20px; white-space: pre-wrap; word-break: break-word; }
+        a { color: #7dd3fc; text-decoration: none; font-family: ui-sans-serif, system-ui, sans-serif; }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <div class="meta">{$title}</div>
+            <div class="meta">{$activity['log_path']}</div>
+        </div>
+        <a href="{$request->fullUrlWithQuery(['download' => null])}">Refresh</a>
+    </header>
+    <pre>{$body}</pre>
+</body>
+</html>
+HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+    }
+
     private function resolveUpgradeSource(string $sourceType, string $sourceValue): array
     {
         if ($sourceType === 'version') {
@@ -397,50 +498,16 @@ class UpdateController extends Controller
 
     private function upgradeActivityPayload(): array
     {
-        $activities = [
-            $this->buildLogActivity(
-                key: 'panel_upgrade',
-                label: 'Panel Upgrade',
-                path: storage_path('logs/strata-panel-upgrade.log'),
-                processNeedles: ['/usr/sbin/strata-upgrade'],
-                stages: [
-                    ['match' => 'started panel upgrade', 'progress' => 5, 'label' => 'Queued'],
-                    ['match' => 'Creating rollback backup', 'progress' => 15, 'label' => 'Creating rollback backup'],
-                    ['match' => 'Downloading', 'progress' => 28, 'label' => 'Downloading release source'],
-                    ['match' => 'Installing new source', 'progress' => 42, 'label' => 'Installing source'],
-                    ['match' => 'Installing panel dependencies and running migrations', 'progress' => 56, 'label' => 'Installing dependencies and migrations'],
-                    ['match' => 'Building frontend assets', 'progress' => 68, 'label' => 'Building frontend assets'],
-                    ['match' => 'Building strata-agent', 'progress' => 78, 'label' => 'Building agent binaries'],
-                    ['match' => 'Restarting services', 'progress' => 88, 'label' => 'Restarting services'],
-                    ['match' => 'Running health checks', 'progress' => 95, 'label' => 'Running health checks'],
-                    ['match' => 'Upgrade completed successfully.', 'progress' => 100, 'label' => 'Completed'],
-                ],
-            ),
-            $this->buildLogActivity(
-                key: 'panel_rollback',
-                label: 'Panel Rollback',
-                path: storage_path('logs/strata-panel-rollback.log'),
-                processNeedles: ['/usr/sbin/strata-upgrade'],
-                stages: [
-                    ['match' => 'started panel rollback from backup', 'progress' => 5, 'label' => 'Queued'],
-                    ['match' => 'Creating rollback backup', 'progress' => 18, 'label' => 'Creating safety backup'],
-                    ['match' => 'Rolling back', 'progress' => 60, 'label' => 'Restoring backup'],
-                    ['match' => 'Rollback completed from backup', 'progress' => 100, 'label' => 'Completed'],
-                ],
-            ),
-            $this->buildLogActivity(
-                key: 'remote_agents',
-                label: 'Remote Agent Upgrade',
-                path: storage_path('logs/strata-remote-agents-upgrade.log'),
-                processNeedles: ['artisan strata:nodes-upgrade-agents'],
-                stages: [
-                    ['match' => 'started remote agent upgrade', 'progress' => 5, 'label' => 'Queued'],
-                    ['match' => 'Starting agent upgrades', 'progress' => 25, 'label' => 'Preparing upgrade jobs'],
-                    ['match' => 'Queued upgrade for', 'progress' => 55, 'label' => 'Queueing remote upgrades'],
-                    ['match' => 'All remote node agent upgrades have been queued', 'progress' => 100, 'label' => 'Completed'],
-                ],
-            ),
-        ];
+        $activities = collect(self::LOG_DEFINITIONS)
+            ->map(fn (array $definition, string $key) => $this->buildLogActivity(
+                key: $key,
+                label: $definition['label'],
+                path: storage_path('logs/' . $definition['path']),
+                processNeedles: $definition['process_needles'],
+                stages: $definition['stages'],
+            ))
+            ->values()
+            ->all();
 
         usort($activities, function (array $left, array $right): int {
             return ($right['last_modified_unix'] ?? 0) <=> ($left['last_modified_unix'] ?? 0);
@@ -572,5 +639,19 @@ class UpdateController extends Controller
         }
 
         return $matches;
+    }
+
+    private function activityForKey(string $key): array
+    {
+        $definition = self::LOG_DEFINITIONS[$key] ?? null;
+        abort_unless(is_array($definition), 404);
+
+        return $this->buildLogActivity(
+            key: $key,
+            label: $definition['label'],
+            path: storage_path('logs/' . $definition['path']),
+            processNeedles: $definition['process_needles'],
+            stages: $definition['stages'],
+        );
     }
 }

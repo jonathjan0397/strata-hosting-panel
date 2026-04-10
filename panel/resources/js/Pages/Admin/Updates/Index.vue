@@ -98,7 +98,11 @@
               <div class="rounded-xl border border-gray-800 bg-[#08111f]">
                 <div class="flex items-center justify-between border-b border-gray-800 px-4 py-3">
                   <div class="text-xs uppercase tracking-wide text-gray-500">{{ currentActivity.label }} Log</div>
-                  <div class="text-xs text-gray-500">{{ currentActivity.lines?.length || 0 }} lines shown</div>
+                  <div class="flex items-center gap-3">
+                    <div class="text-xs text-gray-500">{{ currentActivity.lines?.length || 0 }} lines shown</div>
+                    <button type="button" @click="openLogPopup" class="rounded-lg border border-gray-700 px-2.5 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">Open Pop-up</button>
+                    <button type="button" @click="exportCurrentLog" class="rounded-lg border border-gray-700 px-2.5 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">Export Log</button>
+                  </div>
                 </div>
                 <pre ref="logScroller" class="max-h-96 overflow-y-auto px-4 py-4 font-mono text-xs leading-6 text-sky-100 whitespace-pre-wrap">{{ currentActivity.lines?.length ? currentActivity.lines.join('\n') : 'No log output yet.' }}</pre>
               </div>
@@ -249,9 +253,12 @@ const currentActivity = computed(() => activityEntries.value.find((entry) => ent
 function formatDate(value) { return value ? new Date(value).toLocaleString() : ''; }
 function useLatestRelease() { if (props.panel?.latest_release?.tag_name) panelForm.value.version = props.panel.latest_release.tag_name; }
 function resolvedPanelPayload() { const version = panelForm.value.version?.trim(); const branch = panelForm.value.branch?.trim(); if (version) return { source_type: 'version', source_value: version }; if (branch) return { source_type: 'branch', source_value: branch }; return { source_type: 'version', source_value: '' }; }
+function currentLogUrl(name) { if (!currentActivity.value?.key) return null; return route(name, { key: currentActivity.value.key }); }
 function scheduleLogScroll() { nextTick(() => { if (autoScrollLogs.value && logScroller.value) logScroller.value.scrollTop = logScroller.value.scrollHeight; }); }
 function statusClasses(status) { if (status === 'running') return 'border-blue-700/40 bg-blue-900/20 text-blue-300'; if (status === 'completed') return 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300'; if (status === 'failed') return 'border-red-700/40 bg-red-900/20 text-red-300'; return 'border-gray-700 bg-gray-900 text-gray-300'; }
 function formatStatus(status) { return (status || 'idle').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()); }
+function openLogPopup() { const url = currentLogUrl('admin.updates.logs.popup'); if (!url) return; window.open(url, '_blank', 'popup=yes,width=1100,height=780,resizable=yes,scrollbars=yes'); }
+function exportCurrentLog() { const url = currentLogUrl('admin.updates.logs.export'); if (!url) return; window.location.assign(url); }
 async function refreshActivity() { activityLoading.value = true; activityError.value = ''; try { const res = await fetch(route('admin.updates.activity')); const data = await res.json(); panelActivity.value = data; if (!selectedActivityKey.value || !data.activities?.some((entry) => entry.key === selectedActivityKey.value)) selectedActivityKey.value = data.current_log_key || data.activities?.[0]?.key || 'panel_upgrade'; scheduleLogScroll(); } catch { activityError.value = 'Failed to refresh upgrade activity.'; } finally { activityLoading.value = false; } }
 function startActivityPolling() { stopActivityPolling(); activityPollHandle = window.setInterval(refreshActivity, 4000); }
 function stopActivityPolling() { if (activityPollHandle) { window.clearInterval(activityPollHandle); activityPollHandle = null; } }

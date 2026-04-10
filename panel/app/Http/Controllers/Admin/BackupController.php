@@ -10,10 +10,13 @@ use App\Services\AgentClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Inertia\Inertia;
 
 class BackupController extends Controller
 {
+    private const BACKUP_LOG = 'strata-backup-jobs.log';
+
     public function index(Request $request): \Inertia\Response
     {
         $query = BackupJob::with(['account:id,username', 'node:id,name'])->latest();
@@ -74,6 +77,15 @@ class BackupController extends Controller
         ]);
 
         ProcessBackupJobAction::dispatch($job->id, 'create');
+        $this->appendBackupLog(sprintf(
+            '[%s] Admin %s queued backup job #%d for account=%s type=%s node=%s',
+            now()->toDateTimeString(),
+            $request->user()->email,
+            $job->id,
+            $account->username,
+            $job->type,
+            $account->node?->name ?? 'unknown'
+        ));
 
         return back()->with('success', "Backup for {$account->username} was queued.");
     }
@@ -157,6 +169,15 @@ class BackupController extends Controller
 
         $backup->update(['restore_status' => 'running', 'restore_error' => null]);
         ProcessBackupJobAction::dispatch($backup->id, 'restore');
+        $this->appendBackupLog(sprintf(
+            '[%s] Admin %s queued backup restore for job #%d file=%s account=%s node=%s',
+            now()->toDateTimeString(),
+            $request->user()->email,
+            $backup->id,
+            $backup->filename,
+            $account->username,
+            $backup->node?->name ?? 'unknown'
+        ));
 
         return back()->with('success', "Restore for {$backup->filename} was queued.");
     }
@@ -250,5 +271,12 @@ class BackupController extends Controller
         } catch (\Throwable) {
             return now();
         }
+    }
+
+    private function appendBackupLog(string $line): void
+    {
+        $path = storage_path('logs/' . self::BACKUP_LOG);
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, $line . PHP_EOL);
     }
 }
