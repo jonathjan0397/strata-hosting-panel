@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-BETA-3.10] - 2026-04-10
+
+Public beta target: `1.0.0-BETA-3.10`.
+
+### Fixed - Database login reliability
+
+**Databases / phpMyAdmin**
+- MariaDB database-user provisioning now forces the requested password onto existing users instead of silently preserving stale credentials from earlier partial setup attempts
+- MariaDB password changes now update both `localhost` and `127.0.0.1` user entries so local database tools and applications stay in sync
+- Fresh installs and upgrades now write a Strata phpMyAdmin override that disables the broken control-user path and forces normal cookie authentication
+
 ## [1.0.0-BETA-3.09] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.09`.

@@ -364,7 +364,9 @@ func createAppDatabase(dbName, dbUser, dbPass string) error {
 		return err
 	}
 	mysql(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'localhost' IDENTIFIED BY '%s';", dbUser, dbPass))
+	mysql(fmt.Sprintf("ALTER USER '%s'@'localhost' IDENTIFIED BY '%s';", dbUser, dbPass))
 	mysql(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'127.0.0.1' IDENTIFIED BY '%s';", dbUser, dbPass))
+	mysql(fmt.Sprintf("ALTER USER '%s'@'127.0.0.1' IDENTIFIED BY '%s';", dbUser, dbPass))
 	mysql(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'localhost';", dbName, dbUser))
 	mysql(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'127.0.0.1';", dbName, dbUser))
 	mysql("FLUSH PRIVILEGES;")

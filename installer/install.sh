@@ -962,6 +962,19 @@ success "Composer installed."
 
 info "Installing database web tools..."
 DEBIAN_FRONTEND=noninteractive apt-get install -y phpmyadmin phppgadmin || warn "phpMyAdmin/phpPgAdmin packages were not available; Database Tools page will show them as not installed."
+if [[ -d /etc/phpmyadmin/conf.d ]]; then
+    cat > /etc/phpmyadmin/conf.d/90-strata-cookie-auth.php <<'EOF'
+<?php
+declare(strict_types=1);
+
+if (! isset($i) || ! is_int($i) || $i < 1) {
+    $i = 1;
+}
+
+$cfg['Servers'][$i]['auth_type'] = 'cookie';
+unset($cfg['Servers'][$i]['controluser'], $cfg['Servers'][$i]['controlpass']);
+EOF
+fi
 update-alternatives --set php "/usr/bin/php${PANEL_PHP_VER}" >/dev/null 2>&1 || true
 
 # ── Step 8. Go ────────────────────────────────────────────────────────────────

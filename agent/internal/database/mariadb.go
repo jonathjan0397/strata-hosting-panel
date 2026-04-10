@@ -81,8 +81,14 @@ func CreateUserAtHost(username, password, host string) error {
 	}
 	// Use parameterised-style escaping: password goes in via single-quoted escaped literal.
 	escaped := strings.ReplaceAll(password, "'", "\\'")
-	return mysql(fmt.Sprintf(
+	if err := mysql(fmt.Sprintf(
 		"CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s';",
+		username, host, escaped,
+	)); err != nil {
+		return err
+	}
+	return mysql(fmt.Sprintf(
+		"ALTER USER '%s'@'%s' IDENTIFIED BY '%s';",
 		username, host, escaped,
 	))
 }
@@ -157,8 +163,14 @@ func ChangeUserPassword(username, password string) error {
 		return fmt.Errorf("invalid username: %s", username)
 	}
 	escaped := strings.ReplaceAll(password, "'", "\\'")
-	return mysql(fmt.Sprintf(
+	if err := mysql(fmt.Sprintf(
 		"ALTER USER '%s'@'localhost' IDENTIFIED BY '%s';",
+		username, escaped,
+	)); err != nil {
+		return err
+	}
+	return mysql(fmt.Sprintf(
+		"ALTER USER '%s'@'127.0.0.1' IDENTIFIED BY '%s';",
 		username, escaped,
 	))
 }

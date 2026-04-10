@@ -665,6 +665,19 @@ EOF
     chown www-data:www-data /var/www/webmail/include.php 2>/dev/null || true
     chmod 644 /var/www/webmail/include.php 2>/dev/null || true
 fi
+if [[ -d /etc/phpmyadmin/conf.d ]]; then
+    cat > /etc/phpmyadmin/conf.d/90-strata-cookie-auth.php <<'EOF'
+<?php
+declare(strict_types=1);
+
+if (! isset($i) || ! is_int($i) || $i < 1) {
+    $i = 1;
+}
+
+$cfg['Servers'][$i]['auth_type'] = 'cookie';
+unset($cfg['Servers'][$i]['controluser'], $cfg['Servers'][$i]['controlpass']);
+EOF
+fi
 rm -f /etc/pure-ftpd/conf/VirtualChroot 2>/dev/null || true
 if [[ -d /etc/pure-ftpd/conf ]]; then
     echo "no" > /etc/pure-ftpd/conf/PAMAuthentication
