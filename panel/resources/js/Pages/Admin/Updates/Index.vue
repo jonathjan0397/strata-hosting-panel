@@ -19,9 +19,37 @@
                             <div class="mt-1 font-mono text-sm text-gray-100">{{ panel.version || 'dev' }}</div>
                         </div>
                         <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4">
+                            <div class="text-xs uppercase tracking-wide text-gray-500">Latest Published Release</div>
+                            <div class="mt-1 font-mono text-sm text-gray-100">
+                                {{ panel.latest_release?.tag_name || 'Unavailable' }}
+                            </div>
+                            <div v-if="panel.latest_release?.published_at" class="mt-1 text-xs text-gray-500">
+                                Published {{ formatDate(panel.latest_release.published_at) }}
+                            </div>
+                            <a
+                                v-if="panel.latest_release?.html_url"
+                                :href="panel.latest_release.html_url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="mt-2 inline-flex text-xs text-indigo-300 hover:text-indigo-200"
+                            >View release notes</a>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4">
                             <div class="text-xs uppercase tracking-wide text-gray-500">Upgrade Utility</div>
                             <div class="mt-1 text-sm" :class="panel.upgrade_script ? 'text-emerald-400' : 'text-red-400'">
                                 {{ panel.upgrade_script ? 'Installed' : 'Missing' }}
+                            </div>
+                        </div>
+                        <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4">
+                            <div class="text-xs uppercase tracking-wide text-gray-500">Upgrade Target</div>
+                            <div class="mt-1 text-sm text-gray-100">
+                                {{ panelForm.version || panel.latest_release?.tag_name || 'Enter a release tag' }}
+                            </div>
+                            <div class="mt-1 text-xs text-gray-500">
+                                Panel upgrades now default to explicit release tags. Custom branch upgrades are available below only for manual testing.
                             </div>
                         </div>
                     </div>
@@ -60,41 +88,57 @@
                         </div>
                     </div>
 
-                    <div class="grid gap-3 md:grid-cols-[180px_1fr_auto]">
-                        <select v-model="panelForm.source_type" class="field">
-                            <option value="channel">Update Channel</option>
-                            <option value="branch">Custom Branch</option>
-                            <option value="version">Version Tag</option>
-                        </select>
-                        <select v-if="panelForm.source_type === 'channel'" v-model="panelForm.source_value" class="field">
-                            <option v-for="channel in panel.channels || []" :key="channel.value" :value="channel.value">
-                                {{ channel.label }} ({{ channel.value }})
-                            </option>
-                        </select>
-                        <input v-else v-model="panelForm.source_value" type="text" class="field" :placeholder="panelForm.source_type === 'branch' ? 'main' : 'v1.0.0-beta.2'" />
-                        <button
-                            @click="startPanelUpgrade"
-                            :disabled="panelApplying || !panel.upgrade_script || !panelForm.source_value"
-                            class="btn-primary disabled:opacity-60"
-                        >{{ panelApplying ? 'Starting...' : 'Start Panel Upgrade' }}</button>
+                    <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4 space-y-4">
+                        <div>
+                            <div class="text-sm font-medium text-gray-100">Release Upgrade</div>
+                            <div class="mt-1 text-xs text-gray-400">
+                                Upgrade the panel to a specific published release tag. This is the normal release path.
+                            </div>
+                        </div>
+
+                        <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+                            <input
+                                v-model="panelForm.version"
+                                type="text"
+                                class="field"
+                                :placeholder="panel.latest_release?.tag_name || '1.0.0-BETA-3'"
+                            />
+                            <button
+                                @click="useLatestRelease"
+                                type="button"
+                                class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+                            >Use Latest</button>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button
+                                @click="startPanelUpgrade"
+                                :disabled="panelApplying || !panel.upgrade_script || !resolvedPanelSourceValue"
+                                class="btn-primary disabled:opacity-60"
+                            >{{ panelApplying ? 'Starting...' : 'Start Panel Upgrade' }}</button>
+                        </div>
                     </div>
 
-                    <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4 space-y-2 text-xs text-gray-400">
-                        <div class="font-medium uppercase tracking-wide text-gray-500">Supported Update Channels</div>
-                        <div v-for="channel in panel.channels || []" :key="channel.value" class="flex items-start justify-between gap-4">
-                            <div>
-                                <div class="text-sm text-gray-200">{{ channel.label }}</div>
-                                <div>{{ channel.description }}</div>
+                    <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4 space-y-4">
+                        <div>
+                            <div class="text-sm font-medium text-gray-100">Advanced Source</div>
+                            <div class="mt-1 text-xs text-gray-400">
+                                Only use a custom branch when testing unreleased work. Leave this blank for normal release upgrades.
                             </div>
-                            <div class="font-mono text-gray-300">{{ channel.value }}</div>
                         </div>
+                        <input
+                            v-model="panelForm.branch"
+                            type="text"
+                            class="field"
+                            placeholder="main"
+                        />
                     </div>
 
                     <div class="rounded-xl border border-amber-700/30 bg-amber-900/15 p-4 space-y-4">
                         <div>
                             <div class="text-sm font-medium text-amber-200">Rollback Options</div>
                             <div class="mt-1 text-xs text-amber-100/80">
-                                To roll back to an older tagged release, switch the source type above to <span class="font-semibold">Version Tag</span> and enter the previous release tag.
+                                To roll back to an older tagged release, enter the previous release tag in the release upgrade field above.
                                 To restore the exact files and runtime state captured before a previous upgrade, use a stored rollback backup below.
                             </div>
                         </div>
@@ -201,7 +245,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -219,13 +263,42 @@ const panelApplying = ref(false);
 const panelMessage = ref(null);
 const panelSettingsSaving = ref(false);
 const panelForm = ref({
-    source_type: props.panel?.default_source_type || 'channel',
-    source_value: props.panel?.default_source_value || 'main',
+    version: props.panel?.default_source_type === 'version' ? (props.panel?.default_source_value || '') : '',
+    branch: props.panel?.default_source_type === 'branch' ? (props.panel?.default_source_value || '') : '',
 });
 const rollbackBackupName = ref(props.panel?.rollback_backups?.[0]?.name || '');
 const panelSettings = ref({
     auto_remote_agents: !!props.panel?.auto_remote_agents,
 });
+
+function formatDate(value) {
+    if (!value) return '';
+
+    return new Date(value).toLocaleString();
+}
+
+function useLatestRelease() {
+    if (props.panel?.latest_release?.tag_name) {
+        panelForm.value.version = props.panel.latest_release.tag_name;
+    }
+}
+
+function resolvedPanelPayload() {
+    const version = panelForm.value.version?.trim();
+    const branch = panelForm.value.branch?.trim();
+
+    if (version) {
+        return { source_type: 'version', source_value: version };
+    }
+
+    if (branch) {
+        return { source_type: 'branch', source_value: branch };
+    }
+
+    return { source_type: 'version', source_value: '' };
+}
+
+const resolvedPanelSourceValue = computed(() => resolvedPanelPayload().source_value);
 
 async function checkUpdates() {
     if (!selectedNode.value) return;
@@ -268,13 +341,14 @@ async function startPanelUpgrade() {
     panelApplying.value = true;
     panelMessage.value = null;
     try {
+        const payload = resolvedPanelPayload();
         const res = await fetch(route('admin.updates.panel-upgrade'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
             },
-            body: JSON.stringify(panelForm.value),
+            body: JSON.stringify(payload),
         });
         panelMessage.value = await res.json();
         if (!res.ok && !panelMessage.value?.message) {
@@ -315,13 +389,14 @@ async function startRemoteAgentsUpgrade() {
     panelApplying.value = true;
     panelMessage.value = null;
     try {
+        const payload = resolvedPanelPayload();
         const res = await fetch(route('admin.updates.remote-agents'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
             },
-            body: JSON.stringify(panelForm.value),
+            body: JSON.stringify(payload),
         });
         panelMessage.value = await res.json();
         if (!res.ok && !panelMessage.value?.message) {

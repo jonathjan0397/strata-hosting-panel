@@ -9,7 +9,9 @@ use App\Models\SystemSetting;
 use App\Services\AgentClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\Process\Process;
@@ -26,16 +28,17 @@ class UpdateController extends Controller
     public function index(): Response
     {
         $nodes = Node::where('status', 'online')->select('id', 'name', 'hostname')->get();
+        $latestRelease = $this->latestPanelRelease();
 
         return Inertia::render('Admin/Updates/Index', [
             'nodes' => $nodes,
             'panel' => [
                 'version' => config('strata.version'),
+                'latest_release' => $latestRelease,
                 'upgrade_script' => $this->panelUpgradeUtilityAvailable(),
                 'log_path' => storage_path('logs/strata-panel-upgrade.log'),
-                'default_source_type' => 'channel',
-                'default_source_value' => 'main',
-                'channels' => self::SUPPORTED_CHANNELS,
+                'default_source_type' => 'version',
+                'default_source_value' => $latestRelease['tag_name'] ?? '',
                 'auto_remote_agents' => SystemSetting::getValue('updates.auto_remote_agents', '0') === '1',
                 'rollback_backups' => $this->availableRollbackBackups(),
             ],
@@ -308,5 +311,32 @@ class UpdateController extends Controller
         $payload = json_decode($process->getOutput(), true);
 
         return is_array($payload) ? $payload : [];
+    }
+
+    private function latestPanelRelease(): ?array
+    {
+        return Cache::remember('updates.github.latest_release', now()->addMinutes(10), function (): ?array {
+            $response = Http::acceptJson()
+                ->timeout(10)
+                ->get('https://api.github.com/repos/jonathjan0397/strata-hosting-panel/releases/latest');
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $payload = $response->json();
+
+            if (! is_array($payload)) {
+                return null;
+            }
+
+            return [
+                'name' => $payload['name'] ?? null,
+                'tag_name' => $payload['tag_name'] ?? null,
+                'html_url' => $payload['html_url'] ?? null,
+                'published_at' => $payload['published_at'] ?? null,
+                'prerelease' => (bool) ($payload['prerelease'] ?? false),
+            ];
+        });
     }
 }
