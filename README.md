@@ -144,6 +144,7 @@ This catches a real failure mode where frontend assets are current but live back
 Related docs:
 
 - [docs/DEPLOYMENT-POLICY.md](docs/DEPLOYMENT-POLICY.md)
+- [docs/RELEASE-STRUCTURE.md](docs/RELEASE-STRUCTURE.md)
 - [docs/RELEASE-UPGRADE-WORKFLOW.md](docs/RELEASE-UPGRADE-WORKFLOW.md)
 - [docs/UPGRADING.md](docs/UPGRADING.md)
 
@@ -344,6 +345,7 @@ When upgrading from `--version` or `--branch`, the primary server also queues ma
 
 See [docs/UPGRADING.md](docs/UPGRADING.md) for the full workflow and manual rollback notes.
 Deployment policy is documented in [docs/DEPLOYMENT-POLICY.md](docs/DEPLOYMENT-POLICY.md), and the recommended release pipeline is in [docs/RELEASE-UPGRADE-WORKFLOW.md](docs/RELEASE-UPGRADE-WORKFLOW.md).
+The release/version reference is in [docs/RELEASE-STRUCTURE.md](docs/RELEASE-STRUCTURE.md).
 
 ---
 
