@@ -38,6 +38,7 @@ class UpdateController extends Controller
                 'available_branches' => $this->availablePanelBranches(),
                 'upgrade_script' => $this->panelUpgradeUtilityAvailable(),
                 'log_path' => storage_path('logs/strata-panel-upgrade.log'),
+                'activity' => $this->upgradeActivityPayload(),
                 'default_source_type' => 'version',
                 'default_source_value' => $latestRelease['tag_name'] ?? '',
                 'auto_remote_agents' => SystemSetting::getValue('updates.auto_remote_agents', '0') === '1',
@@ -254,6 +255,11 @@ class UpdateController extends Controller
         ]);
     }
 
+    public function activity(): JsonResponse
+    {
+        return response()->json($this->upgradeActivityPayload());
+    }
+
     private function resolveUpgradeSource(string $sourceType, string $sourceValue): array
     {
         if ($sourceType === 'version') {
@@ -387,5 +393,184 @@ class UpdateController extends Controller
                 ->values()
                 ->all();
         });
+    }
+
+    private function upgradeActivityPayload(): array
+    {
+        $activities = [
+            $this->buildLogActivity(
+                key: 'panel_upgrade',
+                label: 'Panel Upgrade',
+                path: storage_path('logs/strata-panel-upgrade.log'),
+                processNeedles: ['/usr/sbin/strata-upgrade'],
+                stages: [
+                    ['match' => 'started panel upgrade', 'progress' => 5, 'label' => 'Queued'],
+                    ['match' => 'Creating rollback backup', 'progress' => 15, 'label' => 'Creating rollback backup'],
+                    ['match' => 'Downloading', 'progress' => 28, 'label' => 'Downloading release source'],
+                    ['match' => 'Installing new source', 'progress' => 42, 'label' => 'Installing source'],
+                    ['match' => 'Installing panel dependencies and running migrations', 'progress' => 56, 'label' => 'Installing dependencies and migrations'],
+                    ['match' => 'Building frontend assets', 'progress' => 68, 'label' => 'Building frontend assets'],
+                    ['match' => 'Building strata-agent', 'progress' => 78, 'label' => 'Building agent binaries'],
+                    ['match' => 'Restarting services', 'progress' => 88, 'label' => 'Restarting services'],
+                    ['match' => 'Running health checks', 'progress' => 95, 'label' => 'Running health checks'],
+                    ['match' => 'Upgrade completed successfully.', 'progress' => 100, 'label' => 'Completed'],
+                ],
+            ),
+            $this->buildLogActivity(
+                key: 'panel_rollback',
+                label: 'Panel Rollback',
+                path: storage_path('logs/strata-panel-rollback.log'),
+                processNeedles: ['/usr/sbin/strata-upgrade'],
+                stages: [
+                    ['match' => 'started panel rollback from backup', 'progress' => 5, 'label' => 'Queued'],
+                    ['match' => 'Creating rollback backup', 'progress' => 18, 'label' => 'Creating safety backup'],
+                    ['match' => 'Rolling back', 'progress' => 60, 'label' => 'Restoring backup'],
+                    ['match' => 'Rollback completed from backup', 'progress' => 100, 'label' => 'Completed'],
+                ],
+            ),
+            $this->buildLogActivity(
+                key: 'remote_agents',
+                label: 'Remote Agent Upgrade',
+                path: storage_path('logs/strata-remote-agents-upgrade.log'),
+                processNeedles: ['artisan strata:nodes-upgrade-agents'],
+                stages: [
+                    ['match' => 'started remote agent upgrade', 'progress' => 5, 'label' => 'Queued'],
+                    ['match' => 'Starting agent upgrades', 'progress' => 25, 'label' => 'Preparing upgrade jobs'],
+                    ['match' => 'Queued upgrade for', 'progress' => 55, 'label' => 'Queueing remote upgrades'],
+                    ['match' => 'All remote node agent upgrades have been queued', 'progress' => 100, 'label' => 'Completed'],
+                ],
+            ),
+        ];
+
+        usort($activities, function (array $left, array $right): int {
+            return ($right['last_modified_unix'] ?? 0) <=> ($left['last_modified_unix'] ?? 0);
+        });
+
+        $current = collect($activities)->firstWhere('status', 'running')
+            ?? collect($activities)->first(fn (array $activity) => ($activity['exists'] ?? false))
+            ?? $activities[0];
+
+        return [
+            'current_log_key' => $current['key'] ?? 'panel_upgrade',
+            'activities' => array_map(function (array $activity): array {
+                unset($activity['last_modified_unix']);
+
+                return $activity;
+            }, $activities),
+        ];
+    }
+
+    private function buildLogActivity(string $key, string $label, string $path, array $processNeedles, array $stages): array
+    {
+        $exists = File::exists($path);
+        $lines = $exists ? $this->tailLines($path, 250) : [];
+        $lastModifiedUnix = $exists ? (File::lastModified($path) ?: 0) : 0;
+        $lastLine = $lines !== [] ? end($lines) : null;
+        $matchingProcesses = $this->matchingProcesses($processNeedles);
+        $status = $this->inferActivityStatus($lines, $matchingProcesses !== []);
+        $stage = $this->inferActivityStage($lines, $stages, $status);
+
+        return [
+            'key' => $key,
+            'label' => $label,
+            'exists' => $exists,
+            'log_path' => $path,
+            'status' => $status,
+            'progress' => $stage['progress'],
+            'stage' => $stage['label'],
+            'last_line' => $lastLine,
+            'last_modified_at' => $lastModifiedUnix > 0 ? date(DATE_ATOM, $lastModifiedUnix) : null,
+            'last_modified_unix' => $lastModifiedUnix,
+            'process_count' => count($matchingProcesses),
+            'lines' => $lines,
+        ];
+    }
+
+    private function inferActivityStatus(array $lines, bool $running): string
+    {
+        $content = strtolower(implode("\n", $lines));
+
+        if ($running) {
+            return 'running';
+        }
+
+        if (str_contains($content, 'completed successfully')
+            || str_contains($content, 'rollback completed from backup')
+            || str_contains($content, 'all remote node agent upgrades have been queued')) {
+            return 'completed';
+        }
+
+        if (str_contains($content, '[err]')
+            || str_contains($content, 'upgrade failed')
+            || str_contains($content, 'rolling back')
+            || str_contains($content, 'failed')) {
+            return 'failed';
+        }
+
+        if ($lines !== []) {
+            return 'idle';
+        }
+
+        return 'idle';
+    }
+
+    private function inferActivityStage(array $lines, array $stages, string $status): array
+    {
+        $content = implode("\n", $lines);
+        $resolved = ['progress' => 0, 'label' => 'Idle'];
+
+        foreach ($stages as $stage) {
+            if (str_contains($content, $stage['match'])) {
+                $resolved = [
+                    'progress' => $stage['progress'],
+                    'label' => $stage['label'],
+                ];
+            }
+        }
+
+        if ($status === 'running' && $resolved['progress'] === 0) {
+            return ['progress' => 10, 'label' => 'Running'];
+        }
+
+        if ($status === 'failed' && $resolved['progress'] === 0) {
+            return ['progress' => 100, 'label' => 'Failed'];
+        }
+
+        if ($status === 'completed' && $resolved['progress'] < 100) {
+            return ['progress' => 100, 'label' => 'Completed'];
+        }
+
+        return $resolved;
+    }
+
+    private function tailLines(string $path, int $limit = 200): array
+    {
+        $content = File::get($path);
+        $lines = preg_split("/\r\n|\n|\r/", $content) ?: [];
+        $lines = array_values(array_filter($lines, static fn ($line) => $line !== ''));
+
+        return array_slice($lines, -$limit);
+    }
+
+    private function matchingProcesses(array $needles): array
+    {
+        $process = new Process(['ps', '-eo', 'pid=,args=']);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            return [];
+        }
+
+        $matches = [];
+        foreach (preg_split("/\r\n|\n|\r/", $process->getOutput()) ?: [] as $line) {
+            foreach ($needles as $needle) {
+                if ($needle !== '' && str_contains($line, $needle)) {
+                    $matches[] = trim($line);
+                    break;
+                }
+            }
+        }
+
+        return $matches;
     }
 }

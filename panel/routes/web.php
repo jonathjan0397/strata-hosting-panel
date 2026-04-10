@@ -404,6 +404,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('updates/panel-upgrade', [UpdateController::class, 'panelUpgrade'])->name('updates.panel-upgrade');
         Route::post('updates/panel-rollback-backup', [UpdateController::class, 'rollbackBackup'])->name('updates.panel-rollback-backup');
         Route::post('updates/remote-agents', [UpdateController::class, 'remoteAgentsUpgrade'])->name('updates.remote-agents');
+        Route::get('updates/activity', [UpdateController::class, 'activity'])->name('updates.activity');
 
         // API tokens (billing integration)
         Route::get('api-tokens', [ApiTokenController::class, 'index'])->name('api-tokens.index');
