@@ -1,6 +1,6 @@
 # Beta Release Checklist
 
-Target release: `1.0.0-BETA-3`
+Target release: `1.0.0-BETA-3.01`
 
 Target validation OS: Debian 13 (trixie)
 
@@ -9,7 +9,7 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 ## Release Gate
 
 - [x] Public `main` branch upgrade completes using `installer/upgrade.sh --branch main`.
-- [x] Tagged release upgrade path is documented using `installer/upgrade.sh --version 1.0.0-BETA-3`.
+- [x] Tagged release upgrade path is documented using `installer/upgrade.sh --version 1.0.0-BETA-3.01`.
 - [x] Rollback backup is created before upgrade.
 - [x] Remote node agent cascade command runs after branch/tag upgrades.
 - [x] Panel login page returns HTTP 200.
@@ -59,4 +59,4 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, upgraded from public `m
 
 ## Tagging Criteria
 
-Tag `1.0.0-BETA-3` only after the release gate passes or any remaining failures are documented here as accepted alpha limitations.
+Tag `1.0.0-BETA-3.01` only after the release gate passes or any remaining failures are documented here as accepted alpha limitations.

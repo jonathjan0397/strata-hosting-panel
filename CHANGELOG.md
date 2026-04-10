@@ -1,8 +1,8 @@
 # Changelog
 
-## [1.0.0-BETA-3] — 2026-04-09
+## [1.0.0-BETA-3.01] — 2026-04-10
 
-Public beta target: `1.0.0-BETA-3`.
+Public beta target: `1.0.0-BETA-3.01`.
 
 ### Added — Agent hardening
 

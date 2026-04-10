@@ -1,6 +1,6 @@
 # Alpha Release Checklist
 
-Target release: `1.0.0-BETA-3`
+Target release: `1.0.0-BETA-3.01`
 
 Target validation OS: Debian 13 (trixie)
 
@@ -50,4 +50,4 @@ Validation host: Debian 13.4 on `stratadevplatform.net`, final pass from public 
 
 ## Tagging Criteria
 
-Tag `1.0.0-BETA-3` only after the release gate passes or any remaining failures are documented here as accepted Alpha limitations.
+Tag `1.0.0-BETA-3.01` only after the release gate passes or any remaining failures are documented here as accepted Alpha limitations.
