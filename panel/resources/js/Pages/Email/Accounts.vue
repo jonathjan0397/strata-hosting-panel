@@ -14,11 +14,12 @@
                         <h3 class="mt-1 text-lg font-semibold text-gray-100">Use encrypted connections whenever available</h3>
                         <p class="mt-2 max-w-3xl text-sm text-sky-100/80">
                             Use the full mailbox address as the username. For password, use the mailbox password set in this panel.
+                            Incoming and outgoing mail should use your hosting server's mail hostname so the TLS certificate stays valid.
                             Prefer SSL/TLS or STARTTLS; the basic ports are shown only for compatibility troubleshooting.
                         </p>
                     </div>
                     <div class="rounded-xl border border-sky-700/50 bg-black/20 px-4 py-3 text-xs text-sky-100">
-                        <p class="font-semibold">Server hostname</p>
+                        <p class="font-semibold">Hosting server mail hostname</p>
                         <p class="mt-1 font-mono">{{ primaryMailServer }}</p>
                     </div>
                 </div>
@@ -230,7 +231,7 @@ const props = defineProps({
 
 const enabledDomains = computed(() => props.domains.filter((domain) => domain.mail_enabled));
 const disabledDomains = computed(() => props.domains.filter((domain) => !domain.mail_enabled));
-const primaryMailServer = computed(() => enabledDomains.value[0]?.node?.hostname ?? 'mail.your-domain.example');
+const primaryMailServer = computed(() => sharedMailHost(enabledDomains.value[0]?.node?.hostname));
 const enablingDomainId = ref(null);
 const regeneratingDomainId = ref(null);
 const troubleshootingRoute = computed(() => {
@@ -314,6 +315,13 @@ function changePassword() {
 function quotaLabel(mailbox) {
     if (!mailbox.quota_mb || mailbox.quota_mb <= 0) return 'Unlimited';
     return `${mailbox.used_mb ?? 0} / ${mailbox.quota_mb} MB`;
+}
+
+function sharedMailHost(hostname) {
+    if (!hostname) return 'mail.your-server-domain.example';
+    const parts = String(hostname).split('.').filter(Boolean);
+    if (parts.length < 2) return hostname;
+    return `mail.${parts.slice(1).join('.')}`;
 }
 
 function mailboxLimitLabel(domain) {

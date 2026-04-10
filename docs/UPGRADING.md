@@ -15,7 +15,7 @@ Upgrade from a tagged release:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /usr/sbin/strata-upgrade
 chmod +x /usr/sbin/strata-upgrade
-/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.07
+/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.08
 ```
 
 Upgrade from a supported update channel:
@@ -33,7 +33,7 @@ Supported channels:
 Upgrade from a manually uploaded archive:
 
 ```bash
-/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.07.tar.gz
+/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.08.tar.gz
 ```
 
 The file may be a GitHub source archive or an equivalent `.tar`, `.tar.gz`, or `.tgz` archive containing the repository root.
@@ -132,4 +132,5 @@ Adjust the backup timestamp and PHP service name if your install differs.
 - The panel and agent version are derived from the release tag, branch name, or the repository `VERSION` file. Node health checks update each node's `agent_version`.
 - The internal remote cascade command is `php artisan strata:nodes-upgrade-agents --target-version <tag>`, `--channel <channel>`, or `--branch <branch>`. The top-level `/usr/sbin/strata-upgrade` wrapper handles this for normal upgrades.
 - If you use Strata as authoritative DNS, verify that your host-domain zone answers with an SOA similar to `ns1.example.com. hostmaster.example.com.` before changing registrar nameservers. Current installs should now be repaired automatically during upgrade.
+
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.08] - 2026-04-10
+
+Public beta target: `1.0.0-BETA-3.08`.
+
+### Changed - Mail client guidance
+
+**Mail**
+- The Mail Client Configuration Guide now recommends the hosting server's shared mail hostname instead of implying per-domain mail hostnames should be used by default
+- This keeps the documented client settings aligned with the currently certificate-valid mail transport hostname
+
 ## [1.0.0-BETA-3.07] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.07`.
@@ -9,10 +19,6 @@ Public beta target: `1.0.0-BETA-3.07`.
 **Mail**
 - Upgrades now normalize Dovecot auth mechanisms to `plain login`, preventing older installs from rejecting Outlook submission with `Invalid authentication mechanism: 'LOGIN'`
 - Live primary verification confirmed the active server config now exposes `auth_mechanisms = plain login` after the repair
-
-## [1.0.0-BETA-3.06] - 2026-04-10
-
-Public beta target: `1.0.0-BETA-3.06`.
 
 ### Fixed - Mail signing and webmail runtime
 
@@ -259,4 +265,5 @@ Public beta target: `1.0.0-BETA-3.04`.
 - SSL via acme.sh (Let's Encrypt)
 - PHP-FPM multi-version (8.1 / 8.2 / 8.3)
 - One-line bash installer (`installer/install.sh`)
+
 

@@ -1,19 +1,19 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.07-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.07)
+[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.07-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.08)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.0-BETA-3.07 public testing
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.0-BETA-3.08 public testing
 
 ---
 
 > **Pre-release Beta Software**
 >
-> 1.0.0-BETA-3.07 is available for public testing and should not be treated as production-ready.
+> 1.0.0-BETA-3.08 is available for public testing and should not be treated as production-ready.
 > **Do not use in production without reviewing the code and hardening the server yourself.**
 >
 > Public testers: please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
@@ -316,7 +316,7 @@ Upgrade to a tagged release:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /usr/sbin/strata-upgrade
 chmod +x /usr/sbin/strata-upgrade
-/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.07
+/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.08
 ```
 
 Public testers can upgrade from a supported update channel:
@@ -334,7 +334,7 @@ Supported channels:
 Manual archive upgrades are also supported:
 
 ```bash
-/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.07.tar.gz
+/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.08.tar.gz
 ```
 
 The upgrade utility preserves `.env`, `storage`, service secrets, certificates, hosted files, databases, and mail data. It creates a rollback backup under `/opt/strata-panel-backups/` and automatically restores it if a critical upgrade step fails.
@@ -380,7 +380,7 @@ Remote node installs and upgrades apply the same PowerDNS SOA defaults automatic
 | Database | MariaDB + PostgreSQL |
 | Firewall / Malware | UFW + fail2ban + ClamAV |
 
-## Features (1.0.0-BETA-3.07)
+## Features (1.0.0-BETA-3.08)
 
 | Category | Features |
 |---|---|
@@ -419,4 +419,5 @@ This is an alpha release for public testing. Issues are expected.
 - **Installer or demo-server problems:** [Open an issue](https://github.com/jonathjan0397/strata-hosting-panel/issues) and include the page, action, expected result, and actual result.
 - **Feature requests:** [Open an issue](https://github.com/jonathjan0397/strata-hosting-panel/issues) with the `enhancement` label.
 - **Pull requests:** Welcome. Please open an issue first for anything large so we can discuss the approach.
+
 
