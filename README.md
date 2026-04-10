@@ -22,18 +22,11 @@ Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-ve
 
 ## Public Demo / Smoke Test
 
-**[https://stratadevplatform.net](https://stratadevplatform.net)**
+There is no public demo environment available right now.
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `demo-admin@stratadevplatform.net` | `DemoAdmin2026!` |
-| Reseller | `demo-reseller@stratadevplatform.net` | `DemoReseller2026!` |
-| User | `demo-user@stratadevplatform.net` | `DemoUser2026!` |
-| Reseller Client | `demo-client@stratadevplatform.net` | `DemoClient2026!` |
+When a shared smoke-test instance is brought back, its URL and access policy will be documented in [docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md).
 
-The demo server includes dummy domains, DNS records, mailboxes, forwarders, databases, and reseller/client accounts. It may be reset at any time, so do not store real data there.
-
-Please report public testing issues in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**. Demo reset and seed details are documented in [docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md).
+Please report public testing issues in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
 
 ---
 
