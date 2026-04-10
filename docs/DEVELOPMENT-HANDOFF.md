@@ -19,7 +19,7 @@ Project:
 
 Current public release line:
 
-- latest published beta at the time of this handoff: `1.0.0-BETA-3.05`
+- latest published beta at the time of this handoff: `1.0.0-BETA-3.06`
 
 Current branch policy:
 
@@ -118,6 +118,8 @@ These areas were recently changed and should be assumed to exist unless proven o
 - DNS/mail/certificate guidance surfaced in panel
 - DKIM/SPF/DMARC repair actions added
 - mail pages improved to expose DKIM/SPF/DMARC status directly
+- webmail runtime now depends on `/var/www/webmail/include.php`, not only `_include.php`
+- OpenDKIM socket access should use `UserID opendkim:postfix`; avoid reintroducing the old `postfix` supplementary-group workaround
 
 ### Navigation / UI
 

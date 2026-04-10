@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0-BETA-3.06] - 2026-04-10
+
+Public beta target: `1.0.0-BETA-3.06`.
+
+### Fixed - Mail signing and webmail runtime
+
+**Mail / Webmail**
+- Fresh installs and upgrades now write the active SnappyMail runtime override to `include.php`, preventing webmail from falling back to the upstream `localhost:143` defaults
+- OpenDKIM now runs with an effective `postfix` group for the milter socket instead of relying on insecure supplementary-group hacks or brittle socket-permission watchers
+- Upgrades now repair existing OpenDKIM installs by normalizing the socket directory, removing the stale systemd socket-permission helper units, and rewriting `UserID` to `opendkim:postfix`
+- Live primary verification confirmed DKIM signing with the active `ryder-kingsley.com` key after the socket ownership fix
+
 ## [1.0.0-BETA-3.05] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.05`.

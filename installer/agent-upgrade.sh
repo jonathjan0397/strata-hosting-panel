@@ -142,6 +142,23 @@ ssl_server_key_file = ${mail_tls_dir}/privkey.pem
 EOF
     fi
 
+    mkdir -p /var/spool/postfix/opendkim
+    chown opendkim:postfix /var/spool/postfix/opendkim >/dev/null 2>&1 || true
+    chmod 750 /var/spool/postfix/opendkim >/dev/null 2>&1 || true
+    python3 - <<'PY' >/dev/null 2>&1 || true
+from pathlib import Path
+conf = Path('/etc/opendkim.conf')
+if conf.exists():
+    text = conf.read_text()
+    updated = text.replace('UserID          opendkim:opendkim', 'UserID          opendkim:postfix')
+    if updated != text:
+        conf.write_text(updated)
+PY
+    rm -f /etc/systemd/system/opendkim-socket-perms.service /etc/systemd/system/opendkim-socket-perms.path
+    systemctl disable --now opendkim-socket-perms.path >/dev/null 2>&1 || true
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl restart opendkim >/dev/null 2>&1 || true
+
     systemctl restart dovecot >/dev/null 2>&1 || true
     systemctl restart postfix >/dev/null 2>&1 || true
 }

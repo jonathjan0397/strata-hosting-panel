@@ -365,7 +365,7 @@ Syslog          yes
 UMask           002
 Mode            sv
 SignatureAlgorithm rsa-sha256
-UserID          opendkim:opendkim
+UserID          opendkim:postfix
 Socket          local:/var/spool/postfix/opendkim/opendkim.sock
 PidFile         /var/run/opendkim/opendkim.pid
 TrustAnchorFile /usr/share/dns/root.key
@@ -383,7 +383,10 @@ EOF
 touch /etc/opendkim/KeyTable /etc/opendkim/SigningTable
 chown -R opendkim:opendkim /etc/opendkim/userkeys
 chown opendkim:postfix /var/spool/postfix/opendkim
-/usr/sbin/usermod -aG opendkim postfix 2>/dev/null || true
+chmod 750 /var/spool/postfix/opendkim
+rm -f /etc/systemd/system/opendkim-socket-perms.service /etc/systemd/system/opendkim-socket-perms.path
+systemctl disable --now opendkim-socket-perms.path >/dev/null 2>&1 || true
+systemctl daemon-reload >/dev/null 2>&1 || true
 systemctl enable --now opendkim
 
 rm -f /etc/pure-ftpd/conf/VirtualChroot

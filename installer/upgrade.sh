@@ -303,6 +303,23 @@ ssl_min_protocol = TLSv1.2
 EOF
     fi
 
+    mkdir -p /var/spool/postfix/opendkim
+    chown opendkim:postfix /var/spool/postfix/opendkim >/dev/null 2>&1 || true
+    chmod 750 /var/spool/postfix/opendkim >/dev/null 2>&1 || true
+    python3 - <<'PY' >/dev/null 2>&1 || true
+from pathlib import Path
+conf = Path('/etc/opendkim.conf')
+if conf.exists():
+    text = conf.read_text()
+    updated = text.replace('UserID          opendkim:opendkim', 'UserID          opendkim:postfix')
+    if updated != text:
+        conf.write_text(updated)
+PY
+    rm -f /etc/systemd/system/opendkim-socket-perms.service /etc/systemd/system/opendkim-socket-perms.path
+    systemctl disable --now opendkim-socket-perms.path >/dev/null 2>&1 || true
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl restart opendkim >/dev/null 2>&1 || true
+
     systemctl restart dovecot >/dev/null 2>&1 || true
     systemctl restart postfix >/dev/null 2>&1 || true
 }
@@ -622,6 +639,14 @@ if grep -q '^STRATA_WEBMAIL_DATA_PATH=' "$INSTALL_DIR/panel/.env"; then
     sed -i "s|^STRATA_WEBMAIL_DATA_PATH=.*|STRATA_WEBMAIL_DATA_PATH=/var/lib/snappymail|" "$INSTALL_DIR/panel/.env"
 else
     printf 'STRATA_WEBMAIL_DATA_PATH=/var/lib/snappymail\n' >> "$INSTALL_DIR/panel/.env"
+fi
+if [[ -d /var/www/webmail ]]; then
+    cat > /var/www/webmail/include.php <<'EOF'
+<?php
+define('APP_DATA_FOLDER_PATH', '/var/lib/snappymail/');
+EOF
+    chown www-data:www-data /var/www/webmail/include.php 2>/dev/null || true
+    chmod 644 /var/www/webmail/include.php 2>/dev/null || true
 fi
 
 info "Installing panel dependencies and running migrations..."

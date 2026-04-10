@@ -742,7 +742,7 @@ Syslog          yes
 UMask           002
 Mode            sv
 SignatureAlgorithm rsa-sha256
-UserID          opendkim:opendkim
+UserID          opendkim:postfix
 Socket          local:/var/spool/postfix/opendkim/opendkim.sock
 PidFile         /var/run/opendkim/opendkim.pid
 TrustAnchorFile /usr/share/dns/root.key
@@ -766,7 +766,10 @@ chown -R opendkim:opendkim /etc/opendkim/userkeys
 
 mkdir -p /var/spool/postfix/opendkim
 chown opendkim:postfix /var/spool/postfix/opendkim
-/usr/sbin/usermod -aG opendkim postfix 2>/dev/null || true
+chmod 750 /var/spool/postfix/opendkim
+rm -f /etc/systemd/system/opendkim-socket-perms.service /etc/systemd/system/opendkim-socket-perms.path
+systemctl disable --now opendkim-socket-perms.path >/dev/null 2>&1 || true
+systemctl daemon-reload >/dev/null 2>&1 || true
 
 systemctl enable --now opendkim
 success "OpenDKIM ready."
@@ -893,7 +896,7 @@ STRATA_VERSION=${PANEL_VERSION}
 # Webmail SSO
 STRATA_WEBMAIL_SSO_SECRET=${WEBMAIL_SSO_SECRET}
 STRATA_WEBMAIL_URL=/webmail/
-STRATA_WEBMAIL_DATA_PATH=${WEBMAIL_DIR}/data
+STRATA_WEBMAIL_DATA_PATH=${WEBMAIL_DATA}
 EOF
 chmod 600 "$INSTALL_DIR/panel/.env"
 
@@ -1783,10 +1786,10 @@ if [[ -f "$SNAPPY_ZIP" ]]; then
     mkdir -p "$WEBMAIL_DATA/_data_/_default_/configs"
     mkdir -p "$WEBMAIL_DATA/_data_/_default_/themes"
 
-    if [[ -f "$WEBMAIL_DIR/index.php" ]]; then
-        sed -i "s|define('APP_DATA_FOLDER_PATH'.*|define('APP_DATA_FOLDER_PATH', '${WEBMAIL_DATA}/');|" \
-            "$WEBMAIL_DIR/index.php" 2>/dev/null || true
-    fi
+    cat > "$WEBMAIL_DIR/include.php" <<EOF
+<?php
+define('APP_DATA_FOLDER_PATH', '${WEBMAIL_DATA}/');
+EOF
 
     SNAPPY_SRC="$INSTALL_DIR/agent-src"
     if [[ -f "${SNAPPY_SRC}/../webmail-skin/config/application.ini.template" ]]; then
@@ -1908,7 +1911,9 @@ return [
     'token_ttl'      => 60,
 ];
 EOF
-chmod 600 /etc/strata-panel/webmail-sso.php
+    chmod 644 "$WEBMAIL_DIR/include.php"
+    chown www-data:www-data "$WEBMAIL_DIR/include.php"
+    chmod 600 /etc/strata-panel/webmail-sso.php
 
 # ── Step 23. Set admin account ────────────────────────────────────────────────
 info "Setting up admin account…"
