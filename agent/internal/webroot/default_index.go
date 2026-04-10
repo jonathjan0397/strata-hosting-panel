@@ -415,7 +415,7 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
     </section>
     <footer>
       <div class="footer-note">Managed by Strata Hosting Panel. Replace this placeholder when your actual website is ready.</div>
-      <div class="footer-status">Provisioned • Online • Ready</div>
+      <div class="footer-status">Provisioned | Online | Ready</div>
     </footer>
   </main>
 </body>

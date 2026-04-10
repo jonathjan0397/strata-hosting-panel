@@ -12,6 +12,14 @@ panel/bootstrap/cache/*.php
 agent/strata-agent
 agent/*.exe
 
+# Local tooling and ops artifacts
+.tools/
+deploy-logs/
+routes.json
+tools/__pycache__/
+tools/*.tar.gz
+tools/*.zip
+
 # OS
 .DS_Store
 Thumbs.db

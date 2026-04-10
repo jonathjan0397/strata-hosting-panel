@@ -21,7 +21,7 @@ Strata should no longer be deployed by pushing directly to `main` and patching l
    - frontend build
    - installer / upgrade validation where applicable
 4. Merge into `main`.
-5. Cut a release tag such as `v1.0.0-alpha.4`.
+5. Cut a release tag such as `1.0.0-BETA-3`.
 6. Run the post-build browser verification gate:
    - admin sidebar contains `Resellers`, `Security`, `System`, `Infrastructure`, `Hosting`
    - reseller sidebar contains expected reseller groups
