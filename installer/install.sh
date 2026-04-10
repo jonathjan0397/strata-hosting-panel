@@ -178,14 +178,15 @@ fi
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
 [[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" || "$DEBIAN_VERSION" == "13" ]] \
     || die "Unsupported OS. Debian 11, 12, or 13 required (detected: $DEBIAN_VERSION)."
+INSTALLER_VERSION="1.0.0-BETA-3.11"
 
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
 DETECTED_HOSTNAME=$(hostname -f 2>/dev/null || hostname)
 
 echo -e "\n${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║           Strata Hosting Panel Installer  v1.0-Beta          ║${NC}"
+printf "${BOLD}║ %-52s ║${NC}\n" "Strata Hosting Panel Installer ${INSTALLER_VERSION}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${NC}\n"
-info "Debian $DEBIAN_VERSION · IP: $SERVER_IP"
+info "Version ${INSTALLER_VERSION} · Debian $DEBIAN_VERSION · IP: $SERVER_IP"
 echo ""
 
 # ── Helper: generate a random password ───────────────────────────────────────

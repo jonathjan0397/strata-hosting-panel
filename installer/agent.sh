@@ -151,6 +151,7 @@ fi
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
 [[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" || "$DEBIAN_VERSION" == "13" ]] \
     || die "Debian 11, 12, or 13 required."
+INSTALLER_VERSION="1.0.0-BETA-3.11"
 
 gen_pass() { openssl rand -base64 40 | tr -dc 'a-zA-Z0-9' | head -c "${1:-32}"; }
 gen_hex()  { openssl rand -hex "${1:-32}"; }
@@ -221,7 +222,7 @@ STRATA_BACKUP_STORAGE_ROOT='${BACKUP_STORAGE_ROOT}'
 EOF
 chmod 600 /etc/strata-agent/install.env
 
-info "Installing Strata remote node on Debian ${DEBIAN_VERSION}."
+info "Installing Strata remote node ${INSTALLER_VERSION} on Debian ${DEBIAN_VERSION}."
 info "Hostname: ${HOSTNAME_FQDN}; web server: ${WEB_SERVER}; agent port: ${AGENT_PORT}."
 
 hostnamectl set-hostname "$HOSTNAME_FQDN"

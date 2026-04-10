@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.11] - 2026-04-10
+
+Public beta target: `1.0.0-BETA-3.11`.
+
+### Changed - Installer version display
+
+**Installer**
+- The primary installer now shows the actual Strata release version in its startup banner instead of the old generic `v1.0-Beta` label
+- The remote node installer now also announces the exact Strata release version at startup
+
 ## [1.0.0-BETA-3.10] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.10`.
