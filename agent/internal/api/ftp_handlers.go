@@ -22,12 +22,6 @@ func handleFTPCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "username, password, and home_dir required", http.StatusBadRequest)
 		return
 	}
-	if req.UID == 0 {
-		req.UID = 33 // www-data
-	}
-	if req.GID == 0 {
-		req.GID = 33
-	}
 	if err := ftp.CreateAccount(req.Username, req.Password, req.HomeDir, req.UID, req.GID); err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return

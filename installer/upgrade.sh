@@ -648,6 +648,16 @@ EOF
     chown www-data:www-data /var/www/webmail/include.php 2>/dev/null || true
     chmod 644 /var/www/webmail/include.php 2>/dev/null || true
 fi
+rm -f /etc/pure-ftpd/conf/VirtualChroot 2>/dev/null || true
+if [[ -d /etc/pure-ftpd/conf ]]; then
+    echo "no" > /etc/pure-ftpd/conf/PAMAuthentication
+    echo "no" > /etc/pure-ftpd/conf/UnixAuthentication
+fi
+if [[ -d /etc/pure-ftpd ]]; then
+    mkdir -p /etc/pure-ftpd/auth
+    rm -f /etc/pure-ftpd/auth/*
+    ln -sf ../conf/PureDB /etc/pure-ftpd/auth/60puredb
+fi
 
 info "Installing panel dependencies and running migrations..."
 cd "$INSTALL_DIR/panel"

@@ -525,10 +525,15 @@ info "Installing Pure-FTPd…"
 DEBIAN_FRONTEND=noninteractive apt-get install -y pure-ftpd pure-ftpd-common
 
 mkdir -p /etc/pureftpd
+mkdir -p /etc/pure-ftpd/auth
 
 # Virtual users
-echo "yes" > /etc/pure-ftpd/conf/VirtualChroot
+rm -f /etc/pure-ftpd/conf/VirtualChroot
 echo "/etc/pureftpd/pureftpd.pdb" > /etc/pure-ftpd/conf/PureDB
+echo "no" > /etc/pure-ftpd/conf/PAMAuthentication
+echo "no" > /etc/pure-ftpd/conf/UnixAuthentication
+rm -f /etc/pure-ftpd/auth/*
+ln -sf ../conf/PureDB /etc/pure-ftpd/auth/60puredb
 echo "yes" > /etc/pure-ftpd/conf/NoAnonymous
 echo "yes" > /etc/pure-ftpd/conf/ChrootEveryone
 echo "30000 50000" > /etc/pure-ftpd/conf/PassivePortRange

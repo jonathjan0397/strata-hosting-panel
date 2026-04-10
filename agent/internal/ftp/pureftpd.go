@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -29,6 +30,18 @@ func CreateAccount(username, password, homeDir string, uid, gid int) error {
 	}
 	if err := os.MkdirAll(homeDir, 0755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", homeDir, err)
+	}
+	if uid == 0 || gid == 0 {
+		resolvedUID, resolvedGID, err := ownerIDs(homeDir)
+		if err != nil {
+			return err
+		}
+		if uid == 0 {
+			uid = resolvedUID
+		}
+		if gid == 0 {
+			gid = resolvedGID
+		}
 	}
 	cmd := exec.Command("pure-pw", "useradd", username,
 		"-u", fmt.Sprintf("%d", uid),
@@ -75,5 +88,23 @@ func rebuildDB() error {
 	if err != nil {
 		return fmt.Errorf("pure-pw mkdb: %s: %w", strings.TrimSpace(string(out)), err)
 	}
+	if out, err := exec.Command("systemctl", "restart", "pure-ftpd").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl restart pure-ftpd: %s: %w", strings.TrimSpace(string(out)), err)
+	}
 	return nil
+}
+
+func ownerIDs(path string) (int, int, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, 0, fmt.Errorf("stat %s: %w", path, err)
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, 0, fmt.Errorf("stat %s: unsupported stat type", path)
+	}
+	if stat.Uid < 1000 {
+		return 0, 0, fmt.Errorf("invalid ftp owner uid for %s: %d", path, stat.Uid)
+	}
+	return int(stat.Uid), int(stat.Gid), nil
 }
