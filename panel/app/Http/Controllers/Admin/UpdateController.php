@@ -322,7 +322,7 @@ class UpdateController extends Controller
 
     private function latestPanelRelease(): ?array
     {
-        return Cache::remember('updates.github.latest_release', now()->addMinutes(10), function (): ?array {
+        return Cache::remember('updates.github.latest_release', now()->addMinutes(2), function (): ?array {
             $response = Http::acceptJson()
                 ->timeout(10)
                 ->get('https://api.github.com/repos/jonathjan0397/strata-hosting-panel/releases/latest');
@@ -349,7 +349,7 @@ class UpdateController extends Controller
 
     private function availablePanelBranches(): array
     {
-        return Cache::remember('updates.github.available_branches', now()->addMinutes(10), function (): array {
+        return Cache::remember('updates.github.available_branches', now()->addMinutes(2), function (): array {
             $response = Http::acceptJson()
                 ->timeout(10)
                 ->get('https://api.github.com/repos/jonathjan0397/strata-hosting-panel/branches');
