@@ -132,6 +132,28 @@
                             class="field"
                             placeholder="main"
                         />
+                        <div v-if="panel.available_branches?.length" class="space-y-2">
+                            <div class="text-xs uppercase tracking-wide text-gray-500">Available Branches</div>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    v-for="branch in panel.available_branches"
+                                    :key="branch.name"
+                                    type="button"
+                                    @click="panelForm.branch = branch.name"
+                                    class="rounded-full border border-gray-700 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:bg-gray-800"
+                                >{{ branch.name }}</button>
+                            </div>
+                            <div class="space-y-1">
+                                <div
+                                    v-for="branch in panel.available_branches"
+                                    :key="`${branch.name}-description`"
+                                    class="text-xs text-gray-500"
+                                >
+                                    <span class="font-mono text-gray-300">{{ branch.name }}</span>
+                                    <span class="ml-2">{{ branch.description }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="rounded-xl border border-amber-700/30 bg-amber-900/15 p-4 space-y-4">

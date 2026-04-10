@@ -35,6 +35,7 @@ class UpdateController extends Controller
             'panel' => [
                 'version' => config('strata.version'),
                 'latest_release' => $latestRelease,
+                'available_branches' => $this->availablePanelBranches(),
                 'upgrade_script' => $this->panelUpgradeUtilityAvailable(),
                 'log_path' => storage_path('logs/strata-panel-upgrade.log'),
                 'default_source_type' => 'version',
@@ -337,6 +338,54 @@ class UpdateController extends Controller
                 'published_at' => $payload['published_at'] ?? null,
                 'prerelease' => (bool) ($payload['prerelease'] ?? false),
             ];
+        });
+    }
+
+    private function availablePanelBranches(): array
+    {
+        return Cache::remember('updates.github.available_branches', now()->addMinutes(10), function (): array {
+            $response = Http::acceptJson()
+                ->timeout(10)
+                ->get('https://api.github.com/repos/jonathjan0397/strata-hosting-panel/branches');
+
+            if (! $response->successful()) {
+                return collect(self::SUPPORTED_CHANNELS)
+                    ->map(fn (array $channel) => [
+                        'name' => $channel['value'],
+                        'label' => $channel['label'],
+                        'description' => $channel['description'],
+                    ])
+                    ->all();
+            }
+
+            $payload = $response->json();
+
+            if (! is_array($payload)) {
+                return [];
+            }
+
+            $branchDescriptions = collect(self::SUPPORTED_CHANNELS)
+                ->keyBy('value');
+
+            return collect($payload)
+                ->map(function ($branch) use ($branchDescriptions) {
+                    $name = $branch['name'] ?? null;
+
+                    if (! is_string($name) || $name === '') {
+                        return null;
+                    }
+
+                    $known = $branchDescriptions->get($name);
+
+                    return [
+                        'name' => $name,
+                        'label' => $known['label'] ?? $name,
+                        'description' => $known['description'] ?? 'Available branch from GitHub.',
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all();
         });
     }
 }
