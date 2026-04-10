@@ -4,7 +4,7 @@
             <PageHeader
                 eyebrow="Files"
                 title="FTP Accounts"
-                description="Create scoped FTP users for deployments, collaborators, and legacy publishing workflows."
+                description="Create FTP users for deployments, collaborators, and legacy publishing workflows. New accounts start at your hosting home so custom web roots stay reachable."
             />
 
             <div class="grid gap-4 md:grid-cols-3">
@@ -15,6 +15,9 @@
 
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <h3 class="mb-4 text-sm font-semibold text-gray-300">Create FTP Account</h3>
+                <p class="mb-4 text-xs text-gray-500">
+                    Default access starts at <span class="font-mono text-gray-300">/var/www/{{ account.username }}</span>.
+                </p>
                 <form @submit.prevent="submit" class="grid gap-4 sm:grid-cols-2">
                     <FormField label="Username" :error="form.errors.username">
                         <input

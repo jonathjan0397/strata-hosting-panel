@@ -11,12 +11,14 @@ class FtpProvisioner
     public function __construct(private readonly AgentClient $client) {}
 
     /**
-     * Create a Pure-FTPd virtual account jailed to the account's web root.
+     * Create a Pure-FTPd virtual account jailed to the account home.
+     * This keeps custom document roots reachable over FTP instead of forcing
+     * every account into /public_html.
      * Returns [bool $success, ?string $error].
      */
     public function create(Account $account, string $username, string $password, ?int $quotaMb = 0): array
     {
-        $homeDir = "/var/www/{$account->username}/public_html";
+        $homeDir = $this->defaultHomeDir($account);
 
         try {
             $response = $this->client->createFtpAccount([
@@ -94,5 +96,10 @@ class FtpProvisioner
         } catch (Throwable $e) {
             return [false, $e->getMessage()];
         }
+    }
+
+    private function defaultHomeDir(Account $account): string
+    {
+        return "/var/www/{$account->username}";
     }
 }
