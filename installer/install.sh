@@ -838,6 +838,10 @@ else
     install -m 755 /tmp/strata-hosting-panel-src/installer/agent-upgrade.sh /usr/sbin/strata-agent-upgrade
     install -m 755 /tmp/strata-hosting-panel-src/installer/upgrade.sh /root/strata-upgrade.sh
     install -m 755 /tmp/strata-hosting-panel-src/installer/upgrade.sh /usr/sbin/strata-upgrade
+    cat > /etc/sudoers.d/strata-upgrade <<'EOF'
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
+EOF
+    chmod 440 /etc/sudoers.d/strata-upgrade
     rm -rf /tmp/strata-hosting-panel-src
 fi
 PANEL_VERSION="${PANEL_VERSION:-$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo 'dev')}"

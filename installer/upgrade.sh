@@ -12,6 +12,8 @@ SOURCE_VERSION=""
 SOURCE_FILE=""
 SOURCE_BRANCH=""
 SOURCE_CHANNEL=""
+SOURCE_ROLLBACK_BACKUP=""
+LIST_BACKUPS=0
 ROLLBACK_ON_FAIL=1
 KEEP_WORKDIR=0
 SKIP_REMOTE_AGENTS=0
@@ -41,6 +43,8 @@ Usage:
   $0 --channel main
   $0 --branch main
   $0 --file /root/strata-hosting-panel.tar.gz
+  $0 --rollback-backup 20260409-120000
+  $0 --list-backups
 
 Options:
   --version <tag>      Download and install a GitHub release/tag archive.
@@ -48,6 +52,9 @@ Options:
                        main, latest-untested, experimental.
   --branch <branch>    Download and install a GitHub branch archive.
   --file <path>        Install from a local .tar.gz/.tgz/.tar archive.
+  --rollback-backup <name>
+                       Restore a previously created backup from /opt/strata-panel-backups.
+  --list-backups       Print available rollback backups as JSON.
   --install-dir <dir>  Override install path. Default: /opt/strata-panel
   --php-bin <path>     Override PHP binary. Auto-detected by default.
   --no-rollback        Do not restore the previous install on failure.
@@ -72,6 +79,8 @@ while [[ $# -gt 0 ]]; do
         --channel) SOURCE_CHANNEL="${2:-}"; shift 2 ;;
         --branch) SOURCE_BRANCH="${2:-}"; shift 2 ;;
         --file) SOURCE_FILE="${2:-}"; shift 2 ;;
+        --rollback-backup) SOURCE_ROLLBACK_BACKUP="${2:-}"; shift 2 ;;
+        --list-backups) LIST_BACKUPS=1; shift ;;
         --install-dir) INSTALL_DIR="${2:-}"; shift 2 ;;
         --php-bin) PHP_BIN="${2:-}"; shift 2 ;;
         --no-rollback) ROLLBACK_ON_FAIL=0; shift ;;
@@ -89,7 +98,12 @@ source_count=0
 [[ -n "$SOURCE_CHANNEL" ]] && ((source_count+=1))
 [[ -n "$SOURCE_BRANCH" ]] && ((source_count+=1))
 [[ -n "$SOURCE_FILE" ]] && ((source_count+=1))
-[[ $source_count -eq 1 ]] || die "Choose exactly one source: --version, --channel, --branch, or --file."
+[[ -n "$SOURCE_ROLLBACK_BACKUP" ]] && ((source_count+=1))
+if [[ $LIST_BACKUPS -eq 1 ]]; then
+    [[ $source_count -eq 0 ]] || die "--list-backups cannot be combined with another source option."
+else
+    [[ $source_count -eq 1 ]] || die "Choose exactly one source: --version, --channel, --branch, --file, or --rollback-backup."
+fi
 
 [[ -d "$INSTALL_DIR/panel" ]] || die "Panel install not found at $INSTALL_DIR/panel."
 [[ -f "$INSTALL_DIR/panel/.env" ]] || die "Panel .env not found at $INSTALL_DIR/panel/.env."
@@ -120,6 +134,24 @@ detect_goarch() {
         armv7l) echo "arm" ;;
         *) die "Unsupported architecture: $(uname -m)" ;;
     esac
+}
+
+json_escape() {
+    local value="${1:-}"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//$'\n'/\\n}"
+    value="${value//$'\r'/\\r}"
+    value="${value//$'\t'/\\t}"
+    printf '%s' "$value"
+}
+
+current_installed_version() {
+    if [[ -f "$INSTALL_DIR/VERSION" ]]; then
+        cat "$INSTALL_DIR/VERSION"
+    else
+        echo "unknown"
+    fi
 }
 
 validate_binary() {
@@ -274,29 +306,40 @@ EOF
     systemctl restart postfix >/dev/null 2>&1 || true
 }
 
-restore_backup() {
-    [[ $ROLLBACK_ON_FAIL -eq 1 ]] || return 0
-    [[ -n "$BACKUP_DIR" && -d "$BACKUP_DIR/panel" ]] || return 0
+restore_from_backup_dir() {
+    local source_dir="$1"
+    local reason="${2:-Restoring backup}"
+    [[ -d "$source_dir/panel" ]] || die "Backup is missing panel directory: $source_dir"
 
-    warn "Upgrade failed. Rolling back from $BACKUP_DIR..."
-
+    warn "$reason from $source_dir..."
     set +e
     systemctl stop strata-queue 2>/dev/null
     systemctl stop strata-agent 2>/dev/null
     systemctl stop strata-webdav 2>/dev/null
     rm -rf "$INSTALL_DIR/panel" "$INSTALL_DIR/agent-src" "$INSTALL_DIR/installer"
-    cp -a "$BACKUP_DIR/panel" "$INSTALL_DIR/panel"
-    [[ -d "$BACKUP_DIR/agent-src" ]] && cp -a "$BACKUP_DIR/agent-src" "$INSTALL_DIR/agent-src"
-    [[ -d "$BACKUP_DIR/installer" ]] && cp -a "$BACKUP_DIR/installer" "$INSTALL_DIR/installer"
-    [[ -f "$BACKUP_DIR/VERSION" ]] && cp -a "$BACKUP_DIR/VERSION" "$INSTALL_DIR/VERSION"
-    if [[ -n "$OLD_AGENT" && -f "$OLD_AGENT" ]]; then
-        cp -a "$OLD_AGENT" /usr/sbin/strata-agent
+    cp -a "$source_dir/panel" "$INSTALL_DIR/panel"
+    [[ -d "$source_dir/agent-src" ]] && cp -a "$source_dir/agent-src" "$INSTALL_DIR/agent-src"
+    [[ -d "$source_dir/installer" ]] && cp -a "$source_dir/installer" "$INSTALL_DIR/installer"
+    [[ -f "$source_dir/VERSION" ]] && cp -a "$source_dir/VERSION" "$INSTALL_DIR/VERSION"
+    if [[ -f "$source_dir/strata-agent" ]]; then
+        cp -a "$source_dir/strata-agent" /usr/sbin/strata-agent
         chmod 755 /usr/sbin/strata-agent
     fi
-    if [[ -n "$OLD_WEBDAV" && -f "$OLD_WEBDAV" ]]; then
-        cp -a "$OLD_WEBDAV" /usr/sbin/strata-webdav
+    if [[ -f "$source_dir/strata-webdav" ]]; then
+        cp -a "$source_dir/strata-webdav" /usr/sbin/strata-webdav
         chmod 755 /usr/sbin/strata-webdav
     fi
+    if [[ -f "$source_dir/installer/agent-upgrade.sh" ]]; then
+        install -m 755 "$source_dir/installer/agent-upgrade.sh" /usr/sbin/strata-agent-upgrade
+    fi
+    if [[ -f "$source_dir/installer/upgrade.sh" ]]; then
+        install -m 755 "$source_dir/installer/upgrade.sh" /root/strata-upgrade.sh
+        install -m 755 "$source_dir/installer/upgrade.sh" /usr/sbin/strata-upgrade
+    fi
+    cat > /etc/sudoers.d/strata-upgrade <<'EOF'
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
+EOF
+    chmod 440 /etc/sudoers.d/strata-upgrade
     set_permissions
     "$PHP_BIN" "$INSTALL_DIR/panel/artisan" optimize:clear >/dev/null 2>&1
     "$PHP_BIN" "$INSTALL_DIR/panel/artisan" config:cache >/dev/null 2>&1
@@ -309,8 +352,78 @@ restore_backup() {
     systemctl restart strata-webdav 2>/dev/null
     systemctl restart strata-queue 2>/dev/null
     set -e
+}
 
+restore_backup() {
+    [[ $ROLLBACK_ON_FAIL -eq 1 ]] || return 0
+    [[ -n "$BACKUP_DIR" && -d "$BACKUP_DIR/panel" ]] || return 0
+
+    restore_from_backup_dir "$BACKUP_DIR" "Upgrade failed. Rolling back"
     warn "Rollback completed. Review logs before retrying."
+}
+
+write_backup_metadata() {
+    local source_type="$1"
+    local source_value="$2"
+    local current_version="$3"
+
+    cat > "$BACKUP_DIR/metadata.json" <<EOF
+{
+  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "backup_name": "$(basename "$BACKUP_DIR")",
+  "backup_path": "$BACKUP_DIR",
+  "installed_version": "$(json_escape "$current_version")",
+  "source_type": "$(json_escape "$source_type")",
+  "source_value": "$(json_escape "$source_value")"
+}
+EOF
+}
+
+list_backups() {
+    local first=1
+    printf '['
+    if [[ -d "$BACKUP_ROOT" ]]; then
+        while IFS= read -r backup_dir; do
+            [[ -d "$backup_dir/panel" ]] || continue
+
+            local backup_name installed_version created_at source_type source_value
+            backup_name="$(basename "$backup_dir")"
+            installed_version=""
+            created_at=""
+            source_type=""
+            source_value=""
+
+            if [[ -f "$backup_dir/metadata.json" ]]; then
+                installed_version="$(grep -o '"installed_version":[[:space:]]*"[^"]*"' "$backup_dir/metadata.json" | head -n1 | cut -d'"' -f4)"
+                created_at="$(grep -o '"created_at":[[:space:]]*"[^"]*"' "$backup_dir/metadata.json" | head -n1 | cut -d'"' -f4)"
+                source_type="$(grep -o '"source_type":[[:space:]]*"[^"]*"' "$backup_dir/metadata.json" | head -n1 | cut -d'"' -f4)"
+                source_value="$(grep -o '"source_value":[[:space:]]*"[^"]*"' "$backup_dir/metadata.json" | head -n1 | cut -d'"' -f4)"
+            fi
+
+            if [[ -z "$installed_version" && -f "$backup_dir/VERSION" ]]; then
+                installed_version="$(cat "$backup_dir/VERSION")"
+            fi
+            if [[ -z "$created_at" ]]; then
+                created_at="$(date -u -r "$backup_dir" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)"
+            fi
+
+            if [[ $first -eq 0 ]]; then
+                printf ','
+            fi
+            first=0
+            printf '\n  {"name":"%s","path":"%s","installed_version":"%s","created_at":"%s","source_type":"%s","source_value":"%s"}' \
+                "$(json_escape "$backup_name")" \
+                "$(json_escape "$backup_dir")" \
+                "$(json_escape "$installed_version")" \
+                "$(json_escape "$created_at")" \
+                "$(json_escape "$source_type")" \
+                "$(json_escape "$source_value")"
+        done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d | sort -r)
+    fi
+    if [[ $first -eq 0 ]]; then
+        printf '\n'
+    fi
+    printf ']\n'
 }
 
 on_error() {
@@ -329,13 +442,20 @@ cleanup() {
 trap on_error ERR
 trap cleanup EXIT
 
+if [[ $LIST_BACKUPS -eq 1 ]]; then
+    list_backups
+    exit 0
+fi
+
 detect_php
-need_command tar
-need_command curl
-need_command composer
-need_command npm
-need_command go
-need_command file
+if [[ -z "$SOURCE_ROLLBACK_BACKUP" ]]; then
+    need_command tar
+    need_command curl
+    need_command composer
+    need_command npm
+    need_command go
+    need_command file
+fi
 
 info "Using PHP: $PHP_BIN"
 info "Install path: $INSTALL_DIR"
@@ -362,7 +482,39 @@ if [[ -f /usr/sbin/strata-webdav ]]; then
     OLD_WEBDAV="$BACKUP_DIR/strata-webdav"
     cp -a /usr/sbin/strata-webdav "$OLD_WEBDAV"
 fi
+current_version="$(current_installed_version)"
+if [[ -n "$SOURCE_ROLLBACK_BACKUP" ]]; then
+    write_backup_metadata "rollback-safety" "$SOURCE_ROLLBACK_BACKUP" "$current_version"
+else
+    source_type="file"
+    source_value="$SOURCE_FILE"
+    if [[ -n "$SOURCE_VERSION" ]]; then
+        source_type="version"
+        source_value="$SOURCE_VERSION"
+    elif [[ -n "$SOURCE_CHANNEL" ]]; then
+        source_type="channel"
+        source_value="$SOURCE_CHANNEL"
+    elif [[ -n "$SOURCE_BRANCH" ]]; then
+        source_type="branch"
+        source_value="$SOURCE_BRANCH"
+    fi
+    write_backup_metadata "$source_type" "$source_value" "$current_version"
+fi
 success "Rollback backup created."
+
+if [[ -n "$SOURCE_ROLLBACK_BACKUP" ]]; then
+    if [[ "$SOURCE_ROLLBACK_BACKUP" == /* ]]; then
+        rollback_dir="$SOURCE_ROLLBACK_BACKUP"
+    else
+        rollback_dir="$BACKUP_ROOT/$SOURCE_ROLLBACK_BACKUP"
+    fi
+    [[ -d "$rollback_dir" ]] || die "Rollback backup not found: $SOURCE_ROLLBACK_BACKUP"
+    [[ "$rollback_dir" != "$BACKUP_DIR" ]] || die "Refusing to restore from the fresh safety backup created for this rollback."
+    restore_from_backup_dir "$rollback_dir" "Rolling back"
+    success "Rollback completed from backup: $rollback_dir"
+    success "Current-state safety backup kept at: $BACKUP_DIR"
+    exit 0
+fi
 
 if [[ -n "$SOURCE_FILE" ]]; then
     [[ -f "$SOURCE_FILE" ]] || die "Archive not found: $SOURCE_FILE"
@@ -422,6 +574,10 @@ if [[ -f "$extract_dir/installer/upgrade.sh" ]]; then
     install -m 755 "$extract_dir/installer/upgrade.sh" /root/strata-upgrade.sh
     install -m 755 "$extract_dir/installer/upgrade.sh" /usr/sbin/strata-upgrade
 fi
+cat > /etc/sudoers.d/strata-upgrade <<'EOF'
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
+EOF
+chmod 440 /etc/sudoers.d/strata-upgrade
 if grep -q '^STRATA_VERSION=' "$INSTALL_DIR/panel/.env"; then
     sed -i "s|^STRATA_VERSION=.*|STRATA_VERSION=${target_version}|" "$INSTALL_DIR/panel/.env"
 else

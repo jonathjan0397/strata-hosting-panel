@@ -90,6 +90,34 @@
                         </div>
                     </div>
 
+                    <div class="rounded-xl border border-amber-700/30 bg-amber-900/15 p-4 space-y-4">
+                        <div>
+                            <div class="text-sm font-medium text-amber-200">Rollback Options</div>
+                            <div class="mt-1 text-xs text-amber-100/80">
+                                To roll back to an older tagged release, switch the source type above to <span class="font-semibold">Version Tag</span> and enter the previous release tag.
+                                To restore the exact files and runtime state captured before a previous upgrade, use a stored rollback backup below.
+                            </div>
+                        </div>
+
+                        <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+                            <select v-model="rollbackBackupName" class="field" :disabled="!(panel.rollback_backups || []).length">
+                                <option value="">- Select a rollback backup -</option>
+                                <option v-for="backup in panel.rollback_backups || []" :key="backup.name" :value="backup.name">
+                                    {{ backupLabel(backup) }}
+                                </option>
+                            </select>
+                            <button
+                                @click="startBackupRollback"
+                                :disabled="panelApplying || !panel.upgrade_script || !rollbackBackupName"
+                                class="rounded-lg border border-amber-600/50 px-3 py-2 text-sm text-amber-100 hover:bg-amber-700/20 transition-colors disabled:opacity-50"
+                            >Rollback To Backup</button>
+                        </div>
+
+                        <div v-if="!(panel.rollback_backups || []).length" class="text-xs text-amber-100/70">
+                            No rollback backups were found yet. A backup is created automatically before each panel upgrade.
+                        </div>
+                    </div>
+
                     <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4">
                         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <div>
@@ -194,6 +222,7 @@ const panelForm = ref({
     source_type: props.panel?.default_source_type || 'channel',
     source_value: props.panel?.default_source_value || 'main',
 });
+const rollbackBackupName = ref(props.panel?.rollback_backups?.[0]?.name || '');
 const panelSettings = ref({
     auto_remote_agents: !!props.panel?.auto_remote_agents,
 });
@@ -303,6 +332,42 @@ async function startRemoteAgentsUpgrade() {
     } finally {
         panelApplying.value = false;
     }
+}
+
+async function startBackupRollback() {
+    if (!rollbackBackupName.value) return;
+    if (!confirm(`Roll back the panel to backup "${rollbackBackupName.value}" now? This restores the previously installed release state captured in that backup and may briefly interrupt the panel.`)) return;
+    panelApplying.value = true;
+    panelMessage.value = null;
+    try {
+        const res = await fetch(route('admin.updates.panel-rollback-backup'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+            },
+            body: JSON.stringify({ backup_name: rollbackBackupName.value }),
+        });
+        panelMessage.value = await res.json();
+        if (!res.ok && !panelMessage.value?.message) {
+            panelMessage.value = { status: 'error', message: 'Failed to start backup rollback.' };
+        }
+    } catch (e) {
+        panelMessage.value = { status: 'error', message: 'Failed to start backup rollback.' };
+    } finally {
+        panelApplying.value = false;
+    }
+}
+
+function backupLabel(backup) {
+    const parts = [backup.name];
+    if (backup.installed_version) {
+        parts.push(`installed ${backup.installed_version}`);
+    }
+    if (backup.created_at) {
+        parts.push(backup.created_at);
+    }
+    return parts.join(' · ');
 }
 </script>
 

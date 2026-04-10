@@ -16,6 +16,7 @@ use Symfony\Component\Process\Process;
 
 class UpdateController extends Controller
 {
+    private const PANEL_UPGRADE_BIN = '/usr/sbin/strata-upgrade';
     private const SUPPORTED_CHANNELS = [
         ['value' => 'main', 'label' => 'Main', 'description' => 'Latest supported integration branch.'],
         ['value' => 'latest-untested', 'label' => 'Latest-Untested', 'description' => 'Newer branch for early validation before normal release use.'],
@@ -30,12 +31,13 @@ class UpdateController extends Controller
             'nodes' => $nodes,
             'panel' => [
                 'version' => config('strata.version'),
-                'upgrade_script' => File::exists('/root/strata-upgrade.sh'),
+                'upgrade_script' => $this->panelUpgradeUtilityAvailable(),
                 'log_path' => storage_path('logs/strata-panel-upgrade.log'),
                 'default_source_type' => 'channel',
                 'default_source_value' => 'main',
                 'channels' => self::SUPPORTED_CHANNELS,
                 'auto_remote_agents' => SystemSetting::getValue('updates.auto_remote_agents', '0') === '1',
+                'rollback_backups' => $this->availableRollbackBackups(),
             ],
         ]);
     }
@@ -104,7 +106,7 @@ class UpdateController extends Controller
             'source_value' => ['required', 'string', 'max:100'],
         ]);
 
-        if (! File::exists('/root/strata-upgrade.sh')) {
+        if (! $this->panelUpgradeUtilityAvailable()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'The panel upgrade utility is not installed on this server.',
@@ -130,7 +132,8 @@ class UpdateController extends Controller
 
         $autoRemoteAgents = SystemSetting::getValue('updates.auto_remote_agents', '0') === '1';
         $command = sprintf(
-            "nohup /root/strata-upgrade.sh %s %s%s >> %s 2>&1 < /dev/null &",
+            "nohup sudo -n %s %s %s%s >> %s 2>&1 < /dev/null &",
+            escapeshellarg(self::PANEL_UPGRADE_BIN),
             escapeshellarg($sourceFlag),
             escapeshellarg($normalizedValue),
             $autoRemoteAgents ? '' : ' --skip-remote-agents',
@@ -147,6 +150,56 @@ class UpdateController extends Controller
         return response()->json([
             'status' => 'started',
             'message' => 'Panel upgrade started. The panel may be briefly unavailable while services restart.',
+            'log_path' => $logPath,
+        ]);
+    }
+
+    public function rollbackBackup(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'backup_name' => ['required', 'string', 'max:255'],
+        ]);
+
+        if (! $this->panelUpgradeUtilityAvailable()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'The panel upgrade utility is not installed on this server.',
+            ], 500);
+        }
+
+        $backupName = trim($data['backup_name']);
+        $backups = collect($this->availableRollbackBackups());
+        abort_unless($backups->contains(fn (array $backup) => ($backup['name'] ?? null) === $backupName), 422, 'Unknown rollback backup.');
+
+        $logPath = storage_path('logs/strata-panel-rollback.log');
+        File::ensureDirectoryExists(dirname($logPath));
+        File::append(
+            $logPath,
+            sprintf(
+                "[%s] Admin %s started panel rollback from backup: %s\n",
+                now()->toDateTimeString(),
+                $request->user()->email,
+                $backupName
+            )
+        );
+
+        $command = sprintf(
+            "nohup sudo -n %s %s %s >> %s 2>&1 < /dev/null &",
+            escapeshellarg(self::PANEL_UPGRADE_BIN),
+            escapeshellarg('--rollback-backup'),
+            escapeshellarg($backupName),
+            escapeshellarg($logPath)
+        );
+
+        Process::fromShellCommandline('/bin/bash -lc ' . escapeshellarg($command))->run();
+
+        AuditLog::record('panel.rollback.started', null, [
+            'backup_name' => $backupName,
+        ]);
+
+        return response()->json([
+            'status' => 'started',
+            'message' => 'Panel rollback started. The panel may be briefly unavailable while services restart.',
             'log_path' => $logPath,
         ]);
     }
@@ -232,5 +285,28 @@ class UpdateController extends Controller
         $supported = collect(self::SUPPORTED_CHANNELS)->pluck('value')->all();
 
         abort_unless(in_array($channel, $supported, true), 422, 'Unsupported update channel.');
+    }
+
+    private function panelUpgradeUtilityAvailable(): bool
+    {
+        return is_executable(self::PANEL_UPGRADE_BIN);
+    }
+
+    private function availableRollbackBackups(): array
+    {
+        if (! $this->panelUpgradeUtilityAvailable()) {
+            return [];
+        }
+
+        $process = new Process(['sudo', '-n', self::PANEL_UPGRADE_BIN, '--list-backups']);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            return [];
+        }
+
+        $payload = json_decode($process->getOutput(), true);
+
+        return is_array($payload) ? $payload : [];
     }
 }
