@@ -1,6 +1,16 @@
 # Changelog
 
-## [1.0.0-BETA-3.04] — 2026-04-10
+## [1.0.0-BETA-3.05] - 2026-04-10
+
+Public beta target: `1.0.0-BETA-3.05`.
+
+### Changed - Upgrade housekeeping
+
+**Upgrade Utility**
+- Rollback backup retention now defaults to the newest 5 backups
+- Old rollback backups are pruned only after a successful upgrade or successful rollback
+
+## [1.0.0-BETA-3.04] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.04`.
 
