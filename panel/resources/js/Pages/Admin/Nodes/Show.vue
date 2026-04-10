@@ -13,8 +13,19 @@
                     <NodeStatusBadge :status="node.status" />
                     <span v-if="node.is_primary" class="rounded-full bg-indigo-900/50 px-2 py-0.5 text-xs text-indigo-400">Primary</span>
                     <span v-if="node.hosts_dns" class="rounded-full bg-cyan-900/40 px-2 py-0.5 text-xs text-cyan-300">DNS</span>
+                    <span v-if="versionState.showWarning" class="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-300">!</span>
+                    <span v-if="versionState.upgrading" class="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-300">Upgrade in progress</span>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button
+                        v-if="versionState.canPushUpdate"
+                        type="button"
+                        class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm font-medium text-amber-200 hover:bg-amber-500/20 transition-colors"
+                        :disabled="agentUpgradeForm.processing"
+                        @click="pushAgentUpdate"
+                    >
+                        {{ agentUpgradeForm.processing ? 'Starting agent update...' : 'Push Agent Update' }}
+                    </button>
                     <Link
                         :href="route('admin.nodes.shell', node.id)"
                         class="flex items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-300 hover:bg-gray-800 transition-colors"
@@ -45,6 +56,25 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                 </svg>
                 Agent unreachable. {{ healthError ?? 'Check that strata-agent is running on this node.' }}
+            </div>
+
+            <div
+                v-if="versionState.upgrading || versionState.mismatch || versionState.unknown"
+                class="mb-5 rounded-xl border px-4 py-3 text-sm"
+                :class="versionState.upgrading ? 'border-sky-700/40 bg-sky-900/20 text-sky-200' : 'border-amber-700/40 bg-amber-900/20 text-amber-100'"
+            >
+                <div class="font-medium">{{ versionState.upgrading ? 'Agent upgrade is in progress.' : 'Agent version attention needed.' }}</div>
+                <div class="mt-1">{{ versionState.message }}</div>
+                <div v-if="!node.is_primary && versionState.canPushUpdate" class="mt-3">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm font-medium text-amber-100 hover:bg-amber-500/20 transition-colors"
+                        :disabled="agentUpgradeForm.processing"
+                        @click="pushAgentUpdate"
+                    >
+                        {{ agentUpgradeForm.processing ? 'Starting agent update...' : 'Push Agent Update' }}
+                    </button>
+                </div>
             </div>
 
             <!-- Agent certificate -->
@@ -174,7 +204,14 @@
                 </div>
                 <div class="grid grid-cols-3 px-5 py-3.5 text-sm">
                     <span class="text-gray-500">Agent Version</span>
-                    <span class="col-span-2 text-gray-200">{{ node.agent_version ?? '—' }}</span>
+                    <span class="col-span-2 flex items-center gap-2" :class="versionState.mismatch || versionState.unknown ? 'text-amber-300' : versionState.upgrading ? 'text-sky-300' : 'text-gray-200'">
+                        <span>{{ node.agent_version ?? '—' }}</span>
+                        <span v-if="versionState.showWarning" class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/15 text-xs font-bold text-amber-300">!</span>
+                    </span>
+                </div>
+                <div class="grid grid-cols-3 px-5 py-3.5 text-sm">
+                    <span class="text-gray-500">Expected Version</span>
+                    <span class="col-span-2 text-gray-200">{{ panelVersion || 'Unknown' }}</span>
                 </div>
                 <div class="grid grid-cols-3 px-5 py-3.5 text-sm">
                     <span class="text-gray-500">Web Server</span>
@@ -239,10 +276,12 @@ const props = defineProps({
     certificate: Object,
     publicTls: Object,
     installSecret: String,
+    panelVersion: String,
 });
 
 const certificateForm = useForm({});
 const publicTlsForm = useForm({});
+const agentUpgradeForm = useForm({});
 
 const certificateBadgeClass = computed(() => {
     if (props.certificate?.status === 'valid') {
@@ -263,6 +302,45 @@ function renewCertificate() {
 function repairPublicHttps() {
     publicTlsForm.post(route('admin.nodes.public-https.repair', props.node.id), {
         preserveScroll: true,
+    });
+}
+
+function normalizedVersion(version) {
+    const value = (version || '').trim();
+    if (!value || value.toLowerCase() === 'dev') return '';
+    return value;
+}
+
+const versionState = computed(() => {
+    const panelVersion = normalizedVersion(props.panelVersion);
+    const agentVersion = normalizedVersion(props.node.agent_version);
+    const upgrading = props.node.status === 'upgrading';
+    const mismatch = !!panelVersion && !!agentVersion && agentVersion !== panelVersion;
+    const unknown = !agentVersion;
+
+    return {
+        upgrading,
+        mismatch,
+        unknown,
+        showWarning: !upgrading && (mismatch || unknown),
+        canPushUpdate: !props.node.is_primary && props.node.status === 'online' && !upgrading && !!panelVersion && agentVersion !== panelVersion,
+        message: upgrading
+            ? `Expected ${panelVersion || 'the current panel version'} once the node finishes upgrading.`
+            : mismatch
+                ? `Expected ${panelVersion}, but the node currently reports ${agentVersion}.`
+                : 'The node did not report a release version. This usually means the agent binary was built without version metadata.',
+    };
+});
+
+function pushAgentUpdate() {
+    if (!confirm(`Push the current panel agent version to ${props.node.name} now?`)) return;
+
+    agentUpgradeForm.post(route('admin.nodes.agent-upgrade', props.node.id), {
+        preserveScroll: true,
+        data: {
+            source_type: 'version',
+            source_value: props.panelVersion,
+        },
     });
 }
 

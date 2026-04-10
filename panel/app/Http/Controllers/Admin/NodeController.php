@@ -20,6 +20,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,7 +33,10 @@ class NodeController extends Controller
             ->orderBy('name')
             ->get();
 
-        return Inertia::render('Admin/Nodes/Index', ['nodes' => $nodes]);
+        return Inertia::render('Admin/Nodes/Index', [
+            'nodes' => $nodes,
+            'panelVersion' => config('strata.version'),
+        ]);
     }
 
     public function create(): Response
@@ -98,7 +102,69 @@ class NodeController extends Controller
             'certificate' => $this->inspectCertificate($node),
             'publicTls' => $this->inspectPublicTls($node),
             'installSecret' => $node->hmac_secret,
+            'panelVersion' => config('strata.version'),
         ]);
+    }
+
+    public function upgradeAgent(Request $request, Node $node): RedirectResponse
+    {
+        $data = $request->validate([
+            'source_type' => ['nullable', 'in:version,branch'],
+            'source_value' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        if ($node->status !== 'online') {
+            return back()->with('error', 'The node must be online before an agent upgrade can be started.');
+        }
+
+        $sourceType = $data['source_type'] ?? 'version';
+        $sourceValue = trim((string) ($data['source_value'] ?? ''));
+
+        if ($sourceValue === '') {
+            $sourceValue = $sourceType === 'branch'
+                ? 'main'
+                : (string) config('strata.version', '');
+        }
+
+        if ($sourceValue === '') {
+            return back()->with('error', 'A target version could not be determined for this agent upgrade.');
+        }
+
+        $downloadUrl = $sourceType === 'branch'
+            ? "https://github.com/jonathjan0397/strata-hosting-panel/archive/refs/heads/{$sourceValue}.tar.gz"
+            : "https://github.com/jonathjan0397/strata-hosting-panel/archive/refs/tags/{$sourceValue}.tar.gz";
+
+        $response = AgentClient::for($node)->upgradeAgent($sourceValue, $downloadUrl);
+
+        if (! $response->successful()) {
+            return back()->with('error', $response->body() ?: 'The node agent upgrade could not be started.');
+        }
+
+        $node->update([
+            'status' => 'upgrading',
+            'agent_version' => $sourceValue,
+        ]);
+
+        $logPath = storage_path('logs/strata-remote-agents-upgrade.log');
+        File::ensureDirectoryExists(dirname($logPath));
+        File::append(
+            $logPath,
+            sprintf(
+                "[%s] Admin %s started single-node agent upgrade: node=%s source=%s %s\n",
+                now()->toDateTimeString(),
+                $request->user()->email,
+                $node->hostname,
+                $sourceType,
+                $sourceValue,
+            )
+        );
+
+        AuditLog::record('node.agent_upgrade.started', $node, [
+            'source_type' => $sourceType,
+            'source_value' => $sourceValue,
+        ]);
+
+        return back()->with('success', "Agent upgrade started for {$node->name}.");
     }
 
     public function renewCertificate(Node $node): RedirectResponse

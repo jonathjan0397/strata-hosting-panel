@@ -41,9 +41,33 @@
                             <td class="px-5 py-3.5 text-sm">
                                 <NodeStatusBadge :status="node.status" />
                             </td>
-                            <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ node.agent_version ?? '-' }}</td>
+                            <td class="px-5 py-3.5 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-mono" :class="agentVersionClass(node)">{{ node.agent_version ?? '-' }}</span>
+                                    <span
+                                        v-if="nodeVersionState(node).showWarning"
+                                        class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/15 text-xs font-bold text-amber-300"
+                                        :title="nodeVersionState(node).label"
+                                    >!</span>
+                                    <span
+                                        v-if="nodeVersionState(node).upgrading"
+                                        class="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-300"
+                                    >Upgrade in progress</span>
+                                </div>
+                                <div v-if="nodeVersionState(node).message" class="mt-1 text-xs text-gray-500">
+                                    {{ nodeVersionState(node).message }}
+                                </div>
+                            </td>
                             <td class="px-5 py-3.5 text-sm text-gray-400">{{ node.last_seen_at ?? 'Never' }}</td>
                             <td class="px-5 py-3.5 text-right">
+                                <button
+                                    v-if="nodeVersionState(node).canPushUpdate"
+                                    type="button"
+                                    class="mr-3 text-xs text-amber-300 transition-colors hover:text-amber-200"
+                                    @click="pushAgentUpdate(node)"
+                                >
+                                    Push Update
+                                </button>
                                 <Link
                                     :href="route('admin.nodes.shell', node.id)"
                                     class="mr-3 font-mono text-xs text-gray-400 transition-colors hover:text-gray-200"
@@ -90,11 +114,59 @@ import EmptyState from '@/Components/EmptyState.vue';
 import NodeStatusBadge from '@/Components/NodeStatusBadge.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatCard from '@/Components/StatCard.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 
-const props = defineProps({ nodes: Array });
+const props = defineProps({ nodes: Array, panelVersion: String });
 
 const onlineCount = computed(() => props.nodes.filter((node) => node.status === 'online').length);
 const primaryCount = computed(() => props.nodes.filter((node) => node.is_primary).length);
 const dnsNodeCount = computed(() => props.nodes.filter((node) => node.hosts_dns).length);
+
+function normalizedVersion(version) {
+    const value = (version || '').trim();
+    if (!value || value.toLowerCase() === 'dev') return '';
+    return value;
+}
+
+function nodeVersionState(node) {
+    const panelVersion = normalizedVersion(props.panelVersion);
+    const agentVersion = normalizedVersion(node.agent_version);
+    const upgrading = node.status === 'upgrading';
+    const mismatch = !!panelVersion && !!agentVersion && agentVersion !== panelVersion;
+    const unknown = !agentVersion;
+
+    return {
+        upgrading,
+        mismatch,
+        unknown,
+        showWarning: !upgrading && (mismatch || unknown),
+        canPushUpdate: !node.is_primary && node.status === 'online' && !upgrading && (!!panelVersion && agentVersion !== panelVersion),
+        label: upgrading ? 'Upgrade in progress' : mismatch ? 'Agent version differs from the primary panel version.' : 'Agent version is unknown.',
+        message: upgrading
+            ? `Targeting ${panelVersion || 'the current panel release'}.`
+            : mismatch
+                ? `Expected ${panelVersion}, found ${agentVersion}.`
+                : unknown
+                    ? 'Agent did not report a release version.'
+                    : '',
+    };
+}
+
+function agentVersionClass(node) {
+    const state = nodeVersionState(node);
+    if (state.upgrading) return 'text-sky-300';
+    if (state.mismatch || state.unknown) return 'text-amber-300';
+    return 'text-gray-400';
+}
+
+function pushAgentUpdate(node) {
+    if (!confirm(`Push the current panel agent version to ${node.name} now?`)) return;
+
+    router.post(route('admin.nodes.agent-upgrade', node.id), {
+        source_type: 'version',
+        source_value: props.panelVersion,
+    }, {
+        preserveScroll: true,
+    });
+}
 </script>
