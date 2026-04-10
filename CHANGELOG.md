@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-BETA-3.12] - 2026-04-10
+
+Public beta target: `1.0.0-BETA-3.12`.
+
+### Fixed - Node storage visibility
+
+**Nodes / Storage**
+- The admin node status view now prioritizes hosting and backup mounts instead of hiding the large data volume behind the first two detected filesystems
+- Node status now surfaces `/var/www`, `/var/backups/strata`, and `/srv` clearly so live storage capacity matches the actual post-migration layout
+- A full storage table now shows mount role, used/free/total space, and utilization for all reported disks
+
 ## [1.0.0-BETA-3.11] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.11`.

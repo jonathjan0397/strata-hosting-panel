@@ -51,10 +51,10 @@
                 <template #sub>{{ info.memory.used_mb.toLocaleString() }} / {{ info.memory.total_mb.toLocaleString() }} MB used</template>
             </StatCard>
 
-            <!-- Disk (first mount) -->
-            <template v-if="info.disks?.length">
+            <!-- Key storage mounts -->
+            <template v-if="prioritizedDisks.length">
                 <StatCard
-                    v-for="disk in info.disks.slice(0, 2)"
+                    v-for="disk in prioritizedDisks"
                     :key="disk.path"
                     :label="`Disk ${disk.path}`"
                     :value="`${disk.used_pct.toFixed(1)}%`"
@@ -79,6 +79,60 @@
         </div>
 
         <div class="grid gap-5 xl:grid-cols-2">
+            <div v-if="allDisks.length" class="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden xl:col-span-2">
+                <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-200">Storage</h3>
+                        <p class="mt-1 text-xs text-gray-500">
+                            Hosting and backup mounts are prioritized so large data volumes do not get hidden behind small system partitions.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-800">
+                        <thead class="bg-gray-950/60">
+                            <tr>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Mount</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Role</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Used</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Free</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Total</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Utilization</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800">
+                            <tr v-for="disk in allDisks" :key="disk.path" class="transition-colors hover:bg-gray-800/30">
+                                <td class="px-5 py-3.5 text-sm font-mono text-gray-200">{{ disk.path }}</td>
+                                <td class="px-5 py-3.5 text-sm">
+                                    <span
+                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
+                                        :class="diskRoleClass(disk.path)"
+                                    >
+                                        {{ diskRoleLabel(disk.path) }}
+                                    </span>
+                                </td>
+                                <td class="px-5 py-3.5 text-sm text-gray-300">{{ disk.used_gb }} GB</td>
+                                <td class="px-5 py-3.5 text-sm text-gray-300">{{ disk.free_gb }} GB</td>
+                                <td class="px-5 py-3.5 text-sm text-gray-300">{{ disk.total_gb }} GB</td>
+                                <td class="px-5 py-3.5 text-sm">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-2.5 w-32 overflow-hidden rounded-full bg-gray-800">
+                                            <div
+                                                class="h-full rounded-full"
+                                                :class="diskBarClass(disk.used_pct)"
+                                                :style="{ width: `${Math.min(disk.used_pct, 100)}%` }"
+                                            ></div>
+                                        </div>
+                                        <span class="font-mono text-gray-300">{{ disk.used_pct.toFixed(1) }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Services panel -->
             <div class="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
                 <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
@@ -200,7 +254,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StatCard from '@/Components/StatCard.vue';
@@ -227,6 +281,27 @@ const availableLogs = [
     'nginx', 'nginx-access', 'php8.1-fpm', 'php8.2-fpm', 'php8.3-fpm',
     'postfix', 'dovecot', 'rspamd', 'mysql', 'postgresql', 'syslog', 'auth', 'fail2ban', 'clamav-daemon', 'clamav-freshclam',
 ];
+
+const diskPriority = {
+    '/var/www': 100,
+    '/var/backups/strata': 95,
+    '/srv': 90,
+    '/home': 70,
+    '/var': 40,
+    '/': 10,
+};
+
+const allDisks = computed(() => {
+    const disks = info.value?.disks ?? [];
+
+    return [...disks].sort((left, right) => {
+        const priorityDiff = (diskPriority[right.path] ?? 0) - (diskPriority[left.path] ?? 0);
+        if (priorityDiff !== 0) return priorityDiff;
+        return right.total_gb - left.total_gb;
+    });
+});
+
+const prioritizedDisks = computed(() => allDisks.value.slice(0, 3));
 
 async function fetchData() {
     loading.value = true;
@@ -286,6 +361,29 @@ function lineClass(line) {
 
 function canReload(name) {
     return ['nginx', 'apache2', 'php8.1-fpm', 'php8.2-fpm', 'php8.3-fpm', 'postfix'].includes(name);
+}
+
+function diskRoleLabel(path) {
+    if (path === '/var/www') return 'Hosting Data';
+    if (path === '/var/backups/strata') return 'Backups';
+    if (path === '/srv') return 'Data Volume';
+    if (path === '/home') return 'Home';
+    if (path === '/var') return 'System Var';
+    if (path === '/') return 'System Root';
+    return 'Mounted Volume';
+}
+
+function diskRoleClass(path) {
+    if (path === '/var/www') return 'bg-emerald-500/15 text-emerald-300';
+    if (path === '/var/backups/strata') return 'bg-cyan-500/15 text-cyan-300';
+    if (path === '/srv') return 'bg-indigo-500/15 text-indigo-300';
+    return 'bg-gray-800 text-gray-300';
+}
+
+function diskBarClass(usedPct) {
+    if (usedPct > 85) return 'bg-red-500';
+    if (usedPct > 70) return 'bg-amber-400';
+    return 'bg-emerald-400';
 }
 
 function formatUptime(seconds) {
