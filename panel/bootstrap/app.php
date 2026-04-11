@@ -12,6 +12,8 @@ use App\Console\Commands\SslRenew;
 use App\Console\Commands\SyncBackupDnsZones;
 use App\Console\Commands\UpgradeRemoteAgents;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\TrustProxies;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -55,8 +57,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command(MalwareRunScheduled::class)->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(TrustProxies::class);
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
+            SecurityHeaders::class,
         ]);
 
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsureTwoFactorAuthenticated::class);

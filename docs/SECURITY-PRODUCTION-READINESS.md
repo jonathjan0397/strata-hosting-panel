@@ -14,6 +14,7 @@ Reasons:
 - the agent exposes a broad root-level systems API
 - the browser shell path still provides a root PTY on the node when explicitly enabled
 - broader authorization and tenant-isolation review is still incomplete
+- external staging validation is still outstanding
 
 ## Mandatory Release Gates
 
@@ -181,6 +182,25 @@ What changed:
 - login attempts are now rate-limited per email/IP pair
 - 2FA verification attempts are now rate-limited per user/IP pair
 - successful login and successful 2FA clear the throttle state
+
+### Resolved in current branch: Baseline proxy trust and browser security headers added
+
+Files:
+- [panel/app/Http/Middleware/TrustProxies.php](C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/panel/app/Http/Middleware/TrustProxies.php)
+- [panel/app/Http/Middleware/SecurityHeaders.php](C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/panel/app/Http/Middleware/SecurityHeaders.php)
+- [panel/bootstrap/app.php](C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/panel/bootstrap/app.php)
+- [panel/config/session.php](C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/panel/config/session.php)
+
+What changed:
+- explicit proxy trust support is now available through `TRUSTED_PROXIES`
+- the web stack now sets baseline security headers:
+  - `X-Frame-Options: SAMEORIGIN`
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Permissions-Policy`
+  - `Cross-Origin-Opener-Policy: same-origin`
+  - `Strict-Transport-Security` on secure requests
+- session cookies now default to secure in production unless explicitly overridden
 
 ## Positive Controls Already Present
 
