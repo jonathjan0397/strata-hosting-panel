@@ -11,6 +11,19 @@ use Inertia\Response;
 
 class ShellController extends Controller
 {
+    private function browserShellAvailable(): bool
+    {
+        if (! config('strata.browser_shell_enabled')) {
+            return false;
+        }
+
+        if (app()->environment('production') && ! config('strata.browser_shell_allow_production')) {
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * Render the browser-based SSH terminal for a node.
      *
@@ -20,8 +33,12 @@ class ShellController extends Controller
      */
     public function show(Request $request, Node $node): Response
     {
-        if (! config('strata.browser_shell_enabled')) {
-            throw new AuthorizationException('Browser shell is disabled on this installation.');
+        if (! $this->browserShellAvailable()) {
+            throw new AuthorizationException(
+                app()->environment('production')
+                    ? 'Browser shell is disabled for production unless STRATA_BROWSER_SHELL_ALLOW_PRODUCTION is explicitly enabled.'
+                    : 'Browser shell is disabled on this installation.'
+            );
         }
 
         $ts     = time();

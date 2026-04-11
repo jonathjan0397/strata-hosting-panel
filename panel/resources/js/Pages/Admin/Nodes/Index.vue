@@ -69,7 +69,7 @@
                                     Push Update
                                 </button>
                                 <Link
-                                    v-if="browserShellEnabled"
+                                    v-if="browserShellAvailable"
                                     :href="route('admin.nodes.shell', node.id)"
                                     class="mr-3 font-mono text-xs text-gray-400 transition-colors hover:text-gray-200"
                                 >
@@ -123,7 +123,7 @@ const page = usePage();
 const onlineCount = computed(() => props.nodes.filter((node) => node.status === 'online').length);
 const primaryCount = computed(() => props.nodes.filter((node) => node.is_primary).length);
 const dnsNodeCount = computed(() => props.nodes.filter((node) => node.hosts_dns).length);
-const browserShellEnabled = computed(() => !!page.props.app?.browser_shell_enabled);
+const browserShellAvailable = computed(() => !!page.props.app?.browser_shell_available);
 
 function normalizedVersion(version) {
     const value = (version || '').trim();

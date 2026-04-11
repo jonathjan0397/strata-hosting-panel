@@ -17,7 +17,7 @@ Status: `Not yet production-ready`
 Reasons:
 - the panel can broker high-impact agent actions across nodes
 - the agent exposes a broad root-level systems API
-- the browser shell path still provides a root PTY on the node when explicitly enabled
+- the browser shell path still provides a root PTY on the node when explicitly enabled, even though it is now default-off and requires an explicit production override
 - broader authorization and tenant-isolation review is still incomplete
 - external staging validation is still outstanding
 

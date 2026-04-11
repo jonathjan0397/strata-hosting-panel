@@ -27,7 +27,7 @@
                         {{ agentUpgradeForm.processing ? 'Starting agent update...' : 'Push Agent Update' }}
                     </button>
                     <Link
-                        v-if="browserShellEnabled"
+                        v-if="browserShellAvailable"
                         :href="route('admin.nodes.shell', node.id)"
                         class="flex items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-300 hover:bg-gray-800 transition-colors"
                     >
@@ -286,7 +286,7 @@ const certificateForm = useForm({});
 const publicTlsForm = useForm({});
 const agentUpgradeForm = useForm({});
 const page = usePage();
-const browserShellEnabled = computed(() => !!page.props.app?.browser_shell_enabled);
+const browserShellAvailable = computed(() => !!page.props.app?.browser_shell_available);
 
 const certificateBadgeClass = computed(() => {
     if (props.certificate?.status === 'valid') {

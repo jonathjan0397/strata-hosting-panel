@@ -56,5 +56,6 @@ return [
     */
 
     'browser_shell_enabled' => env('STRATA_BROWSER_SHELL_ENABLED', false),
+    'browser_shell_allow_production' => env('STRATA_BROWSER_SHELL_ALLOW_PRODUCTION', false),
 
 ];

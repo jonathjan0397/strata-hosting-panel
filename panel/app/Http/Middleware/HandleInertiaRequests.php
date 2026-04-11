@@ -83,6 +83,10 @@ class HandleInertiaRequests extends Middleware
                 'version' => config('strata.version', 'dev'),
                 'demo_mode' => (bool) config('strata.demo_mode'),
                 'browser_shell_enabled' => (bool) config('strata.browser_shell_enabled'),
+                'browser_shell_available' => (bool) (
+                    config('strata.browser_shell_enabled')
+                    && (! app()->environment('production') || config('strata.browser_shell_allow_production'))
+                ),
             ],
             // White-label: if the authenticated user has a reseller with branding,
             // pass it through so the UI can swap the panel name/colour.
