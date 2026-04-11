@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.0-BETA-3.22] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.22`.
+
+### Fixed - App installer credentials, WordPress setup, and repo hygiene
+
+**App Installer**
+- Automated app installs can now accept and persist application admin credentials when the installer supports them
+- Installed-app views now surface generated database credentials and supported admin credentials so assisted setup has the information users actually need
+- Successful automated installs now record the provisioned MySQL database in the panel database inventory and remove it from inventory on uninstall
+
+**WordPress**
+- The agent WordPress installer now honors provided admin usernames and passwords instead of forcing a hardcoded `admin` user
+- WordPress downloads now include bundled default themes, and the installer will activate a fallback theme if no active theme is present after setup
+
+**Mail / Domains / Repo**
+- Forwarder deletion now falls back to the domain node when a forwarder row is missing a direct node relationship
+- Domain PHP version validation remains aligned with the broader panel support for PHP `8.4`
+- Repo ignore rules now hide generated Go caches, temp staging bundles, and incident-only local tooling so release work can return to a clean worktree
+
 ## [1.0.0-BETA-3.21] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.21`.
