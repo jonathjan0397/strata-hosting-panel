@@ -73,38 +73,14 @@ class DnsProvisioner
 
     private function addDefaultRecords(Domain $domain, DnsZone $zone): array
     {
-        $domainName = $domain->domain . '.';
-        $mailHost = 'mail.' . $domain->domain . '.';
-        $nodeIp = $this->publicAddressFor($domain);
-        $records = [
-            ['@', 'NS', $this->authoritativeNameservers(), null],
-            ...$this->nameserverAddressRecordsFor($domain),
-            ['www', 'CNAME', [$domainName], null],
-            ['ftp', 'CNAME', [$domainName], null],
-            ['smtp', 'CNAME', [$mailHost], null],
-            ['imap', 'CNAME', [$mailHost], null],
-            ['pop', 'CNAME', [$mailHost], null],
-            ['webmail', 'CNAME', [$mailHost], null],
-            ['@', 'MX', [$mailHost], 10],
-            ['_dmarc', 'TXT', ["v=DMARC1; p=quarantine; pct=100; rua=mailto:postmaster@{$domain->domain}"], null],
-            ['@', 'CAA', ['0 issue "letsencrypt.org"'], null],
-        ];
+        foreach ($this->defaultRecordDefinitions($domain) as $record) {
+            [$name, $type, $contents, $priority] = [
+                $record['name'],
+                $record['type'],
+                $record['contents'],
+                $record['priority'],
+            ];
 
-        if ($nodeIp) {
-            $addressType = filter_var($nodeIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A';
-            $ipMechanism = $addressType === 'AAAA' ? "ip6:{$nodeIp}" : "ip4:{$nodeIp}";
-
-            array_unshift(
-                $records,
-                ['@', $addressType, [$nodeIp], null],
-                ['mail', $addressType, [$nodeIp], null],
-                ['@', 'TXT', ["v=spf1 a mx {$ipMechanism} -all"], null],
-            );
-        } else {
-            array_unshift($records, ['@', 'TXT', ['v=spf1 a mx -all'], null]);
-        }
-
-        foreach ($records as [$name, $type, $contents, $priority]) {
             if ($contents === []) {
                 continue;
             }
@@ -116,6 +92,100 @@ class DnsProvisioner
         }
 
         return [true, null];
+    }
+
+    public function defaultRecordDefinitions(Domain $domain): array
+    {
+        $domainName = $domain->domain . '.';
+        $mailHost = 'mail.' . $domain->domain . '.';
+        $nodeIp = $this->publicAddressFor($domain);
+        $records = [
+            ['name' => '@', 'type' => 'NS', 'contents' => $this->authoritativeNameservers(), 'priority' => null],
+            ...array_map(
+                fn (array $record) => [
+                    'name' => $record[0],
+                    'type' => $record[1],
+                    'contents' => $record[2],
+                    'priority' => $record[3],
+                ],
+                $this->nameserverAddressRecordsFor($domain)
+            ),
+            ['name' => 'www', 'type' => 'CNAME', 'contents' => [$domainName], 'priority' => null],
+            ['name' => 'ftp', 'type' => 'CNAME', 'contents' => [$domainName], 'priority' => null],
+            ['name' => 'smtp', 'type' => 'CNAME', 'contents' => [$mailHost], 'priority' => null],
+            ['name' => 'imap', 'type' => 'CNAME', 'contents' => [$mailHost], 'priority' => null],
+            ['name' => 'pop', 'type' => 'CNAME', 'contents' => [$mailHost], 'priority' => null],
+            ['name' => 'webmail', 'type' => 'CNAME', 'contents' => [$mailHost], 'priority' => null],
+            ['name' => '@', 'type' => 'MX', 'contents' => [$mailHost], 'priority' => 10],
+            ['name' => '_dmarc', 'type' => 'TXT', 'contents' => ["v=DMARC1; p=quarantine; pct=100; rua=mailto:postmaster@{$domain->domain}"], 'priority' => null],
+            ['name' => '@', 'type' => 'CAA', 'contents' => ['0 issue "letsencrypt.org"'], 'priority' => null],
+        ];
+
+        if ($nodeIp) {
+            $addressType = filter_var($nodeIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 'AAAA' : 'A';
+            $ipMechanism = $addressType === 'AAAA' ? "ip6:{$nodeIp}" : "ip4:{$nodeIp}";
+
+            array_unshift(
+                $records,
+                ['name' => '@', 'type' => $addressType, 'contents' => [$nodeIp], 'priority' => null],
+                ['name' => 'mail', 'type' => $addressType, 'contents' => [$nodeIp], 'priority' => null],
+                ['name' => '@', 'type' => 'TXT', 'contents' => ["v=spf1 a mx {$ipMechanism} -all"], 'priority' => null],
+            );
+        } else {
+            array_unshift($records, ['name' => '@', 'type' => 'TXT', 'contents' => ['v=spf1 a mx -all'], 'priority' => null]);
+        }
+
+        if ($domain->mail_enabled) {
+            if ($domain->dkim_dns_record) {
+                $records[] = ['name' => 'default._domainkey', 'type' => 'TXT', 'contents' => [$domain->dkim_dns_record], 'priority' => null];
+            }
+
+            if ($domain->spf_dns_record) {
+                $records = array_values(array_filter($records, fn (array $record) => ! ($record['name'] === '@' && $record['type'] === 'TXT')));
+                $records[] = ['name' => '@', 'type' => 'TXT', 'contents' => [$domain->spf_dns_record], 'priority' => null];
+            }
+
+            if ($domain->dmarc_dns_record) {
+                $records = array_values(array_filter($records, fn (array $record) => ! ($record['name'] === '_dmarc' && $record['type'] === 'TXT')));
+                $records[] = ['name' => '_dmarc', 'type' => 'TXT', 'contents' => [$domain->dmarc_dns_record], 'priority' => null];
+            }
+        }
+
+        return $records;
+    }
+
+    public function defaultDefinitionForRecord(Domain $domain, string $name, string $type): ?array
+    {
+        foreach ($this->defaultRecordDefinitions($domain) as $record) {
+            if ($record['name'] === $name && $record['type'] === $type) {
+                return $record;
+            }
+        }
+
+        return null;
+    }
+
+    public function restoreManagedRecord(Domain $domain, DnsRecord $record): array
+    {
+        $zone = $this->resolveZoneForDomain($domain);
+        if (! $zone) {
+            return [false, 'DNS zone has not been provisioned for this domain.'];
+        }
+
+        $default = $this->defaultDefinitionForRecord($domain, $record->name, $record->type);
+        if (! $default) {
+            return [false, 'No managed default is defined for this record.'];
+        }
+
+        return $this->addRecord(
+            $zone,
+            $default['name'],
+            $default['type'],
+            300,
+            $default['contents'],
+            true,
+            $default['priority']
+        );
     }
 
     private function publicAddressFor(Domain $domain): ?string

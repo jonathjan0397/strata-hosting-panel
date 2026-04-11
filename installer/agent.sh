@@ -458,6 +458,7 @@ sed -i 's/^!include auth-passwdfile.conf.ext/#!include auth-passwdfile.conf.ext/
 grep -q '^!include auth-strata-passwdfile.conf.ext' /etc/dovecot/conf.d/10-auth.conf || echo '!include auth-strata-passwdfile.conf.ext' >> /etc/dovecot/conf.d/10-auth.conf
 sed -i 's/^auth_mechanisms =.*/auth_mechanisms = plain login/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
 sed -i 's|^mail_location =.*|mail_location = maildir:/var/mail/vhosts/%d/%n|' /etc/dovecot/conf.d/10-mail.conf 2>/dev/null || true
+sed -i 's/^  auth_username_format = %{user | username | lower}$/  auth_username_format = %{user}/' /etc/dovecot/conf.d/20-lmtp.conf 2>/dev/null || true
 grep -q '^mail_uid' /etc/dovecot/conf.d/10-mail.conf || echo "mail_uid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
 grep -q '^mail_gid' /etc/dovecot/conf.d/10-mail.conf || echo "mail_gid = vmail" >> /etc/dovecot/conf.d/10-mail.conf
 touch /etc/dovecot/virtual_users

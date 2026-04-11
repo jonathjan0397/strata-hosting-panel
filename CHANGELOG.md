@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.0-BETA-3.16] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.16`.
+
+### Fixed - Mail delivery, SSL SAN coverage, and DNS management workflows
+
+**Mail**
+- Fixed Postfix virtual mailbox domain provisioning so hosted mail domains are written as valid hash-map entries instead of bare domain lines
+- Fixed Dovecot LMTP recipient lookup on fresh installs so inbound delivery keeps the full email address for virtual mailbox resolution
+- This resolves inbound mail failures where valid hosted mailboxes were rejected with `Relay access denied` or `User doesn't exist`
+
+**SSL / Domains**
+- Standard domain SSL issuance now requests certificates for both the apex domain and `www.<domain>`
+- This keeps `www` on the same valid certificate path instead of falling into the default TLS vhost with a hostname mismatch
+
+**DNS**
+- Admin, reseller, and user DNS management now supports editing existing records instead of add/delete only
+- Managed DNS records can now be restored to their computed domain defaults from the UI
+
+**Mail UI**
+- Mailbox creation now clearly rejects full email addresses entered into the local-part field
+- Email actions now surface failed redirects and validation responses consistently instead of showing a progress bar and clearing the form when nothing completed
+
 ## [1.0.0-BETA-3.15] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.15`.

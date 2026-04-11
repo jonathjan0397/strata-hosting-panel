@@ -40,13 +40,14 @@ class DnsController extends Controller
         abort_unless($domain->account_id === $account->id, 403);
 
         $domain->load('node');
-        $zone    = (new DnsProvisioner(AgentClient::for($domain->node)))->zoneForDomain($domain);
+        $provisioner = new DnsProvisioner(AgentClient::for($domain->node));
+        $zone = $provisioner->zoneForDomain($domain);
         $records = $zone?->records()->orderBy('type')->orderBy('name')->get() ?? collect();
 
         return Inertia::render('User/Dns/ZoneShow', [
             'domain'  => $domain,
             'zone'    => $zone,
-            'records' => $records,
+            'records' => $this->presentRecords($domain, $records, $provisioner),
         ]);
     }
 
@@ -89,13 +90,7 @@ class DnsController extends Controller
         $domain  = $zone->domain;
         abort_unless($domain->account_id === $account->id, 403);
 
-        $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'type'     => ['required', 'in:A,AAAA,CNAME,MX,TXT,SRV,CAA,NS'],
-            'ttl'      => ['required', 'integer', 'min:60', 'max:86400'],
-            'value'    => ['required', 'string', 'max:4096'],
-            'priority' => ['nullable', 'integer', 'min:0', 'max:65535'],
-        ]);
+        $data = $this->validateRecordPayload($request);
 
         $provisioner = new DnsProvisioner(AgentClient::for($zone->node));
 
@@ -112,6 +107,50 @@ class DnsController extends Controller
         return $success
             ? back()->with('success', "{$data['type']} record added.")
             : back()->with('error', "Failed to add record: {$error}");
+    }
+
+    public function updateRecord(Request $request, DnsRecord $record): RedirectResponse
+    {
+        $account = $this->account();
+        $zone = $record->zone;
+        $domain = $zone->domain;
+        abort_unless($domain->account_id === $account->id, 403);
+
+        $data = $this->validateRecordPayload($request, false);
+        $provisioner = new DnsProvisioner(AgentClient::for($zone->node));
+
+        [$success, $error] = $provisioner->addRecord(
+            $zone,
+            $record->name,
+            $record->type,
+            $data['ttl'],
+            [$data['value']],
+            $record->managed,
+            $data['priority'] ?? null,
+        );
+
+        return $success
+            ? back()->with('success', "{$record->type} record updated.")
+            : back()->with('error', "Failed to update record: {$error}");
+    }
+
+    public function restoreRecord(DnsRecord $record): RedirectResponse
+    {
+        $account = $this->account();
+        $zone = $record->zone;
+        $domain = $zone->domain;
+        abort_unless($domain->account_id === $account->id, 403);
+
+        if (! $record->managed) {
+            return back()->with('error', 'Only managed records can be restored to the domain default.');
+        }
+
+        $provisioner = new DnsProvisioner(AgentClient::for($zone->node));
+        [$success, $error] = $provisioner->restoreManagedRecord($domain, $record);
+
+        return $success
+            ? back()->with('success', "{$record->type} record restored to the domain default.")
+            : back()->with('error', "Failed to restore record: {$error}");
     }
 
     public function destroyRecord(DnsRecord $record): RedirectResponse
@@ -203,5 +242,33 @@ class DnsController extends Controller
         }
 
         return $records;
+    }
+
+    private function validateRecordPayload(Request $request, bool $includeNameAndType = true): array
+    {
+        $rules = [
+            'ttl' => ['required', 'integer', 'min:60', 'max:86400'],
+            'value' => ['required', 'string', 'max:4096'],
+            'priority' => ['nullable', 'integer', 'min:0', 'max:65535'],
+        ];
+
+        if ($includeNameAndType) {
+            $rules = [
+                'name' => ['required', 'string', 'max:255'],
+                'type' => ['required', 'in:A,AAAA,CNAME,MX,TXT,SRV,CAA,NS'],
+                ...$rules,
+            ];
+        }
+
+        return $request->validate($rules);
+    }
+
+    private function presentRecords(Domain $domain, $records, DnsProvisioner $provisioner)
+    {
+        return $records->map(fn (DnsRecord $record) => [
+            ...$record->toArray(),
+            'can_restore_default' => $record->managed
+                && $provisioner->defaultDefinitionForRecord($domain, $record->name, $record->type) !== null,
+        ]);
     }
 }

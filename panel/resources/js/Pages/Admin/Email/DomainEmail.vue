@@ -22,6 +22,16 @@
             </div>
         </div>
 
+        <div
+            v-if="actionFeedback.message"
+            class="mb-6 rounded-xl px-4 py-3 text-sm"
+            :class="actionFeedback.type === 'error'
+                ? 'border border-red-800 bg-red-900/30 text-red-300'
+                : 'border border-emerald-800 bg-emerald-900/30 text-emerald-300'"
+        >
+            {{ actionFeedback.message }}
+        </div>
+
         <!-- Mail not enabled — enable prompt -->
         <template v-if="!domain.mail_enabled">
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-8 text-center max-w-lg mx-auto">
@@ -129,6 +139,8 @@
                                 <input v-model.number="mboxForm.quota_mb" type="number" min="0" placeholder="Quota MB (0=unlimited)" class="field" />
                             </div>
                             <p v-if="mboxErrors.local_part" class="text-xs text-red-400">{{ mboxErrors.local_part }}</p>
+                            <p v-if="mboxErrors.password" class="text-xs text-red-400">{{ mboxErrors.password }}</p>
+                            <p v-if="mboxErrors.quota_mb" class="text-xs text-red-400">{{ mboxErrors.quota_mb }}</p>
                             <div class="flex gap-2">
                                 <button type="submit" :disabled="mboxForm.processing" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors">
                                     Create Mailbox
@@ -199,6 +211,8 @@
                                 </div>
                                 <input v-model="fwdForm.destination" type="email" placeholder="to@example.com" class="field font-mono text-xs" />
                             </div>
+                            <p v-if="fwdForm.errors.source" class="text-xs text-red-400">{{ fwdForm.errors.source }}</p>
+                            <p v-if="fwdForm.errors.destination" class="text-xs text-red-400">{{ fwdForm.errors.destination }}</p>
                             <div class="flex gap-2">
                                 <button type="submit" :disabled="fwdForm.processing" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors">
                                     Add Forwarder
@@ -285,14 +299,46 @@ const props = defineProps({
 const showAddMailbox = ref(false);
 const mboxForm = useForm({ local_part: '', password: '', quota_mb: 0 });
 const mboxErrors = ref({});
+const actionFeedback = reactive({ type: null, message: '' });
+
+function setActionFeedback(type, message) {
+    actionFeedback.type = type;
+    actionFeedback.message = message;
+}
+
+function firstValidationMessage(errors, fallback) {
+    return Object.values(errors ?? {}).find((message) => typeof message === 'string' && message.length > 0) ?? fallback;
+}
+
+function handleActionVisit(visitPage, successFallback) {
+    const flashError = visitPage?.props?.flash?.error;
+    const flashSuccess = visitPage?.props?.flash?.success;
+
+    if (flashError) {
+        setActionFeedback('error', flashError);
+        return false;
+    }
+
+    setActionFeedback('success', flashSuccess ?? successFallback);
+    return true;
+}
 
 function submitMailbox() {
     mboxForm.post(route('admin.email.mailbox.store', props.domain.id), {
-        onSuccess: () => {
+        preserveScroll: true,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, `Mailbox ${mboxForm.local_part}@${props.domain.domain} created.`)) {
+                return;
+            }
+
             mboxForm.reset();
+            mboxErrors.value = {};
             showAddMailbox.value = false;
         },
-        onError: (errs) => { mboxErrors.value = errs; },
+        onError: (errs) => {
+            mboxErrors.value = errs;
+            setActionFeedback('error', firstValidationMessage(errs, 'Mailbox creation did not complete.'));
+        },
     });
 }
 
@@ -306,9 +352,17 @@ function submitForwarder() {
         destination: fwdForm.destination,
     };
     router.post(route('admin.email.forwarder.store', props.domain.id), payload, {
-        onSuccess: () => {
+        preserveScroll: true,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Forwarder created.')) {
+                return;
+            }
+
             fwdForm.reset();
             showAddForwarder.value = false;
+        },
+        onError: (errors) => {
+            setActionFeedback('error', firstValidationMessage(errors, 'Forwarder creation did not complete.'));
         },
     });
 }
@@ -331,9 +385,19 @@ function submitPassword() {
     router.put(route('admin.email.mailbox.password', pwdModal.mailboxId), {
         password: pwdModal.password,
     }, {
+        preserveScroll: true,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, `Password updated for ${pwdModal.email}.`)) {
+                return;
+            }
+
+            pwdModal.show = false;
+        },
+        onError: (errors) => {
+            setActionFeedback('error', firstValidationMessage(errors, 'Password update did not complete.'));
+        },
         onFinish: () => {
             pwdModal.busy = false;
-            pwdModal.show = false;
         },
     });
 }
@@ -341,21 +405,39 @@ function submitPassword() {
 function regenerateDomainKey() {
     dkimRepairForm.post(route('admin.email.domain-key.regenerate', props.domain.id), {
         preserveScroll: true,
-        onSuccess: refreshMailDnsState,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Domain key regenerated.')) {
+                return;
+            }
+
+            refreshMailDnsState();
+        },
     });
 }
 
 function restoreSpfRecord() {
     spfRepairForm.post(route('admin.email.spf.restore', props.domain.id), {
         preserveScroll: true,
-        onSuccess: refreshMailDnsState,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Recommended SPF restored.')) {
+                return;
+            }
+
+            refreshMailDnsState();
+        },
     });
 }
 
 function restoreDmarcRecord() {
     dmarcRepairForm.post(route('admin.email.dmarc.restore', props.domain.id), {
         preserveScroll: true,
-        onSuccess: refreshMailDnsState,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Recommended DMARC restored.')) {
+                return;
+            }
+
+            refreshMailDnsState();
+        },
     });
 }
 

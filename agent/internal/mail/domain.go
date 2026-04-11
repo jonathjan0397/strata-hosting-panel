@@ -39,7 +39,7 @@ func ProvisionDomain(domain string) (dkimPublicKey string, err error) {
 	// vmail user owns mail directories
 	exec.Command("chown", "-R", "vmail:vmail", filepath.Join(mailBaseDir, domain)).Run()
 
-	if err := addLineUnique(virtualDomainsF, domain); err != nil {
+	if err := addMapEntryUnique(virtualDomainsF, domain, "OK"); err != nil {
 		return "", fmt.Errorf("virtual_domains: %w", err)
 	}
 
@@ -123,6 +123,28 @@ func addLineUnique(path, line string) error {
 	defer f.Close()
 	_, err = fmt.Fprintln(f, line)
 	return err
+}
+
+func addMapEntryUnique(path, key, value string) error {
+	content, _ := os.ReadFile(path)
+	var kept []string
+	for _, raw := range strings.Split(string(content), "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[0] == key {
+			if len(fields) > 1 && fields[1] == value {
+				return nil
+			}
+			continue
+		}
+		kept = append(kept, raw)
+	}
+	kept = append(kept, fmt.Sprintf("%s\t%s", key, value))
+	data := strings.Join(kept, "\n") + "\n"
+	return os.WriteFile(path, []byte(data), 0644)
 }
 
 func removeLineContaining(path, substr string) {

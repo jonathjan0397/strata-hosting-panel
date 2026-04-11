@@ -46,6 +46,7 @@ use App\Http\Controllers\User\MetricsController;
 use App\Http\Controllers\User\SpamController as UserSpamController;
 use App\Http\Controllers\User\SshKeyController;
 use App\Http\Controllers\User\WebDiskController;
+use App\Http\Controllers\Reseller\DnsController as ResellerDnsController;
 use App\Http\Controllers\Reseller;
 use App\Http\Controllers\User;
 use App\Http\Controllers\WebmailController;
@@ -186,6 +187,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('domains/{domain}/dns/export', [User\DnsController::class, 'exportZone'])->name('dns.export');
             Route::post('domains/{domain}/dns/import', [User\DnsController::class, 'importZone'])->name('dns.import');
             Route::post('dns/zones/{zone}/records', [User\DnsController::class, 'storeRecord'])->name('dns.records.store');
+            Route::put('dns/records/{record}', [User\DnsController::class, 'updateRecord'])->name('dns.records.update');
+            Route::post('dns/records/{record}/restore', [User\DnsController::class, 'restoreRecord'])->name('dns.records.restore');
             Route::delete('dns/records/{record}', [User\DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
         });
 
@@ -340,6 +343,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('domains/{domain}/dns/import', [DnsController::class, 'import'])->name('dns.import');
         Route::post('domains/{domain}/dns/provision', [DnsController::class, 'provision'])->name('dns.provision');
         Route::post('dns/zones/{zone}/records', [DnsController::class, 'storeRecord'])->name('dns.records.store');
+        Route::put('dns/records/{record}', [DnsController::class, 'updateRecord'])->name('dns.records.update');
+        Route::post('dns/records/{record}/restore', [DnsController::class, 'restoreRecord'])->name('dns.records.restore');
         Route::delete('dns/records/{record}', [DnsController::class, 'destroyRecord'])->name('dns.records.destroy');
 
         // Email management
@@ -471,6 +476,11 @@ Route::middleware(['auth'])->group(function () {
         // Client detail + limit editing
         Route::get('clients/{account}', [Reseller\ClientController::class, 'show'])->name('clients.show');
         Route::put('clients/{account}', [Reseller\ClientController::class, 'update'])->name('clients.update');
+        Route::get('domains/{domain}/dns', [ResellerDnsController::class, 'show'])->name('dns.show');
+        Route::post('dns/zones/{zone}/records', [ResellerDnsController::class, 'storeRecord'])->name('dns.records.store');
+        Route::put('dns/records/{record}', [ResellerDnsController::class, 'updateRecord'])->name('dns.records.update');
+        Route::post('dns/records/{record}/restore', [ResellerDnsController::class, 'restoreRecord'])->name('dns.records.restore');
+        Route::delete('dns/records/{record}', [ResellerDnsController::class, 'destroyRecord'])->name('dns.records.destroy');
 
         // Reseller settings and white-label branding
         Route::get('branding', [Reseller\BrandingController::class, 'edit'])->name('branding');

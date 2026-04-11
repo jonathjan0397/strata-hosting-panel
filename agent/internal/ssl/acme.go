@@ -17,6 +17,7 @@ type IssueRequest struct {
 	Domain    string `json:"domain"`
 	Wildcard  bool   `json:"wildcard"`
 	WebServer string `json:"web_server"`
+	AltNames  []string `json:"alt_names"`
 }
 
 type CertPaths struct {
@@ -62,6 +63,13 @@ func Issue(req IssueRequest) (*CertPaths, error) {
 			"PDNS_Token="+pdnsToken,
 		)
 	} else {
+		for _, altName := range req.AltNames {
+			altName = strings.TrimSpace(altName)
+			if altName == "" || strings.EqualFold(altName, req.Domain) {
+				continue
+			}
+			args = append(args, "-d", altName)
+		}
 		args = append(args, "--nginx")
 	}
 

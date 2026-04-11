@@ -16,6 +16,16 @@
             Mail is not enabled for this domain. Contact your administrator to enable it.
         </div>
 
+        <div
+            v-if="actionFeedback.message"
+            class="mb-6 rounded-xl px-4 py-3 text-sm"
+            :class="actionFeedback.type === 'error'
+                ? 'border border-red-800 bg-red-900/30 text-red-300'
+                : 'border border-emerald-800 bg-emerald-900/30 text-emerald-300'"
+        >
+            {{ actionFeedback.message }}
+        </div>
+
         <div v-if="domain.mail_enabled" class="mb-6 grid gap-6 xl:grid-cols-2">
             <section class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -309,6 +319,7 @@
 </template>
 
 <script setup>
+import { reactive } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ActionCard from '@/Components/ActionCard.vue';
@@ -325,6 +336,10 @@ const props = defineProps({
     emailDns: Object,
 });
 
+const actionFeedback = reactive({
+    type: null,
+    message: '',
+});
 const mbForm = useForm({ local_part: '', password: '' });
 const fwdForm = useForm({ source: '', destination: '' });
 const mailboxImportForm = useForm({ csv: '' });
@@ -340,35 +355,104 @@ const spfForm = useForm({
 const spfRestoreForm = useForm({});
 const dmarcRestoreForm = useForm({});
 
+function setActionFeedback(type, message) {
+    actionFeedback.type = type;
+    actionFeedback.message = message;
+}
+
+function firstValidationMessage(errors, fallback) {
+    return Object.values(errors ?? {}).find((message) => typeof message === 'string' && message.length > 0) ?? fallback;
+}
+
+function handleActionVisit(visitPage, successFallback) {
+    const flashError = visitPage?.props?.flash?.error;
+    const flashSuccess = visitPage?.props?.flash?.success;
+
+    if (flashError) {
+        setActionFeedback('error', flashError);
+        return false;
+    }
+
+    setActionFeedback('success', flashSuccess ?? successFallback);
+    return true;
+}
+
 function submitMailbox() {
     mbForm.post(route('my.email.mailbox.store', props.domain.id), {
-        onSuccess: () => mbForm.reset(),
+        preserveScroll: true,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, `Mailbox ${mbForm.local_part}@${props.domain.domain} created.`)) {
+                return;
+            }
+
+            mbForm.reset();
+        },
+        onError: (errors) => {
+            setActionFeedback('error', firstValidationMessage(errors, 'Mailbox creation did not complete.'));
+        },
     });
 }
 
 function submitForwarder() {
     fwdForm.post(route('my.email.forwarder.store', props.domain.id), {
-        onSuccess: () => fwdForm.reset(),
+        preserveScroll: true,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Forwarder created.')) {
+                return;
+            }
+
+            fwdForm.reset();
+        },
+        onError: (errors) => {
+            setActionFeedback('error', firstValidationMessage(errors, 'Forwarder creation did not complete.'));
+        },
     });
 }
 
 function submitMailboxImport() {
     mailboxImportForm.post(route('my.email.mailbox.import', props.domain.id), {
-        onSuccess: () => mailboxImportForm.reset(),
+        preserveScroll: true,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Mailbox import completed.')) {
+                return;
+            }
+
+            mailboxImportForm.reset();
+        },
+        onError: (errors) => {
+            setActionFeedback('error', firstValidationMessage(errors, 'Mailbox import did not complete.'));
+        },
     });
 }
 
 function submitForwarderImport() {
     forwarderImportForm.post(route('my.email.forwarder.import', props.domain.id), {
-        onSuccess: () => forwarderImportForm.reset(),
+        preserveScroll: true,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Forwarder import completed.')) {
+                return;
+            }
+
+            forwarderImportForm.reset();
+        },
+        onError: (errors) => {
+            setActionFeedback('error', firstValidationMessage(errors, 'Forwarder import did not complete.'));
+        },
     });
 }
 
 function submitDomainSpamPolicy() {
     domainSpamPolicyForm.put(route('my.email.domain-spam-policy.update', props.domain.id), {
         preserveScroll: true,
-        onSuccess: () => {
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Domain spam policy updated.')) {
+                return;
+            }
+
             domainSpamPolicyForm.apply_existing = false;
+        },
+        onError: (errors) => {
+            setActionFeedback('error', firstValidationMessage(errors, 'Spam policy update did not complete.'));
         },
     });
 }
@@ -376,20 +460,36 @@ function submitDomainSpamPolicy() {
 function regenerateDomainKey() {
     domainKeyForm.post(route('my.email.domain-key.regenerate', props.domain.id), {
         preserveScroll: true,
-        onSuccess: refreshMailDnsState,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Domain key regenerated.')) {
+                return;
+            }
+
+            refreshMailDnsState();
+        },
     });
 }
 
 function updateSpfRecord() {
     spfForm.put(route('my.email.spf.update', props.domain.id), {
         preserveScroll: true,
+        onSuccess: (visitPage) => {
+            handleActionVisit(visitPage, 'SPF record updated.');
+        },
+        onError: (errors) => {
+            setActionFeedback('error', firstValidationMessage(errors, 'SPF update did not complete.'));
+        },
     });
 }
 
 function restoreSpfRecord() {
     spfRestoreForm.post(route('my.email.spf.restore', props.domain.id), {
         preserveScroll: true,
-        onSuccess: () => {
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Recommended SPF restored.')) {
+                return;
+            }
+
             refreshMailDnsState();
         },
     });
@@ -398,7 +498,13 @@ function restoreSpfRecord() {
 function restoreDmarcRecord() {
     dmarcRestoreForm.post(route('my.email.dmarc.restore', props.domain.id), {
         preserveScroll: true,
-        onSuccess: refreshMailDnsState,
+        onSuccess: (visitPage) => {
+            if (!handleActionVisit(visitPage, 'Recommended DMARC restored.')) {
+                return;
+            }
+
+            refreshMailDnsState();
+        },
     });
 }
 

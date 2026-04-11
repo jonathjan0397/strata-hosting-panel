@@ -57,6 +57,22 @@
                 </dl>
             </div>
 
+            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-300">Domains</h3>
+                    <span class="text-xs text-gray-500">{{ account.domains?.length ?? 0 }}</span>
+                </div>
+                <div v-if="account.domains?.length" class="mt-3 space-y-2">
+                    <div v-for="domain in account.domains" :key="domain.id" class="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-800/40 px-3 py-2">
+                        <span class="font-mono text-sm text-gray-200">{{ domain.domain }}</span>
+                        <Link :href="route('reseller.dns.show', domain.id)" class="text-xs font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
+                            DNS
+                        </Link>
+                    </div>
+                </div>
+                <p v-else class="mt-3 text-sm text-gray-500">No domains on this client account yet.</p>
+            </div>
+
             <form @submit.prevent="save" class="space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-gray-300">Resource Limits</h3>

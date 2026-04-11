@@ -37,6 +37,10 @@ class ClientController extends Controller
                 'created_at'          => $account->created_at?->toDateTimeString(),
                 'node'                => $account->node?->only('id', 'name', 'hostname'),
                 'user'                => $account->user?->only('id', 'name', 'email'),
+                'domains'             => $account->domains->map(fn ($domain) => [
+                    'id' => $domain->id,
+                    'domain' => $domain->domain,
+                ])->values(),
                 'domain_count'        => $account->domains->count(),
                 'email_count'         => $account->emailAccounts->count(),
                 'database_count'      => $account->databases->count(),

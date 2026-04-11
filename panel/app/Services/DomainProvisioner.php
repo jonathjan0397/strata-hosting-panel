@@ -196,6 +196,7 @@ class DomainProvisioner
             $response = AgentClient::for($domain->node)->issueSSL($domain->domain, [
                 'wildcard' => $wildcard,
                 'web_server' => $domain->node->web_server ?? $domain->web_server ?? 'nginx',
+                'alt_names' => $wildcard ? [] : ["www.{$domain->domain}"],
             ]);
 
             if (! $response->successful()) {
