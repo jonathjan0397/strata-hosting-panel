@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.0-BETA-3.18] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.18`.
+
+### Fixed - Apache domain delete and SSL issuance workflows
+
+**Apache Domain Deletion**
+- Fixed panel-side domain deprovisioning so Apache-backed domains pass the web server type to the agent during vhost removal
+- This stops Apache installs from falling into the Nginx removal path and failing with `nginx config test failed` during domain deletion or rollback cleanup
+
+**Apache SSL Issuance**
+- Standard domain SSL issuance now uses the domain document root as the ACME webroot instead of forcing `acme.sh --nginx`
+- This fixes Apache installs where certificate issuance failed because `nginx` was not present on the server
+
+**Apache SSL Vhost Rendering**
+- Fixed the Apache SSL vhost template so generated HTTPS sites do not include an extra closing `</VirtualHost>` tag
+- This resolves Apache config test failures during HTTPS reprovisioning after certificate issuance
+
 ## [1.0.0-BETA-3.17] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.17`.

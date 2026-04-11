@@ -80,7 +80,6 @@ var vhostTemplate = template.Must(template.New("apachevhost").Parse(`# Strata Ho
     {{.CustomDirectives}}
     {{end}}
 </VirtualHost>
-{{if .SSLEnabled}}</VirtualHost>{{end}}
 `))
 
 func WriteVhost(cfg VhostConfig) error {

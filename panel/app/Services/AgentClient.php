@@ -118,9 +118,14 @@ class AgentClient
         return $this->post('/nginx/vhost', $config);
     }
 
-    public function deleteVhost(string $domain): Response
+    public function deleteVhost(string $domain, ?string $webServer = null): Response
     {
-        return $this->delete("/nginx/vhost/{$domain}");
+        $path = "/nginx/vhost/{$domain}";
+        if ($webServer) {
+            $path .= '?web_server=' . urlencode($webServer);
+        }
+
+        return $this->delete($path);
     }
 
     // Aliases used by DomainProvisioner.
@@ -129,9 +134,9 @@ class AgentClient
         return $this->createVhost($config);
     }
 
-    public function removeDomain(string $domain): Response
+    public function removeDomain(string $domain, ?string $webServer = null): Response
     {
-        return $this->deleteVhost($domain);
+        return $this->deleteVhost($domain, $webServer);
     }
 
     // ── PHP-FPM ───────────────────────────────────────────────────────────────

@@ -14,9 +14,10 @@ const (
 )
 
 type IssueRequest struct {
-	Domain    string `json:"domain"`
-	Wildcard  bool   `json:"wildcard"`
-	WebServer string `json:"web_server"`
+	Domain    string   `json:"domain"`
+	Wildcard  bool     `json:"wildcard"`
+	WebServer string   `json:"web_server"`
+	Webroot   string   `json:"webroot"`
 	AltNames  []string `json:"alt_names"`
 }
 
@@ -40,7 +41,7 @@ func Paths(domain string) CertPaths {
 }
 
 // Issue requests a certificate via acme.sh.
-// Standard certs use the Nginx webroot challenge; wildcard certs use PowerDNS.
+// Standard certs use the HTTP webroot challenge; wildcard certs use PowerDNS.
 func Issue(req IssueRequest) (*CertPaths, error) {
 	certDir := CertDir(req.Domain)
 	if err := os.MkdirAll(certDir, 0700); err != nil {
@@ -63,6 +64,14 @@ func Issue(req IssueRequest) (*CertPaths, error) {
 			"PDNS_Token="+pdnsToken,
 		)
 	} else {
+		webroot := strings.TrimSpace(req.Webroot)
+		if webroot == "" {
+			webroot = "/var/www/html"
+		}
+		if err := os.MkdirAll(filepath.Join(webroot, ".well-known", "acme-challenge"), 0755); err != nil {
+			return nil, fmt.Errorf("prepare acme webroot: %w", err)
+		}
+
 		for _, altName := range req.AltNames {
 			altName = strings.TrimSpace(altName)
 			if altName == "" || strings.EqualFold(altName, req.Domain) {
@@ -70,7 +79,7 @@ func Issue(req IssueRequest) (*CertPaths, error) {
 			}
 			args = append(args, "-d", altName)
 		}
-		args = append(args, "--nginx")
+		args = append(args, "-w", webroot)
 	}
 
 	cmd := exec.Command(acmeBin, args...)

@@ -1,7 +1,7 @@
 # Staging Security Validation
 
 Last updated: 2026-04-10
-Target release line: `1.0.0-BETA-3.17`
+Target release line: `1.0.0-BETA-3.18`
 
 This runbook defines the minimum staging validation required before Strata can be considered for a production release candidate.
 

@@ -31,7 +31,7 @@ class DomainProvisioner
             [$mailEnabled, $mailError] = $this->ensureMailProvisioned($domain->fresh());
             if (! $mailEnabled) {
                 (new DnsProvisioner(AgentClient::for($domain->node)))->deleteZone($domain);
-                AgentClient::for($domain->node)->removeDomain($domain->domain);
+                AgentClient::for($domain->node)->removeDomain($domain->domain, $this->webServerFor($domain));
                 return [false, 'Mail provisioning failed: ' . $mailError];
             }
 
@@ -91,7 +91,7 @@ class DomainProvisioner
         }
 
         try {
-            $response = $client->removeDomain($domain->domain);
+            $response = $client->removeDomain($domain->domain, $this->webServerFor($domain));
             if (! $response->successful()) {
                 $errors[] = $response->body();
             }
@@ -196,6 +196,7 @@ class DomainProvisioner
             $response = AgentClient::for($domain->node)->issueSSL($domain->domain, [
                 'wildcard' => $wildcard,
                 'web_server' => $domain->node->web_server ?? $domain->web_server ?? 'nginx',
+                'webroot' => $domain->document_root,
                 'alt_names' => $wildcard ? [] : ["www.{$domain->domain}"],
             ]);
 
@@ -726,5 +727,10 @@ class DomainProvisioner
         return $host !== ''
             && strlen($host) <= 253
             && preg_match('/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/', $host);
+    }
+
+    private function webServerFor(Domain $domain): string
+    {
+        return $domain->node->web_server ?? $domain->web_server ?? 'nginx';
     }
 }
