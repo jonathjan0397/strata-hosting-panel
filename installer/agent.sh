@@ -599,7 +599,7 @@ git clone --depth=1 https://github.com/jonathjan0397/strata-hosting-panel.git /t
 AGENT_VERSION="$(cat /tmp/strata-src/VERSION 2>/dev/null || echo 'dev')"
 cd /tmp/strata-src/agent
 GOOS=linux GOARCH=amd64 go build \
-    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=${AGENT_VERSION}" \
+    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/buildinfo.Version=${AGENT_VERSION}" \
     -o /usr/sbin/strata-agent \
     ./main.go
 GOOS=linux GOARCH=amd64 go build -o /usr/sbin/strata-webdav ./cmd/strata-webdav

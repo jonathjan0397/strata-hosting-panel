@@ -13,13 +13,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/account"
 	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/apache"
+	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/buildinfo"
 	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/nginx"
 	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/php"
 	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/ssl"
 	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/system"
 )
-
-var Version = "dev"
 
 func respond(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -46,7 +45,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func handleVersion(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, map[string]string{
-		"version": Version,
+		"version": buildinfo.Version,
 		"go":      runtime.Version(),
 	})
 }

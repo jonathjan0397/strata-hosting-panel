@@ -722,7 +722,7 @@ GOARCH_TARGET="$(detect_goarch)"
 NEW_AGENT="$WORKDIR/strata-agent"
 NEW_WEBDAV="$WORKDIR/strata-webdav"
 GOOS=linux GOARCH="$GOARCH_TARGET" go build \
-    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=${target_version}" \
+    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/buildinfo.Version=${target_version}" \
     -o "$NEW_AGENT" \
     .
 chmod 755 "$NEW_AGENT"

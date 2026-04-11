@@ -61,6 +61,10 @@ class ImpersonationController extends Controller
         $impersonator = $request->user();
         $client = $account->user;
 
+        if ($impersonator && $client && (int) $impersonator->id === (int) $client->id) {
+            return redirect()->route('my.dashboard');
+        }
+
         abort_unless($client?->hasRole('user'), 403);
 
         AuditLog::record('impersonation.started', $account, [

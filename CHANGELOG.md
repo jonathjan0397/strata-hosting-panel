@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.0-BETA-3.17] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.17`.
+
+### Changed - Default website experience and account access polish
+
+**Default Website**
+- Replaced the generic placeholder page for new accounts with a more eye-catching Strata landing page
+- The default page now shows the active Strata release version and links to:
+  - GitHub
+  - Buy Me a Coffee
+  - Simple Server Networks
+  - Hosted Technology Service
+
+**Agent Build Metadata**
+- Moved agent version metadata into a dedicated build-info package so the default website and API can show the injected release version without creating package import cycles
+- Installer and upgrade build flags now inject the agent version into the new shared build-info path
+
+**Admin Account Access**
+- Fixed the admin `Access Panel` path so an admin opening their own hosting account goes directly to the account portal instead of tripping the impersonation guard with a 403
+
 ## [1.0.0-BETA-3.16] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.16`.

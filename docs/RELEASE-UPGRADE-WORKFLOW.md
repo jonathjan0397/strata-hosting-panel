@@ -17,7 +17,7 @@ The release tag is the canonical deployable version.
 Example:
 
 ```text
-1.0.0-BETA-3.16
+1.0.0-BETA-3.17
 ```
 
 The release should correspond to a single tested commit and a single upgradeable artifact set.
@@ -37,7 +37,7 @@ The upgrade system should eventually consume a release manifest similar to:
 
 ```json
 {
-  "version": "1.0.0-BETA-3.16",
+  "version": "1.0.0-BETA-3.17",
   "panel": {
     "source": "panel.tar.gz",
     "assets": "panel-public-build.tar.gz"

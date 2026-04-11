@@ -260,7 +260,7 @@ cd "$WORKDIR/src/agent"
 go mod tidy
 GOARCH_TARGET="$(detect_goarch)"
 GOOS=linux GOARCH="$GOARCH_TARGET" go build \
-    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=${VERSION}" \
+    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/buildinfo.Version=${VERSION}" \
     -o "$NEW_BINARY" \
     .
 chmod 755 "$NEW_BINARY"

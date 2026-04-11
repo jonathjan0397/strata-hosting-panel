@@ -1134,7 +1134,7 @@ info "Building strata-agent…"
 cd "$INSTALL_DIR/agent-src"
 go mod tidy 2>&1 || die "go mod tidy failed — check network and Go installation"
 GOOS=linux GOARCH=amd64 go build \
-    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/api.Version=${PANEL_VERSION}" \
+    -ldflags "-X github.com/jonathjan0397/strata-hosting-panel/agent/internal/buildinfo.Version=${PANEL_VERSION}" \
     -o /usr/sbin/strata-agent \
     .
 chmod 755 /usr/sbin/strata-agent
