@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.0-BETA-3.21] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.21`.
+
+### Fixed - SSL gating, mail cleanup, and FTP home path control
+
+**Force HTTPS / SSL**
+- Fixed Force HTTPS gating so it no longer depends on the panel web runtime being able to read root-only certificate directories under `/etc/ssl/strata`
+- Domains with installed certificates can now enable Force HTTPS without false negatives caused by panel-side filesystem permission checks
+
+**Mail**
+- Recreating a deleted mailbox now clears any soft-deleted duplicate row before insert, preventing duplicate-key failures on reused email addresses
+- Mail-domain deprovisioning now removes stale Dovecot virtual users for deleted domains so orphan mailbox logins do not survive a domain cleanup
+- Installer and upgrade paths now set OpenDKIM canonicalization to `relaxed/relaxed` to avoid brittle DKIM failures caused by `simple/simple`
+
+**FTP**
+- Admins and end users can now choose a specific starting directory for new FTP accounts
+- FTP home directories remain jailed to the account home, with validation blocking paths outside `/var/www/<account>`
+
 ## [1.0.0-BETA-3.20] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.20`.
