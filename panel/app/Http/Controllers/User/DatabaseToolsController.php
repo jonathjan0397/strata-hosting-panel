@@ -17,13 +17,29 @@ class DatabaseToolsController extends Controller
             ->with('node')
             ->firstOrFail();
 
+        $host = $account->node->hostname ?: $account->node->ip_address;
+        $baseUrl = rtrim(config('app.url'), '/');
+
         $databases = HostingDatabase::where('account_id', $account->id)
             ->orderBy('engine')
             ->orderBy('db_name')
-            ->get(['id', 'engine', 'db_name', 'db_user']);
+            ->get()
+            ->map(function (HostingDatabase $database) use ($baseUrl): array {
+                $engine = $database->engine ?? 'mysql';
+                $password = $database->password_plain;
 
-        $host = $account->node->hostname ?: $account->node->ip_address;
-        $baseUrl = rtrim(config('app.url'), '/');
+                return [
+                    'id' => $database->id,
+                    'engine' => $engine,
+                    'db_name' => $database->db_name,
+                    'db_user' => $database->db_user,
+                    'password' => $password,
+                    'password_available' => $password !== null,
+                    'tool_name' => $engine === 'postgresql' ? 'phpPgAdmin' : 'phpMyAdmin',
+                    'tool_url' => $this->toolUrl($baseUrl, $engine === 'postgresql' ? 'phppgadmin' : 'phpmyadmin', $database->db_name),
+                ];
+            })
+            ->values();
 
         return Inertia::render('User/Database/Tools', [
             'account' => [
@@ -40,7 +56,7 @@ class DatabaseToolsController extends Controller
                     'label' => 'MySQL / MariaDB',
                     'url' => $this->toolUrl($baseUrl, 'phpmyadmin'),
                     'available' => is_dir('/usr/share/phpmyadmin'),
-                    'login' => 'Use the database username and password created in Strata.',
+                    'login' => 'Open phpMyAdmin with the database username and saved password shown below.',
                 ],
                 [
                     'name' => 'phpPgAdmin',
@@ -48,7 +64,7 @@ class DatabaseToolsController extends Controller
                     'label' => 'PostgreSQL',
                     'url' => $this->toolUrl($baseUrl, 'phppgadmin'),
                     'available' => is_dir('/usr/share/phppgadmin'),
-                    'login' => 'Use the PostgreSQL database username and password created in Strata.',
+                    'login' => 'Open phpPgAdmin with the database username and saved password shown below.',
                 ],
             ],
             'databases' => $databases,
@@ -59,8 +75,14 @@ class DatabaseToolsController extends Controller
         ]);
     }
 
-    private function toolUrl(string $baseUrl, string $path): string
+    private function toolUrl(string $baseUrl, string $path, ?string $databaseName = null): string
     {
-        return $baseUrl . '/' . trim($path, '/') . '/';
+        $url = $baseUrl . '/' . trim($path, '/') . '/';
+
+        if ($databaseName) {
+            $url .= '?db=' . urlencode($databaseName);
+        }
+
+        return $url;
     }
 }

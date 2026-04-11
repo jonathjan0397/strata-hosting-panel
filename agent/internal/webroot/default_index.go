@@ -18,166 +18,313 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{.Domain}} is ready</title>
+  <title>{{.Domain}} is live on Strata</title>
   <style>
     :root {
-      --bg: #07131d;
-      --bg-alt: #0d2131;
-      --ink: #eef5fb;
-      --muted: #a6bfd1;
-      --panel: rgba(9, 24, 35, 0.86);
-      --panel-strong: rgba(11, 29, 44, 0.94);
-      --border: rgba(151, 197, 231, 0.16);
-      --accent: #33d1ff;
-      --accent-deep: #0da2df;
-      --accent-soft: rgba(51, 209, 255, 0.12);
-      --gold: #ffd166;
-      --rose: #ff7d7d;
-      --shadow: 0 32px 90px rgba(0, 0, 0, 0.35);
+      --bg: #071019;
+      --bg-deep: #0b1f2a;
+      --panel: rgba(8, 17, 27, 0.86);
+      --panel-strong: rgba(10, 23, 35, 0.96);
+      --line: rgba(158, 208, 255, 0.16);
+      --line-strong: rgba(158, 208, 255, 0.26);
+      --text: #f4f8fc;
+      --muted: #9db2c3;
+      --muted-strong: #c4d4df;
+      --cyan: #5fe1ff;
+      --cyan-deep: #109fd1;
+      --amber: #ffce72;
+      --ember: #ff7f50;
+      --mint: #6cf2c0;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
+      --hero-font: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+      --body-font: "Segoe UI", "Avenir Next", "Helvetica Neue", sans-serif;
+      --mono-font: "Cascadia Code", "Consolas", "Courier New", monospace;
     }
     * { box-sizing: border-box; }
+    html { background: #050c12; }
     body {
       margin: 0;
       min-height: 100vh;
+      color: var(--text);
+      font-family: var(--body-font);
+      overflow-wrap: anywhere;
       background:
-        radial-gradient(circle at 12% 18%, rgba(51, 209, 255, 0.18), transparent 22%),
-        radial-gradient(circle at 88% 16%, rgba(255, 209, 102, 0.18), transparent 18%),
-        radial-gradient(circle at 74% 80%, rgba(255, 125, 125, 0.14), transparent 20%),
-        linear-gradient(145deg, var(--bg), var(--bg-alt));
-      color: var(--ink);
-      font-family: "Trebuchet MS", Verdana, sans-serif;
+        radial-gradient(circle at 15% 10%, rgba(95, 225, 255, 0.20), transparent 20rem),
+        radial-gradient(circle at 85% 12%, rgba(255, 206, 114, 0.14), transparent 18rem),
+        radial-gradient(circle at 70% 78%, rgba(255, 127, 80, 0.16), transparent 20rem),
+        linear-gradient(135deg, var(--bg), var(--bg-deep) 60%, #081723);
       padding: 28px;
+    }
+    a {
+      color: inherit;
       overflow-wrap: anywhere;
     }
-    .frame {
-      width: min(1100px, 100%);
+    .shell {
+      width: min(1180px, 100%);
       margin: 0 auto;
-      border: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(8, 21, 31, 0.9), rgba(7, 17, 26, 0.97));
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
+        var(--panel);
       box-shadow: var(--shadow);
       overflow: hidden;
+      position: relative;
+      isolation: isolate;
     }
-    .masthead {
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(95, 225, 255, 0.06), transparent 25%, transparent 75%, rgba(255, 206, 114, 0.05)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 18%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .topbar,
+    .hero,
+    .details,
+    .footer {
+      position: relative;
+      z-index: 1;
+    }
+    .topbar {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 16px;
-      padding: 20px 28px;
-      border-bottom: 1px solid var(--border);
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--line);
       background: rgba(255, 255, 255, 0.03);
-      letter-spacing: 0.08em;
       text-transform: uppercase;
-      font-size: 12px;
+      letter-spacing: 0.08em;
+      font-size: 11px;
       color: var(--muted);
     }
     .brand {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      min-width: 0;
       font-weight: 700;
-      color: var(--ink);
+      color: var(--text);
     }
     .brand-mark {
       width: 14px;
       height: 14px;
       border-radius: 999px;
-      background: linear-gradient(135deg, var(--accent), var(--gold), var(--rose));
-      box-shadow: 0 0 0 5px rgba(51, 209, 255, 0.12);
+      background: linear-gradient(135deg, var(--cyan), var(--amber), var(--ember));
+      box-shadow: 0 0 0 6px rgba(95, 225, 255, 0.10);
+      flex: 0 0 auto;
     }
     .hero {
       display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-      gap: 28px;
-      padding: 34px 28px 18px;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+      gap: 26px;
+      padding: 34px 28px 20px;
       align-items: stretch;
     }
     .hero-copy {
-      padding: 8px 0 22px;
+      padding: 6px 0 12px;
+      min-width: 0;
     }
     .eyebrow {
-      display: inline-block;
-      margin-bottom: 14px;
-      padding: 7px 12px;
-      border: 1px solid rgba(51, 209, 255, 0.24);
-      background: rgba(51, 209, 255, 0.08);
-      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      padding: 8px 13px;
+      border: 1px solid rgba(95, 225, 255, 0.22);
+      background: rgba(95, 225, 255, 0.08);
+      color: var(--cyan);
       font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
+      font-weight: 800;
       text-transform: uppercase;
+      letter-spacing: 0.14em;
     }
     h1 {
       margin: 0;
-      max-width: 13ch;
-      font-size: clamp(38px, 6.8vw, 72px);
-      line-height: 0.98;
-      letter-spacing: -0.06em;
+      max-width: 11ch;
+      font-family: var(--hero-font);
+      font-size: clamp(44px, 7vw, 78px);
+      line-height: 0.94;
+      letter-spacing: -0.065em;
       text-wrap: balance;
     }
-    .domain {
-      margin: 18px 0 0;
-      font-size: 15px;
+    .hero-copy strong {
+      color: var(--cyan);
+      font-weight: 800;
+    }
+    .hero-copy .lede {
+      margin: 22px 0 0;
+      max-width: 54ch;
+      color: var(--muted-strong);
+      font-size: 17px;
+      line-height: 1.72;
+    }
+    .hero-copy .domain {
+      margin: 16px 0 0;
       color: var(--muted);
-      letter-spacing: 0.04em;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.10em;
       text-transform: uppercase;
     }
-    .domain strong {
-      color: var(--accent);
-      font-weight: 700;
+    .hero-copy .domain span {
+      color: var(--amber);
     }
-    .lede {
-      margin: 20px 0 0;
-      max-width: 48ch;
-      color: var(--muted);
-      font-size: 17px;
-      line-height: 1.65;
-    }
-    .content {
+    .stats {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
-      gap: 28px;
-      padding: 12px 28px 28px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 26px;
     }
-    h2 {
-      margin: 0 0 14px;
-      font-size: 21px;
-      color: var(--ink);
+    .stat {
+      padding: 14px 14px 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      min-width: 0;
     }
-    p, li {
+    .stat-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
       color: var(--muted);
-      line-height: 1.7;
-      font-size: 16px;
     }
-    .steps {
+    .stat-value {
+      display: block;
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.45;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .feature-panel {
+      min-width: 0;
+      padding: 22px;
+      border: 1px solid var(--line-strong);
+      background:
+        radial-gradient(circle at top right, rgba(255, 206, 114, 0.16), transparent 11rem),
+        linear-gradient(180deg, rgba(16, 42, 58, 0.86), rgba(10, 21, 32, 0.98));
+    }
+    .feature-panel .kicker {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 6px 10px;
+      background: rgba(255, 206, 114, 0.12);
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .feature-panel h2 {
+      margin: 0;
+      max-width: 14ch;
+      font-family: var(--hero-font);
+      font-size: 34px;
+      line-height: 1.02;
+      letter-spacing: -0.05em;
+      text-wrap: balance;
+    }
+    .feature-panel p {
+      margin: 16px 0 0;
+      color: var(--muted-strong);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 16px;
+      border: 1px solid transparent;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .button.primary {
+      color: #071019;
+      background: linear-gradient(135deg, var(--cyan), var(--cyan-deep));
+      box-shadow: 0 12px 28px rgba(16, 159, 209, 0.25);
+    }
+    .button.secondary {
+      color: var(--text);
+      border-color: rgba(158, 208, 255, 0.22);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+      gap: 26px;
+      padding: 8px 28px 28px;
+    }
+    .card {
+      min-width: 0;
+      padding: 22px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+    }
+    .card h3 {
+      margin: 0 0 14px;
+      font-family: var(--hero-font);
+      font-size: 24px;
+      letter-spacing: -0.03em;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted-strong);
+      font-size: 15px;
+      line-height: 1.72;
+    }
+    .card p + p {
+      margin-top: 14px;
+    }
+    .step-list {
       display: grid;
       gap: 14px;
       margin-top: 18px;
     }
     .step {
       display: grid;
-      grid-template-columns: 44px 1fr;
+      grid-template-columns: 46px minmax(0, 1fr);
       gap: 14px;
       align-items: start;
-      padding: 16px 18px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.04);
+      padding: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      min-width: 0;
     }
-    .step-number {
+    .step-index {
       display: grid;
       place-items: center;
-      width: 44px;
-      height: 44px;
+      width: 46px;
+      height: 46px;
       border-radius: 999px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-deep));
-      color: #fff;
-      font-family: "Trebuchet MS", Verdana, sans-serif;
+      background: linear-gradient(135deg, var(--amber), var(--ember));
+      color: #08111a;
+      font-family: var(--hero-font);
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 900;
+      letter-spacing: 0.04em;
     }
-    .step h3 {
+    .step h4 {
       margin: 2px 0 6px;
       font-size: 18px;
-      color: var(--ink);
+      color: var(--text);
+      letter-spacing: -0.02em;
     }
     .step p {
       margin: 0;
@@ -186,304 +333,220 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
     code {
       display: inline-block;
       max-width: 100%;
-      padding: 3px 8px;
+      padding: 4px 8px;
       border-radius: 999px;
-      background: rgba(51, 209, 255, 0.1);
-      color: var(--accent);
-      font-family: "Courier New", monospace;
-      font-size: 14px;
+      background: rgba(95, 225, 255, 0.10);
+      color: var(--cyan);
+      font-family: var(--mono-font);
+      font-size: 13px;
       white-space: normal;
       overflow-wrap: anywhere;
     }
-    .spotlight {
-      position: relative;
-      min-height: 100%;
-      padding: 22px;
-      border: 1px solid rgba(151, 197, 231, 0.16);
-      background:
-        linear-gradient(180deg, rgba(16, 42, 61, 0.78), rgba(10, 26, 38, 0.95)),
-        var(--panel-strong);
-    }
-    .spotlight::before {
-      content: "";
-      position: absolute;
-      inset: 16px;
-      border: 1px dashed rgba(255, 209, 102, 0.24);
-      pointer-events: none;
-    }
-    .spotlight-inner {
-      position: relative;
-      z-index: 1;
-    }
-    .pill {
-      display: inline-block;
-      margin-bottom: 16px;
-      padding: 6px 10px;
-      background: rgba(255, 209, 102, 0.12);
-      color: var(--gold);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-    .spotlight h2 {
-      max-width: 12ch;
-      font-size: 32px;
-      line-height: 1;
-      letter-spacing: -0.04em;
-    }
-    .spotlight p {
-      margin: 14px 0 0;
-    }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 20px;
-    }
-    .primary-link,
-    .secondary-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 44px;
-      padding: 0 16px;
-      text-decoration: none;
-      font-family: "Trebuchet MS", Verdana, sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .primary-link {
-      color: #04111a;
-      background: linear-gradient(135deg, var(--accent), var(--accent-deep));
-      box-shadow: 0 14px 32px rgba(13, 162, 223, 0.24);
-    }
-    .secondary-link {
-      color: var(--ink);
-      border: 1px solid rgba(151, 197, 231, 0.22);
-      background: rgba(255,255,255,0.04);
-    }
-    .meta-grid {
-      display: grid;
-      gap: 10px;
-      margin-top: 22px;
-    }
-    .meta-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      flex-wrap: wrap;
-      gap: 14px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .meta-item strong {
-      color: var(--ink);
-      text-align: right;
-      overflow-wrap: anywhere;
-    }
-    .sponsors {
+    .partner-list {
       display: grid;
       gap: 12px;
-      margin-top: 22px;
+      margin-top: 18px;
     }
-    .sponsors a {
+    .partner {
       display: block;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      color: var(--ink);
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
       text-decoration: none;
-      background: rgba(255,255,255,0.03);
-      overflow-wrap: anywhere;
     }
-    .sponsors small {
+    .partner strong {
+      display: block;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.4;
+    }
+    .partner span {
       display: block;
       margin-top: 5px;
       color: var(--muted);
-      font-size: 12px;
-      letter-spacing: 0.03em;
+      font-size: 13px;
+      line-height: 1.6;
     }
-    .signature {
-      margin-top: 24px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    .thanks {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted-strong);
+      font-size: 14px;
+      line-height: 1.7;
     }
-    footer {
+    .footer {
       display: flex;
       justify-content: space-between;
       gap: 18px;
       padding: 18px 28px 24px;
-      border-top: 1px solid var(--border);
+      border-top: 1px solid var(--line);
       color: var(--muted);
       font-size: 12px;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
     }
     .footer-note {
-      max-width: 48ch;
-      line-height: 1.6;
+      max-width: 52ch;
+      line-height: 1.7;
     }
-    .footer-status {
-      color: var(--gold);
-      font-weight: 700;
+    .footer-state {
+      color: var(--mint);
+      font-weight: 800;
       white-space: nowrap;
     }
-    @media (max-width: 880px) {
+    @media (max-width: 920px) {
       .hero,
-      .content {
+      .detail-grid {
         grid-template-columns: 1fr;
       }
       h1,
-      .spotlight h2 {
+      .feature-panel h2 {
         max-width: none;
       }
     }
-    @media (max-width: 640px) {
+    @media (max-width: 680px) {
       body {
         padding: 0;
       }
-      .frame {
+      .shell {
         width: 100%;
         min-height: 100vh;
       }
-      .masthead,
+      .topbar,
       .hero,
-      .content,
-      footer {
+      .details,
+      .detail-grid,
+      .footer {
         padding-left: 20px;
         padding-right: 20px;
       }
-      .masthead,
-      footer {
+      .topbar,
+      .footer {
         flex-direction: column;
         align-items: flex-start;
       }
       h1 {
-        font-size: clamp(40px, 16vw, 64px);
+        font-size: clamp(38px, 15vw, 62px);
       }
-      .lede {
-        font-size: 16px;
+      .stats {
+        grid-template-columns: 1fr;
+      }
+      .button-row {
+        flex-direction: column;
+      }
+      .button {
+        width: 100%;
       }
       .step {
         grid-template-columns: 1fr;
       }
-      .step-number {
-        width: 36px;
-        height: 36px;
-      }
-      .actions {
-        flex-direction: column;
-      }
-      .primary-link,
-      .secondary-link {
-        width: 100%;
-      }
-      .meta-item {
-        flex-direction: column;
-      }
-      .meta-item strong {
-        text-align: left;
+      .step-index {
+        width: 40px;
+        height: 40px;
       }
     }
   </style>
 </head>
 <body>
-  <main class="frame">
-    <header class="masthead">
+  <main class="shell">
+    <header class="topbar">
       <div class="brand"><span class="brand-mark"></span>Strata Hosting Panel</div>
-      <div>Site Provisioned Successfully</div>
+      <div>Provisioned | Online | Ready for Deployment</div>
     </header>
+
     <section class="hero">
       <div class="hero-copy">
-        <div class="eyebrow">New Account Web Page</div>
-        <h1>This website is hosted on the Strata Hosting Panel.</h1>
-        <p class="domain">Active domain: <strong>{{.Domain}}</strong></p>
+        <div class="eyebrow">Default Website Template</div>
+        <h1>Your site is live on <strong>Strata</strong>.</h1>
+        <p class="domain">Active domain: <span>{{.Domain}}</span></p>
         <p class="lede">
-          Your account is provisioned, the document root is online, and the default Strata web stack is serving this site correctly. Replace this page whenever you are ready to publish your own project.
+          This hosting account is provisioned correctly, the document root is responding, and the underlying web stack is serving traffic. Replace this page when you are ready to launch your own site, app, landing page, or client project.
         </p>
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">Panel Version</span>
+            <span class="stat-value">{{.Version}}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Web Server</span>
+            <span class="stat-value">{{.WebServer}}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Document Root</span>
+            <span class="stat-value">{{.DocumentRoot}}</span>
+          </div>
+        </div>
       </div>
-      <aside class="spotlight">
-        <div class="spotlight-inner">
-          <div class="pill">Strata Default Site</div>
-          <h2>Fresh hosting should look live immediately.</h2>
-          <p>
-            This page confirms the website is online, the hosting stack is responding, and the account was created successfully.
-          </p>
-          <div class="actions">
-            <a class="primary-link" href="` + githubURL + `" rel="noopener noreferrer">Project on GitHub</a>
-            <a class="secondary-link" href="https://buymeacoffee.com/jonathan0397" rel="noopener noreferrer">Buy Me a Coffee</a>
-          </div>
-          <div class="meta-grid">
-            <div class="meta-item"><span>Panel Version</span><strong>{{.Version}}</strong></div>
-            <div class="meta-item"><span>Document Root</span><strong>{{.DocumentRoot}}</strong></div>
-          </div>
-          <div class="sponsors">
-            <a href="https://www.simpleservernet.com" rel="noopener noreferrer">
-              Simple Server Networks
-              <small>Dedicated servers, infrastructure, and hosting services</small>
-            </a>
-            <a href="https://hosted-tech.com" rel="noopener noreferrer">
-              Hosted Technology Service
-              <small>Managed hosting and technical service operations</small>
-            </a>
-          </div>
-          <div class="signature">Open-source hosting control panel for Debian servers</div>
+
+      <aside class="feature-panel">
+        <div class="kicker">Fresh Account Experience</div>
+        <h2>Hosting should look intentional from the first request.</h2>
+        <p>
+          This page exists to confirm that provisioning, routing, and site delivery are working while giving the account a stronger first impression than a blank directory listing or a generic placeholder.
+        </p>
+        <div class="button-row">
+          <a class="button primary" href="` + githubURL + `" rel="noopener noreferrer">GitHub Project</a>
+          <a class="button secondary" href="https://buymeacoffee.com/jonathan0397" rel="noopener noreferrer">Buy the Developer a Coffee</a>
         </div>
       </aside>
     </section>
-    <section class="content">
-      <div>
-        <h2>What to do next</h2>
-        <div class="steps">
+
+    <section class="detail-grid">
+      <section class="card">
+        <h3>What to do next</h3>
+        <p>
+          Use this document root as your starting point and replace the placeholder with your own application files.
+        </p>
+        <div class="step-list">
           <article class="step">
-            <div class="step-number">01</div>
+            <div class="step-index">01</div>
             <div>
-              <h3>Upload your site files</h3>
-              <p>Publish to <code>{{.DocumentRoot}}</code> and replace this page with your own <code>index.html</code> or <code>index.php</code>.</p>
+              <h4>Publish your site</h4>
+              <p>Upload to <code>{{.DocumentRoot}}</code> and replace this page with your own <code>index.html</code> or <code>index.php</code>.</p>
             </div>
           </article>
           <article class="step">
-            <div class="step-number">02</div>
+            <div class="step-index">02</div>
             <div>
-              <h3>Use your preferred workflow</h3>
-              <p>Deploy with the Strata file manager, FTP, Web Disk, Git, or an application installer depending on how you work.</p>
+              <h4>Choose your workflow</h4>
+              <p>Deploy through the Strata file manager, FTP, Web Disk, Git, or one of the built-in application installers.</p>
             </div>
           </article>
           <article class="step">
-            <div class="step-number">03</div>
+            <div class="step-index">03</div>
             <div>
-              <h3>Go live</h3>
-              <p>Once your files are in place, this placeholder disappears automatically because Strata never overwrites an existing homepage.</p>
+              <h4>Go live on your terms</h4>
+              <p>This default page is only created for empty web roots and will not overwrite an existing homepage.</p>
             </div>
           </article>
         </div>
-      </div>
-      <div>
-        <h2>Why this page exists</h2>
+      </section>
+
+      <aside class="card">
+        <h3>Thanks to our partners</h3>
         <p>
-          Fresh accounts should look provisioned, not broken. This page shows that DNS, vhost routing, SSL, and the document root are already working.
+          Strata appreciates the companies helping support infrastructure, hosting operations, and the broader ecosystem around this panel.
         </p>
-        <p>
-          It is intentionally temporary, easy to replace, and built to give a new account a cleaner first impression than a blank directory or a generic placeholder.
-        </p>
-        <p>
-          Server owners can customize this template in the Strata agent source and roll it out through the normal upgrade path.
-        </p>
-      </div>
+        <div class="partner-list">
+          <a class="partner" href="https://hosted-tech.com" rel="noopener noreferrer">
+            <strong>Hosted Technology Services</strong>
+            <span>Hosted-Tech.Com</span>
+          </a>
+          <a class="partner" href="https://simpleservernet.com" rel="noopener noreferrer">
+            <strong>Simple Server Networks</strong>
+            <span>SimpleServerNet.com</span>
+          </a>
+        </div>
+        <div class="thanks">
+          Thank you to Hosted Technology Services and Simple Server Networks for supporting dependable hosting and infrastructure work.
+        </div>
+      </aside>
     </section>
-    <footer>
-      <div class="footer-note">Managed by Strata Hosting Panel. Replace this placeholder when your actual website is ready.</div>
-      <div class="footer-status">Provisioned | Online | Ready</div>
+
+    <footer class="footer">
+      <div class="footer-note">Managed by Strata Hosting Panel. This default page confirms the site is provisioned and the selected web stack is serving traffic correctly.</div>
+      <div class="footer-state">{{.WebServer}} | {{.Version}}</div>
     </footer>
   </main>
 </body>
@@ -494,11 +557,12 @@ type defaultIndexData struct {
 	Domain       string
 	DocumentRoot string
 	Version      string
+	WebServer    string
 }
 
 // EnsureDefaultIndex writes a default index.html for new empty document roots.
 // It intentionally does not overwrite index.html or index.php.
-func EnsureDefaultIndex(username, domain, documentRoot string) error {
+func EnsureDefaultIndex(username, domain, documentRoot, webServer string) error {
 	cleanRoot := filepath.Clean(documentRoot)
 	accountRoot := filepath.Join("/var/www", username)
 	if cleanRoot != accountRoot {
@@ -536,6 +600,7 @@ func EnsureDefaultIndex(username, domain, documentRoot string) error {
 		Domain:       domain,
 		DocumentRoot: cleanRoot,
 		Version:      buildinfo.Version,
+		WebServer:    webServer,
 	}); err != nil {
 		return fmt.Errorf("render default index: %w", err)
 	}

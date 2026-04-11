@@ -89,7 +89,7 @@ func WriteVhost(cfg VhostConfig) error {
 	if cfg.PHPSocket == "" {
 		cfg.PHPSocket = fmt.Sprintf("/run/php/php%s-fpm-%s.sock", cfg.PHPVersion, cfg.Username)
 	}
-	if err := webroot.EnsureDefaultIndex(cfg.Username, cfg.Domain, cfg.DocumentRoot); err != nil {
+	if err := webroot.EnsureDefaultIndex(cfg.Username, cfg.Domain, cfg.DocumentRoot, "Apache"); err != nil {
 		return err
 	}
 

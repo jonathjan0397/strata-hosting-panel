@@ -43,7 +43,7 @@ class InstallAppJob implements ShouldQueue
             if ($response->successful()) {
                 $data = $response->json();
                 if ($inst->db_name && $inst->db_user) {
-                    HostingDatabase::firstOrCreate(
+                    HostingDatabase::updateOrCreate(
                         [
                             'account_id' => $inst->account_id,
                             'db_name' => $inst->db_name,
@@ -52,6 +52,7 @@ class InstallAppJob implements ShouldQueue
                             'node_id' => $inst->node_id,
                             'engine' => 'mysql',
                             'db_user' => $inst->db_user,
+                            'password' => $inst->db_password_plain,
                             'note' => "App installer: {$inst->app_name}",
                         ],
                     );

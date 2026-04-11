@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0-BETA-3.23] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.23`.
+
+### Changed - Database tool access and default website presentation
+
+**Database Tools**
+- Hosting databases now store their generated or assigned passwords encrypted in the panel database so users can access database tools for all databases on their account
+- New database creation, password rotation, and app-installer-created databases now keep the saved database password in sync with the actual database user credential
+- The user Database Tools page now shows per-database credentials, reveal/copy actions, and direct phpMyAdmin/phpPgAdmin launch links targeted at the selected database
+- Existing app-installer-created databases are backfilled into the hosting database inventory password field through a migration when possible
+
+**Default Website Template**
+- Rebuilt the generated default `index.html` experience with a more modern, higher-contrast layout and tighter text containment
+- The placeholder page now clearly shows the active Strata panel version and the underlying web server for the provisioned site
+- Added partner acknowledgements for Hosted Technology Services and Simple Server Networks alongside GitHub and Buy Me a Coffee links
+
 ## [1.0.0-BETA-3.22] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.22`.

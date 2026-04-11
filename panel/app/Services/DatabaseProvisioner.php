@@ -29,6 +29,7 @@ class DatabaseProvisioner
                 'engine'     => $engine,
                 'db_name'    => $dbName,
                 'db_user'    => $dbUser,
+                'password'   => $password,
                 'note'       => $note,
             ]);
 
@@ -107,7 +108,10 @@ class DatabaseProvisioner
             if (! $response->successful()) {
                 return [false, $response->body()];
             }
-            $db->update(['migration_reset_required' => false]);
+            $db->update([
+                'password' => $password,
+                'migration_reset_required' => false,
+            ]);
             return [true, null];
         } catch (Throwable $e) {
             return [false, $e->getMessage()];
