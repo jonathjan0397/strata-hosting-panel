@@ -1,7 +1,7 @@
 # Strata Hosting Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
-Created: 2026-03-31 | Last Updated: 2026-04-10 | 1.0.0-BETA-3.13 public testing
+Created: 2026-03-31 | Last Updated: 2026-04-11 | 1.0.0-BETA-3.14 public testing
 
 ## Overview
 Strata Hosting Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
@@ -142,7 +142,7 @@ Admin
 
 ---
 
-## MVP Feature Set (1.0.0-BETA-3.13)
+## MVP Feature Set (1.0.0-BETA-3.14)
 
 ### Server / Node Management (Admin)
 - [x] Add/remove servers (nodes)
@@ -347,8 +347,8 @@ Admin
 - [ ] Security audit (post-alpha)
 - [x] Installer (one-line bash — `installer/install.sh`)
 - [x] Installer recommends/defaults to a dedicated panel subdomain such as `panel.example.com`, keeping the apex/root domain available for the admin website
-- [x] Documentation (README, CHANGELOG, PLAN updated for 1.0.0-BETA-3.13)
-- [x] 1.0.0-BETA-3.13 release tag
+- [x] Documentation (README, CHANGELOG, PLAN updated for 1.0.0-BETA-3.14)
+- [x] 1.0.0-BETA-3.14 release tag
 
 ---
 

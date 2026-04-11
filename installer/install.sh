@@ -41,6 +41,31 @@ human_bytes() {
     fi
 }
 
+resolve_installer_version() {
+    local version=""
+    local script_dir=""
+
+    if [[ -n "${STRATA_INSTALLER_VERSION:-}" ]]; then
+        printf '%s\n' "${STRATA_INSTALLER_VERSION}"
+        return
+    fi
+
+    script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)"
+    if [[ -n "$script_dir" && -f "$script_dir/../VERSION" ]]; then
+        version="$(tr -d '\r\n' < "$script_dir/../VERSION")"
+    fi
+
+    if [[ -z "$version" && -f "./VERSION" ]]; then
+        version="$(tr -d '\r\n' < ./VERSION)"
+    fi
+
+    if [[ -z "$version" ]]; then
+        version="$(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/VERSION 2>/dev/null | tr -d '\r\n' || true)"
+    fi
+
+    printf '%s\n' "${version:-dev}"
+}
+
 collect_storage_mounts() {
     mapfile -t STORAGE_MOUNTS < <(
         findmnt -rn -b -o TARGET,SIZE,AVAIL,FSTYPE \
@@ -178,7 +203,7 @@ fi
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
 [[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" || "$DEBIAN_VERSION" == "13" ]] \
     || die "Unsupported OS. Debian 11, 12, or 13 required (detected: $DEBIAN_VERSION)."
-INSTALLER_VERSION="1.0.0-BETA-3.11"
+INSTALLER_VERSION="$(resolve_installer_version)"
 
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
 DETECTED_HOSTNAME=$(hostname -f 2>/dev/null || hostname)

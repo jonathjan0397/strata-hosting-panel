@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-BETA-3.14] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.14`.
+
+### Fixed - Installer version banner drift
+
+**Installer**
+- The primary installer no longer uses a stale hardcoded version string in its startup banner
+- The remote node installer no longer uses a stale hardcoded version string in its startup banner
+- Both installers now resolve the displayed version from the repo `VERSION` file or an explicit installer version override instead of drifting behind release tags
+
 ## [1.0.0-BETA-3.13] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.13`.
