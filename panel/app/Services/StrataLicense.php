@@ -41,8 +41,14 @@ class StrataLicense
             return $fallback;
         }
 
+        if (! self::licenseTransportAllowed($url)) {
+            Log::warning('StrataLicense: refusing non-HTTPS license sync because STRATA_LICENSE_ALLOW_INSECURE_TRANSPORT is not enabled');
+            return self::useCachedOrFallback();
+        }
+
         try {
             $response = Http::timeout(10)
+                ->acceptJson()
                 ->post(rtrim($url, '/') . '/api/ping', [
                     'install_token'  => $token,
                     'install_secret' => $secret,
@@ -221,5 +227,16 @@ class StrataLicense
         }
 
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+    }
+
+    private static function licenseTransportAllowed(string $url): bool
+    {
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+        if ($scheme === 'https') {
+            return true;
+        }
+
+        return (bool) config('strata.license_allow_insecure_transport');
     }
 }

@@ -170,7 +170,8 @@ Why it matters:
 - if the license endpoint, transport logging, or receiving side is mishandled, this secret can be exposed unnecessarily
 
 Current branch status:
-- not remediated in this branch
+- partially mitigated: license sync now refuses non-HTTPS transport by default unless `STRATA_LICENSE_ALLOW_INSECURE_TRANSPORT=true` is explicitly set
+- still not fully remediated: the protocol still sends `install_secret` in the request body
 
 Recommended remediation:
 - change the license protocol so the server identifies the install by `install_token`

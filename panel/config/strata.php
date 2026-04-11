@@ -23,6 +23,7 @@ return [
     */
 
     'license_server_url' => env('STRATA_LICENSE_SERVER_URL', ''),
+    'license_allow_insecure_transport' => env('STRATA_LICENSE_ALLOW_INSECURE_TRANSPORT', false),
 
     /*
     |--------------------------------------------------------------------------
