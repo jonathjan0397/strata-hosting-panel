@@ -71,6 +71,7 @@ class UpdateController extends Controller
                 ['match' => 'Starting agent upgrades', 'progress' => 25, 'label' => 'Preparing upgrade jobs'],
                 ['match' => 'Queued upgrade for', 'progress' => 55, 'label' => 'Queueing remote upgrades'],
                 ['match' => 'All remote node agent upgrades have been queued', 'progress' => 100, 'label' => 'Completed'],
+                ['match' => 'Remote agent upgrade requests queued.', 'progress' => 100, 'label' => 'Completed'],
             ],
         ],
     ];
@@ -557,21 +558,23 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
     {
         $content = strtolower(implode("\n", $lines));
 
-        if ($running) {
-            return 'running';
-        }
-
-        if (str_contains($content, 'completed successfully')
+        if (str_contains($content, 'upgrade completed successfully')
             || str_contains($content, 'rollback completed from backup')
-            || str_contains($content, 'all remote node agent upgrades have been queued')) {
+            || str_contains($content, 'all remote node agent upgrades have been queued')
+            || str_contains($content, 'remote agent upgrade requests queued')) {
             return 'completed';
         }
 
         if (str_contains($content, '[err]')
             || str_contains($content, 'upgrade failed')
             || str_contains($content, 'rolling back')
+            || str_contains($content, 'rollback completed. review logs before retrying.')
             || str_contains($content, 'failed')) {
             return 'failed';
+        }
+
+        if ($running) {
+            return 'running';
         }
 
         if ($lines !== []) {
@@ -583,15 +586,17 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
 
     private function inferActivityStage(array $lines, array $stages, string $status): array
     {
-        $content = implode("\n", $lines);
         $resolved = ['progress' => 0, 'label' => 'Idle'];
 
-        foreach ($stages as $stage) {
-            if (str_contains($content, $stage['match'])) {
-                $resolved = [
-                    'progress' => $stage['progress'],
-                    'label' => $stage['label'],
-                ];
+        for ($lineIndex = count($lines) - 1; $lineIndex >= 0; $lineIndex--) {
+            foreach ($stages as $stage) {
+                if (stripos($lines[$lineIndex], $stage['match']) !== false) {
+                    $resolved = [
+                        'progress' => $stage['progress'],
+                        'label' => $stage['label'],
+                    ];
+                    break 2;
+                }
             }
         }
 
@@ -599,11 +604,11 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
             return ['progress' => 10, 'label' => 'Running'];
         }
 
-        if ($status === 'failed' && $resolved['progress'] === 0) {
-            return ['progress' => 100, 'label' => 'Failed'];
+        if ($status === 'failed') {
+            return ['progress' => max($resolved['progress'], 100), 'label' => 'Failed'];
         }
 
-        if ($status === 'completed' && $resolved['progress'] < 100) {
+        if ($status === 'completed') {
             return ['progress' => 100, 'label' => 'Completed'];
         }
 

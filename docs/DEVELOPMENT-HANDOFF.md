@@ -19,7 +19,7 @@ Project:
 
 Current public release line:
 
-- latest published beta at the time of this handoff: `1.0.0-BETA-3.19`
+- latest published beta at the time of this handoff: `1.0.0-BETA-3.20`
 
 Current branch policy:
 

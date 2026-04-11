@@ -16,7 +16,7 @@ class NodeStatusController extends Controller
     public function show(Node $node): Response
     {
         return Inertia::render('Admin/Nodes/Status', [
-            'node' => $node->only('id', 'name', 'hostname', 'ip_address', 'port', 'status', 'agent_version', 'is_primary', 'last_seen_at'),
+            'node' => $node->only('id', 'name', 'hostname', 'ip_address', 'port', 'status', 'agent_version', 'target_agent_version', 'agent_upgrade_started_at', 'is_primary', 'last_seen_at'),
         ]);
     }
 
@@ -28,30 +28,40 @@ class NodeStatusController extends Controller
         $client = AgentClient::for($node);
 
         try {
-            $infoRes     = $client->systemInfo();
+            $infoRes = $client->systemInfo();
             $servicesRes = $client->services();
-            $version = $node->agent_version;
+            $reportedVersion = null;
 
             if ($infoRes->successful()) {
                 try {
                     $versionRes = $client->version();
                     if ($versionRes->successful()) {
                         $reportedVersion = $this->normalizeAgentVersion($versionRes->json('version'));
-                        if ($reportedVersion !== null) {
-                            $version = $reportedVersion;
-                        }
                     }
                 } catch (\Throwable) {
                     // Do not fail node status if the version endpoint is missing or unhealthy.
                 }
 
-                $node->update(['status' => 'online', 'last_seen_at' => now()]);
+                $updates = ['last_seen_at' => now()];
+                if ($reportedVersion !== null) {
+                    $updates['agent_version'] = $reportedVersion;
+                }
+
+                if ($node->target_agent_version) {
+                    if ($reportedVersion !== null && $reportedVersion === $node->target_agent_version) {
+                        $updates['status'] = 'online';
+                        $updates['target_agent_version'] = null;
+                        $updates['agent_upgrade_started_at'] = null;
+                    } else {
+                        $updates['status'] = 'upgrading';
+                    }
+                } else {
+                    $updates['status'] = 'online';
+                }
+
+                $node->update($updates);
             } else {
                 $node->update(['status' => 'offline']);
-            }
-
-            if ($version !== $node->agent_version) {
-                $node->update(['agent_version' => $version]);
             }
 
             return response()->json([

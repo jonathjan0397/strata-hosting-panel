@@ -319,18 +319,20 @@ function normalizedVersion(version) {
 const versionState = computed(() => {
     const panelVersion = normalizedVersion(props.panelVersion);
     const agentVersion = normalizedVersion(props.node.agent_version);
-    const upgrading = props.node.status === 'upgrading';
+    const targetVersion = normalizedVersion(props.node.target_agent_version);
+    const upgrading = props.node.status === 'upgrading' || !!targetVersion;
     const mismatch = !!panelVersion && !!agentVersion && agentVersion !== panelVersion;
     const unknown = !agentVersion;
 
     return {
         upgrading,
+        targetVersion,
         mismatch,
         unknown,
         showWarning: !upgrading && (mismatch || unknown),
         canPushUpdate: !props.node.is_primary && props.node.status === 'online' && !upgrading && !!panelVersion && agentVersion !== panelVersion,
         message: upgrading
-            ? `Expected ${panelVersion || 'the current panel version'} once the node finishes upgrading.`
+            ? `Targeting ${targetVersion || panelVersion || 'the current panel version'}${agentVersion ? `, current ${agentVersion}.` : '.'}`
             : mismatch
                 ? `Expected ${panelVersion}, but the node currently reports ${agentVersion}.`
                 : 'The node did not report a release version. This usually means the agent binary was built without version metadata.',

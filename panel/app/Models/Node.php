@@ -13,16 +13,17 @@ class Node extends Model
     protected $fillable = [
         'name', 'hostname', 'ip_address', 'port',
         'node_id', 'hmac_secret', 'tls_fingerprint',
-        'status', 'agent_version', 'last_health', 'last_seen_at',
+        'status', 'agent_version', 'target_agent_version', 'agent_upgrade_started_at', 'last_health', 'last_seen_at',
         'is_primary', 'hosts_dns', 'web_server', 'accelerators',
     ];
 
     protected $casts = [
-        'last_health'   => 'array',
-        'last_seen_at'  => 'datetime',
-        'is_primary'    => 'boolean',
-        'hosts_dns'     => 'boolean',
-        'accelerators'  => 'array',
+        'last_health' => 'array',
+        'last_seen_at' => 'datetime',
+        'agent_upgrade_started_at' => 'datetime',
+        'is_primary' => 'boolean',
+        'hosts_dns' => 'boolean',
+        'accelerators' => 'array',
     ];
 
     protected $hidden = ['hmac_secret'];

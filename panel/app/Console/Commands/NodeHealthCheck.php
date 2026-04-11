@@ -26,25 +26,38 @@ class NodeHealthCheck extends Command
 
                 if ($response->successful()) {
                     $data = $response->json();
-                    $version = $node->agent_version;
+                    $reportedVersion = null;
                     try {
                         $versionResponse = AgentClient::for($node)->version();
                         if ($versionResponse->successful() && is_string($versionResponse->json('version'))) {
                             $reportedVersion = $this->normalizeAgentVersion($versionResponse->json('version'));
-                            if ($reportedVersion !== null) {
-                                $version = $reportedVersion;
-                            }
                         }
                     } catch (\Throwable) {
                         // Health should not be marked offline just because an older agent lacks /version.
                     }
 
-                    $node->update([
-                        'status'        => 'online',
-                        'last_seen_at'  => now(),
-                        'last_health'   => $data,
-                        'agent_version' => $version ?: $node->agent_version,
-                    ]);
+                    $updates = [
+                        'last_seen_at' => now(),
+                        'last_health' => $data,
+                    ];
+
+                    if ($reportedVersion !== null) {
+                        $updates['agent_version'] = $reportedVersion;
+                    }
+
+                    if ($node->target_agent_version) {
+                        if ($reportedVersion !== null && $reportedVersion === $node->target_agent_version) {
+                            $updates['status'] = 'online';
+                            $updates['target_agent_version'] = null;
+                            $updates['agent_upgrade_started_at'] = null;
+                        } else {
+                            $updates['status'] = 'upgrading';
+                        }
+                    } else {
+                        $updates['status'] = 'online';
+                    }
+
+                    $node->update($updates);
                     $this->line("<info>✓</info>  {$node->name} ({$node->ip_address}) — online");
                 } else {
                     $node->update(['status' => 'offline']);

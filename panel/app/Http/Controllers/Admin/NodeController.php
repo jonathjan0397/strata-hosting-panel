@@ -141,7 +141,8 @@ class NodeController extends Controller
 
         $node->update([
             'status' => 'upgrading',
-            'agent_version' => $sourceValue,
+            'target_agent_version' => $sourceValue,
+            'agent_upgrade_started_at' => now(),
         ]);
 
         $logPath = storage_path('logs/strata-remote-agents-upgrade.log');

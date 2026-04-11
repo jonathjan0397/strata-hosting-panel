@@ -88,7 +88,8 @@ class UpgradeRemoteAgents extends Command
 
                 $node->update([
                     'status' => 'upgrading',
-                    'agent_version' => $targetVersion,
+                    'target_agent_version' => $targetVersion,
+                    'agent_upgrade_started_at' => now(),
                 ]);
 
                 $this->info("  queued");

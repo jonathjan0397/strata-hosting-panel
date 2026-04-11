@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0-BETA-3.20] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.20`.
+
+### Fixed - Upgrade activity tracking and node agent version state
+
+**Upgrade Activity Viewer**
+- Terminal upgrade and rollback log lines now override stale intermediate stage matches instead of leaving the progress view pinned at an older percentage like `42%`
+- Stage detection now scans from the newest matching log lines backward so the visible stage reflects the latest real step, not the first one seen earlier in the log
+- Remote agent queue completion now recognizes the actual command output and resolves to `Completed`
+
+**Node Agent Upgrade State**
+- Remote agent upgrades now track a pending target version separately from the currently reported agent version
+- Nodes remain in `upgrading` until the health poll confirms the agent is actually reporting the target release
+- Once the reported version matches the pending target, the upgrade state clears automatically and the node returns to `online`
+- Node list and detail pages now show the current and targeted versions more clearly while an upgrade is in progress
+
 ## [1.0.0-BETA-3.19] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.19`.

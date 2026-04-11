@@ -134,19 +134,21 @@ function normalizedVersion(version) {
 function nodeVersionState(node) {
     const panelVersion = normalizedVersion(props.panelVersion);
     const agentVersion = normalizedVersion(node.agent_version);
-    const upgrading = node.status === 'upgrading';
+    const targetVersion = normalizedVersion(node.target_agent_version);
+    const upgrading = node.status === 'upgrading' || !!targetVersion;
     const mismatch = !!panelVersion && !!agentVersion && agentVersion !== panelVersion;
     const unknown = !agentVersion;
 
     return {
         upgrading,
+        targetVersion,
         mismatch,
         unknown,
         showWarning: !upgrading && (mismatch || unknown),
         canPushUpdate: !node.is_primary && node.status === 'online' && !upgrading && (!!panelVersion && agentVersion !== panelVersion),
         label: upgrading ? 'Upgrade in progress' : mismatch ? 'Agent version differs from the primary panel version.' : 'Agent version is unknown.',
         message: upgrading
-            ? `Targeting ${panelVersion || 'the current panel release'}.`
+            ? `Targeting ${targetVersion || panelVersion || 'the current panel release'}${agentVersion ? `, current ${agentVersion}.` : '.'}`
             : mismatch
                 ? `Expected ${panelVersion}, found ${agentVersion}.`
                 : unknown
