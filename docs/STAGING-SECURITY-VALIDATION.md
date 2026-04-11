@@ -5,6 +5,9 @@ Target release line: `1.0.0-BETA-3.12`
 
 This runbook defines the minimum staging validation required before Strata can be considered for a production release candidate.
 
+Companion evidence template:
+- [STAGING-SECURITY-EVIDENCE-TEMPLATE.md](/C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/docs/STAGING-SECURITY-EVIDENCE-TEMPLATE.md)
+
 It is intended to be executed on a fresh staging deployment that mirrors production closely:
 
 - one primary panel node
