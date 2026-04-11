@@ -7,6 +7,7 @@ This runbook defines the minimum staging validation required before Strata can b
 
 Companion evidence template:
 - [STAGING-SECURITY-EVIDENCE-TEMPLATE.md](/C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/docs/STAGING-SECURITY-EVIDENCE-TEMPLATE.md)
+- [STAGING-SECURITY-CHECK-COMMANDS.md](/C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/docs/STAGING-SECURITY-CHECK-COMMANDS.md)
 
 It is intended to be executed on a fresh staging deployment that mirrors production closely:
 
