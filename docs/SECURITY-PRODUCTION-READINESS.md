@@ -8,6 +8,7 @@ This document is the production security gate for Strata Hosting Panel. Public b
 Execution runbook:
 
 - [docs/STAGING-SECURITY-VALIDATION.md](C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/docs/STAGING-SECURITY-VALIDATION.md)
+- [docs/STAGING-SECURITY-EVIDENCE-TEMPLATE.md](C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/docs/STAGING-SECURITY-EVIDENCE-TEMPLATE.md)
 
 ## Current Assessment
 
