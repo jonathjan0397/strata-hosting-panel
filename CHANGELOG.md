@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.0-BETA-3.13] - 2026-04-10
+
+Public beta target: `1.0.0-BETA-3.13`.
+
+### Changed - Security readiness and repo hygiene
+
+**Security / Validation**
+- Added staged production-readiness guidance, validation runbooks, evidence templates, and concrete command references for the staging security pass
+- Hardened browser shell policy so production requires an explicit override even when the feature is enabled
+- Clarified the current licensing model so `install_secret` is treated as a legacy-named installation identifier, not a security credential
+
+**Operations / Repository Hygiene**
+- Curated reusable operational scripts under `tools/ops`
+- Tightened repo ignore rules so generated live logs and local deployment bundles stop polluting the worktree
+
 ## [1.0.0-BETA-3.12] - 2026-04-10
 
 Public beta target: `1.0.0-BETA-3.12`.
