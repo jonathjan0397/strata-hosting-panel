@@ -57,6 +57,7 @@ class DomainController extends Controller
         ]);
 
         $account = Account::findOrFail($data['account_id']);
+        $account->loadMissing('node');
         $docRoot = "/var/www/{$account->username}/public_html";
         if ($data['type'] === 'addon' || $data['type'] === 'subdomain') {
             $slug    = str_replace(['.', '-'], '_', $data['domain']);
@@ -69,7 +70,7 @@ class DomainController extends Controller
             'domain'        => strtolower($data['domain']),
             'type'          => $data['type'],
             'document_root' => $docRoot,
-            'web_server'    => $data['web_server'] ?? 'nginx',
+            'web_server'    => $data['web_server'] ?? $account->node?->web_server ?? 'nginx',
             'php_version'   => $data['php_version'],
         ]);
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0-BETA-3.19] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.19`.
+
+### Fixed - Domain web-server display accuracy and default page readability
+
+**Domain Web Server Display**
+- New user-created domains now inherit the actual node web server instead of being stored as `nginx` by default
+- Admin-created domains now also default to the account node's web server when no override is chosen
+- Domain detail pages now prefer the effective node web server when showing Apache/Nginx-specific help and configuration labels
+
+**Default Website Page**
+- Tightened the default website placeholder typography and spacing so the page is easier to read
+- Long values such as document roots now wrap cleanly instead of running off the page
+- Step cards now use a darker high-contrast treatment instead of a washed-out light background
+
 ## [1.0.0-BETA-3.18] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.18`.

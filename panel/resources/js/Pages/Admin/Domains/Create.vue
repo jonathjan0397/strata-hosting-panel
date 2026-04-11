@@ -77,7 +77,6 @@ const form = useForm({
     account_id:  props.preselect ?? '',
     type:        'main',
     php_version: '',
-    web_server:  'nginx',
 });
 
 function submit() {

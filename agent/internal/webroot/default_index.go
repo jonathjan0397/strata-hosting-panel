@@ -47,6 +47,7 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
       color: var(--ink);
       font-family: "Trebuchet MS", Verdana, sans-serif;
       padding: 28px;
+      overflow-wrap: anywhere;
     }
     .frame {
       width: min(1100px, 100%);
@@ -107,9 +108,9 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
     }
     h1 {
       margin: 0;
-      max-width: 11ch;
-      font-size: clamp(46px, 8vw, 88px);
-      line-height: 0.92;
+      max-width: 13ch;
+      font-size: clamp(38px, 6.8vw, 72px);
+      line-height: 0.98;
       letter-spacing: -0.06em;
       text-wrap: balance;
     }
@@ -126,10 +127,10 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
     }
     .lede {
       margin: 20px 0 0;
-      max-width: 52ch;
+      max-width: 48ch;
       color: var(--muted);
-      font-size: 18px;
-      line-height: 1.7;
+      font-size: 17px;
+      line-height: 1.65;
     }
     .content {
       display: grid;
@@ -159,7 +160,7 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
       align-items: start;
       padding: 16px 18px;
       border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.68);
+      background: rgba(255, 255, 255, 0.04);
     }
     .step-number {
       display: grid;
@@ -176,18 +177,23 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
     .step h3 {
       margin: 2px 0 6px;
       font-size: 18px;
+      color: var(--ink);
     }
     .step p {
       margin: 0;
       font-size: 15px;
     }
     code {
+      display: inline-block;
+      max-width: 100%;
       padding: 3px 8px;
       border-radius: 999px;
       background: rgba(51, 209, 255, 0.1);
       color: var(--accent);
       font-family: "Courier New", monospace;
       font-size: 14px;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     .spotlight {
       position: relative;
@@ -267,6 +273,8 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
     .meta-item {
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
       gap: 14px;
       padding: 10px 12px;
       border: 1px solid var(--border);
@@ -277,6 +285,8 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
     }
     .meta-item strong {
       color: var(--ink);
+      text-align: right;
+      overflow-wrap: anywhere;
     }
     .sponsors {
       display: grid;
@@ -290,6 +300,7 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
       color: var(--ink);
       text-decoration: none;
       background: rgba(255,255,255,0.03);
+      overflow-wrap: anywhere;
     }
     .sponsors small {
       display: block;
@@ -361,7 +372,7 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
         font-size: clamp(40px, 16vw, 64px);
       }
       .lede {
-        font-size: 17px;
+        font-size: 16px;
       }
       .step {
         grid-template-columns: 1fr;
@@ -376,6 +387,12 @@ var defaultIndexTemplate = template.Must(template.New("default-index").Parse(`<!
       .primary-link,
       .secondary-link {
         width: 100%;
+      }
+      .meta-item {
+        flex-direction: column;
+      }
+      .meta-item strong {
+        text-align: left;
       }
     }
   </style>

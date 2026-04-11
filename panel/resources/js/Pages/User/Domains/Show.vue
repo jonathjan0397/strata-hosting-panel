@@ -27,7 +27,7 @@
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-gray-500">Web server</dt>
-                        <dd class="text-gray-200 capitalize">{{ domain.web_server }}</dd>
+                        <dd class="text-gray-200 capitalize">{{ effectiveWebServerLabel }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-gray-500">SSL</dt>
@@ -320,7 +320,7 @@
                 <div>
                     <h3 class="text-sm font-semibold text-gray-300 mb-1">ModSecurity WAF</h3>
                     <p class="text-xs text-gray-500">
-                        Enable per-domain ModSecurity directives. The node must already have the appropriate Apache or Nginx ModSecurity module and rule set installed.
+                        Enable per-domain ModSecurity directives. The node must already have the appropriate {{ effectiveWebServerModuleLabel }} ModSecurity module and rule set installed.
                     </p>
                 </div>
                 <span
@@ -357,7 +357,7 @@
                 <div>
                     <h3 class="text-sm font-semibold text-gray-300 mb-1">Leech Protection</h3>
                     <p class="text-xs text-gray-500">
-                        Rate-limit repeated access to a protected path. Nginx uses per-IP request limiting; Apache emits block/redirect rules and should be paired with a WAF/proxy for precise throttling.
+                        Rate-limit repeated access to a protected path. {{ effectiveWebServerLeechHelp }}
                     </p>
                 </div>
                 <span
@@ -400,7 +400,7 @@
         <div class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <h3 class="text-sm font-semibold text-gray-300 mb-1">Custom Directives</h3>
             <p class="mb-4 text-xs text-gray-500">
-                Raw {{ domain.web_server === 'apache' ? 'Apache' : 'Nginx' }} directives injected into the vhost server block. Use with care.
+                Raw {{ effectiveWebServerDirectiveLabel }} directives injected into the vhost server block. Use with care.
             </p>
             <form @submit.prevent="directivesForm.put(route('my.domains.directives', domain.id))">
                 <textarea
@@ -458,6 +458,13 @@ const props = defineProps({
 });
 
 const showCertUpload = ref(false);
+const effectiveWebServer = props.domain.node?.web_server ?? props.domain.web_server ?? 'nginx';
+const effectiveWebServerLabel = effectiveWebServer === 'apache' ? 'Apache' : 'Nginx';
+const effectiveWebServerDirectiveLabel = effectiveWebServerLabel;
+const effectiveWebServerModuleLabel = effectiveWebServer === 'apache' ? 'Apache' : 'Nginx';
+const effectiveWebServerLeechHelp = effectiveWebServer === 'apache'
+    ? 'Apache emits block or redirect rules and should be paired with a WAF or proxy for precise throttling.'
+    : 'Nginx uses per-IP request limiting.';
 
 const phpForm = useForm({
     php_version: props.domain.php_version,

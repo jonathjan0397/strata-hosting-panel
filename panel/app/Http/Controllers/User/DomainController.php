@@ -69,7 +69,7 @@ class DomainController extends Controller
             'domain'        => strtolower($data['domain']),
             'type'          => $data['type'],
             'document_root' => $docRoot,
-            'web_server'    => 'nginx',
+            'web_server'    => $account->node?->web_server ?? 'nginx',
             'php_version'   => $data['php_version'] ?? $account->php_version,
         ]);
 

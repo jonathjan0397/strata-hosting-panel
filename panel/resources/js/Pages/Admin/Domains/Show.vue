@@ -50,7 +50,7 @@
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-gray-500">Web Server</dt>
-                        <dd class="text-gray-200 font-mono">{{ domain.web_server }}</dd>
+                        <dd class="text-gray-200 font-mono">{{ effectiveWebServerLabel }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-gray-500">PHP Version</dt>
@@ -139,6 +139,8 @@ const props = defineProps({ domain: Object, canIssueWildcardSsl: Boolean });
 
 const issuingSSL = ref(false);
 const wildcard = ref(false);
+const effectiveWebServer = computed(() => props.domain.node?.web_server ?? props.domain.web_server ?? 'nginx');
+const effectiveWebServerLabel = computed(() => effectiveWebServer.value === 'apache' ? 'apache' : 'nginx');
 
 const expiresSoon = computed(() => {
     if (!props.domain.ssl_expires_at) return false;
