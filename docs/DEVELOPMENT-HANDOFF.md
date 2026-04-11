@@ -130,7 +130,7 @@ These areas were recently changed and should be assumed to exist unless proven o
 - older upgraded installs may miss `auth_mechanisms = plain login` in Dovecot; release `1.0.0-BETA-3.07` added upgrade repairs for that so Outlook submission on port `587` stops failing with `Invalid authentication mechanism: 'LOGIN'`
 - phpMyAdmin should use normal cookie authentication, not a Strata-managed control user
 - MariaDB app/database user provisioning must force the requested password onto existing users; `CREATE USER IF NOT EXISTS` by itself is not safe for reused usernames
-- license sync now refuses non-HTTPS transport by default unless `STRATA_LICENSE_ALLOW_INSECURE_TRANSPORT=true` is explicitly set, but the protocol still sends `install_secret` and needs redesign
+- despite the legacy name, `install_secret` is currently treated as a public installation identifier for license sync, not as a security credential
 
 ### Navigation / UI
 

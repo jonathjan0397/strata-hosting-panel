@@ -154,7 +154,7 @@ Current branch status:
 - hardened by explicitly setting `/opt/strata-panel-backups` and each new backup directory to `0700`
 - backup metadata files are now written with `0600`
 
-### Medium: License sync posts the installation secret to the license server
+### Note: License sync sends the installation identifier to the license server
 
 Files:
 - [panel/app/Services/StrataLicense.php](C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/panel/app/Services/StrataLicense.php)
@@ -162,21 +162,11 @@ Files:
 
 What is happening:
 - the panel sends both `install_token` and `install_secret` in the outbound license sync request body
-- the same `install_secret` is also used locally to verify the response signature from the license server
-
-Why it matters:
-- the installation secret is acting as both a client secret and a response-verification secret
-- transmitting it to the server weakens the separation of duties you normally want for a verifier secret
-- if the license endpoint, transport logging, or receiving side is mishandled, this secret can be exposed unnecessarily
+- despite the legacy field name, `install_secret` is currently treated as an installation identifier, not as a security credential
 
 Current branch status:
-- partially mitigated: license sync now refuses non-HTTPS transport by default unless `STRATA_LICENSE_ALLOW_INSECURE_TRANSPORT=true` is explicitly set
-- still not fully remediated: the protocol still sends `install_secret` in the request body
-
-Recommended remediation:
-- change the license protocol so the server identifies the install by `install_token`
-- authenticate requests with an HMAC or signed nonce derived from `install_secret`
-- keep `install_secret` local and use it only for signing or verification, not as a plaintext request field
+- not treated as a production security blocker in the current licensing model
+- if premium or signed-license behavior is introduced later, this design should be revisited and the naming should be cleaned up
 
 ### Resolved in current branch: Login and 2FA throttling added
 

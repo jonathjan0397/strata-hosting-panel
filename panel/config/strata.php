@@ -8,8 +8,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Generated once at install time. install_token is the public identifier
-    | sent to the license server. install_secret is used to verify the HMAC
-    | signature on the server's response.
+    | sent to the license server. Despite the legacy name, install_secret is
+    | also currently treated as a public installation identifier.
     |
     */
 
@@ -23,7 +23,6 @@ return [
     */
 
     'license_server_url' => env('STRATA_LICENSE_SERVER_URL', ''),
-    'license_allow_insecure_transport' => env('STRATA_LICENSE_ALLOW_INSECURE_TRANSPORT', false),
 
     /*
     |--------------------------------------------------------------------------
