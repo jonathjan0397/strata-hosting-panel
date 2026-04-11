@@ -65,6 +65,7 @@ func DeprovisionDomain(domain string) error {
 	removeLineContaining(virtualDomainsF, domain)
 	removeLinesContaining(virtualMboxF, "@"+domain)
 	removeLinesContaining(virtualAliasF, "@"+domain)
+	removeDovecotUsersByDomain(domain)
 	RemoveDKIMKey(domain)
 
 	postmapFile(virtualDomainsF)
@@ -163,6 +164,29 @@ func removeLineContaining(path, substr string) {
 
 func removeLinesContaining(path, substr string) {
 	removeLineContaining(path, substr)
+}
+
+func removeDovecotUsersByDomain(domain string) {
+	content, err := os.ReadFile(dovecotUsersF)
+	if err != nil {
+		return
+	}
+
+	var kept []string
+	suffix := "@" + domain + ":"
+	for _, line := range strings.Split(string(content), "\n") {
+		if line == "" {
+			continue
+		}
+		if strings.Contains(line, suffix) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+
+	if err := os.WriteFile(dovecotUsersF, []byte(strings.Join(kept, "\n")+"\n"), 0640); err == nil {
+		_ = exec.Command("chown", "root:dovecot", dovecotUsersF).Run()
+	}
 }
 
 func postmapFile(path string) error {

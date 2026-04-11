@@ -52,7 +52,7 @@ class DomainProvisioner
                 return [false, $fileError];
             }
 
-            $payload = $this->buildPayload($domain, $this->resolvedSslOverride($domain));
+            $payload = $this->buildPayload($domain, $this->effectiveSslOverride($domain));
 
             $response = AgentClient::for($domain->node)->createDomain(array_filter($payload, fn($v) => $v !== null));
 
@@ -159,7 +159,7 @@ class DomainProvisioner
 
     public function hasUsableSsl(Domain $domain): bool
     {
-        return $this->resolvedSslOverride($domain)['ssl_enabled'];
+        return $this->effectiveSslOverride($domain)['ssl_enabled'];
     }
 
     /**
@@ -320,21 +320,39 @@ class DomainProvisioner
             ],
         };
 
-        if ($domain->node?->is_primary) {
-            if (! is_file($paths['cert']) || ! is_file($paths['key'])) {
-                return [
-                    'ssl_enabled' => false,
-                    'ssl_cert' => null,
-                    'ssl_key' => null,
-                ];
-            }
-        }
-
         return [
             'ssl_enabled' => true,
             'ssl_cert' => $paths['cert'],
             'ssl_key' => $paths['key'],
         ];
+    }
+
+    private function effectiveSslOverride(Domain $domain): array
+    {
+        $resolved = $this->resolvedSslOverride($domain);
+
+        if ($resolved['ssl_enabled']) {
+            return $resolved;
+        }
+
+        return $resolved;
+    }
+
+    private function sslPathsFor(Domain $domain): ?array
+    {
+        $provider = $domain->ssl_provider ?: 'letsencrypt';
+
+        return match ($provider) {
+            'custom' => [
+                'cert' => "/etc/strata-agent/certs/{$domain->domain}/cert.pem",
+                'key' => "/etc/strata-agent/certs/{$domain->domain}/key.pem",
+            ],
+            'letsencrypt', 'letsencrypt-wildcard', '', null => [
+                'cert' => "/etc/ssl/strata/{$domain->domain}/fullchain.pem",
+                'key' => "/etc/ssl/strata/{$domain->domain}/privkey.pem",
+            ],
+            default => null,
+        };
     }
 
     /**

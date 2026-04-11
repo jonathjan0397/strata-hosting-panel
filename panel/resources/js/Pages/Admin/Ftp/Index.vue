@@ -25,15 +25,17 @@
 
             <div v-if="showCreate" class="border-b border-gray-800 bg-gray-800/30 px-5 py-4">
                 <form @submit.prevent="submitCreate" class="space-y-3">
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-4 gap-2">
                         <input v-model="form.username" type="text" placeholder="FTP username" class="field font-mono text-xs" required />
                         <input v-model="form.password" type="password" placeholder="Password (min 8)" class="field" required />
                         <input v-model.number="form.quota_mb" type="number" min="0" placeholder="Quota MB (0=unlimited)" class="field text-xs" />
+                        <input v-model="form.home_dir" type="text" :placeholder="accountHomePlaceholder" class="field font-mono text-xs" />
                     </div>
                     <p class="text-xs text-gray-500">
-                        Default access starts at <span class="font-mono">/var/www/{{ account.username }}</span> so FTP users can reach the account home and any custom web roots.
+                        Default access starts at <span class="font-mono">{{ accountHome }}</span>. You can enter a relative path like <span class="font-mono">public_html/uploads</span> or an absolute path inside that home.
                     </p>
                     <p v-if="errors.username" class="text-xs text-red-400">{{ errors.username }}</p>
+                    <p v-if="errors.home_dir" class="text-xs text-red-400">{{ errors.home_dir }}</p>
                     <div class="flex gap-2">
                         <button type="submit" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500">
                             Create Account
@@ -85,7 +87,7 @@
                 | Protocol: <span class="font-mono text-gray-300">FTP+TLS</span>
             </p>
             <p class="mt-2 text-xs text-gray-500">
-                New FTP accounts start at <span class="font-mono text-gray-300">/var/www/{{ account.username }}</span> so they can reach the full account home and custom web roots.
+                New FTP accounts can start anywhere under <span class="font-mono text-gray-300">{{ accountHome }}</span>.
             </p>
         </div>
 
@@ -133,13 +135,15 @@ const props = defineProps({
 });
 
 const showCreate = ref(false);
-const form = ref({ username: '', password: '', quota_mb: 0 });
+const accountHome = `/var/www/${props.account.username}`;
+const accountHomePlaceholder = 'public_html';
+const form = ref({ username: '', password: '', quota_mb: 0, home_dir: '' });
 const errors = ref({});
 
 function submitCreate() {
     router.post(route('admin.accounts.ftp.store', props.account.id), form.value, {
         onSuccess: () => {
-            form.value = { username: '', password: '', quota_mb: 0 };
+            form.value = { username: '', password: '', quota_mb: 0, home_dir: '' };
             errors.value = {};
             showCreate.value = false;
         },

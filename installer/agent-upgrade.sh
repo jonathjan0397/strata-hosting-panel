@@ -168,6 +168,10 @@ conf = Path('/etc/opendkim.conf')
 if conf.exists():
     text = conf.read_text()
     updated = text.replace('UserID          opendkim:opendkim', 'UserID          opendkim:postfix')
+    if 'Canonicalization' not in updated:
+        updated = updated.replace('SignatureAlgorithm rsa-sha256', 'SignatureAlgorithm rsa-sha256\\nCanonicalization relaxed/relaxed')
+    else:
+        updated = updated.replace('Canonicalization simple/simple', 'Canonicalization relaxed/relaxed')
     if updated != text:
         conf.write_text(updated)
 PY

@@ -930,6 +930,7 @@ Syslog          yes
 UMask           002
 Mode            sv
 SignatureAlgorithm rsa-sha256
+Canonicalization relaxed/relaxed
 UserID          opendkim:postfix
 Socket          local:/var/spool/postfix/opendkim/opendkim.sock
 PidFile         /var/run/opendkim/opendkim.pid

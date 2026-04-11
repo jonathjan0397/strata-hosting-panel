@@ -38,17 +38,23 @@ class FtpController extends Controller
             'username' => ['required', 'regex:/^[a-z][a-z0-9_]{1,31}$/', 'unique:ftp_accounts,username'],
             'password' => ['required', 'string', 'min:8'],
             'quota_mb' => ['nullable', 'integer', 'min:0'],
+            'home_dir' => ['nullable', 'string', 'max:255'],
         ]);
 
         $client = AgentClient::for($account->node);
         $provisioner = new FtpProvisioner($client);
 
-        [$success, $error] = $provisioner->create(
-            $account,
-            $data['username'],
-            $data['password'],
-            $data['quota_mb'] ?? 0,
-        );
+        try {
+            [$success, $error] = $provisioner->create(
+                $account,
+                $data['username'],
+                $data['password'],
+                $data['quota_mb'] ?? 0,
+                $data['home_dir'] ?? null,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['home_dir' => $e->getMessage()]);
+        }
 
         if ($success) {
             AuditLog::record('ftp.account_created', $account, ['username' => $data['username']]);

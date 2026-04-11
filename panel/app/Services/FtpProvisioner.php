@@ -16,9 +16,9 @@ class FtpProvisioner
      * every account into /public_html.
      * Returns [bool $success, ?string $error].
      */
-    public function create(Account $account, string $username, string $password, ?int $quotaMb = 0): array
+    public function create(Account $account, string $username, string $password, ?int $quotaMb = 0, ?string $homeDir = null): array
     {
-        $homeDir = $this->defaultHomeDir($account);
+        $homeDir = $this->normalizeHomeDir($account, $homeDir);
 
         try {
             $response = $this->client->createFtpAccount([
@@ -101,5 +101,43 @@ class FtpProvisioner
     private function defaultHomeDir(Account $account): string
     {
         return "/var/www/{$account->username}";
+    }
+
+    public function normalizeHomeDir(Account $account, ?string $homeDir): string
+    {
+        $base = rtrim($this->defaultHomeDir($account), '/');
+        $homeDir = trim((string) $homeDir);
+
+        if ($homeDir === '' || $homeDir === '/') {
+            return $base;
+        }
+
+        if (! str_starts_with($homeDir, '/')) {
+            $homeDir = $base . '/' . ltrim($homeDir, '/');
+        }
+
+        $normalized = preg_replace('#/+#', '/', $homeDir) ?? $base;
+        $normalized = rtrim($normalized, '/');
+
+        if ($normalized === '') {
+            return $base;
+        }
+
+        if ($normalized === $base) {
+            return $base;
+        }
+
+        if (! str_starts_with($normalized, $base . '/')) {
+            throw new \InvalidArgumentException('FTP home directory must stay within the account home.');
+        }
+
+        $relative = substr($normalized, strlen($base) + 1);
+        foreach (explode('/', $relative) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                throw new \InvalidArgumentException('FTP home directory must be a valid path inside the account home.');
+            }
+        }
+
+        return $normalized;
     }
 }

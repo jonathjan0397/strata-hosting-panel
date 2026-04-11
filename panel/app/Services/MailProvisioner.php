@@ -54,6 +54,8 @@ class MailProvisioner
         $email = "{$localPart}@{$domain->domain}";
 
         try {
+            $this->purgeDeletedMailboxRecord($email);
+
             $response = AgentClient::for($domain->node)->post('/mail/mailbox', [
                 'email'    => $email,
                 'password' => $password,
@@ -87,6 +89,18 @@ class MailProvisioner
         } catch (\Throwable $e) {
             return [false, $e->getMessage()];
         }
+    }
+
+    /**
+     * Remove a soft-deleted mailbox row so the address can be recreated cleanly.
+     */
+    private function purgeDeletedMailboxRecord(string $email): void
+    {
+        EmailAccount::onlyTrashed()
+            ->where('email', $email)
+            ->get()
+            ->each
+            ->forceDelete();
     }
 
     /**

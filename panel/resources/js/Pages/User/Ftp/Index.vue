@@ -16,7 +16,7 @@
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <h3 class="mb-4 text-sm font-semibold text-gray-300">Create FTP Account</h3>
                 <p class="mb-4 text-xs text-gray-500">
-                    Default access starts at <span class="font-mono text-gray-300">/var/www/{{ account.username }}</span>.
+                    Default access starts at <span class="font-mono text-gray-300">{{ accountHome }}</span>. You can point a login at any subdirectory inside that home.
                 </p>
                 <form @submit.prevent="submit" class="grid gap-4 sm:grid-cols-2">
                     <FormField label="Username" :error="form.errors.username">
@@ -42,6 +42,14 @@
                             min="0"
                             placeholder="0"
                             class="field w-full"
+                        />
+                    </FormField>
+                    <FormField label="Starting directory" :error="form.errors.home_dir">
+                        <input
+                            v-model="form.home_dir"
+                            type="text"
+                            placeholder="public_html"
+                            class="field w-full font-mono"
                         />
                     </FormField>
                     <div class="flex items-end justify-end">
@@ -151,10 +159,11 @@ const props = defineProps({
     ftpAccounts: Array,
 });
 
+const accountHome = `/var/www/${props.account.username}`;
 const unlimitedCount = computed(() => props.ftpAccounts.filter((ftp) => !ftp.quota_mb).length);
 const limitedCount = computed(() => props.ftpAccounts.filter((ftp) => ftp.quota_mb).length);
 
-const form = useForm({ username: '', password: '', quota_mb: 0 });
+const form = useForm({ username: '', password: '', quota_mb: 0, home_dir: '' });
 
 function submit() {
     form.post(route('my.ftp.store'), { onSuccess: () => form.reset() });
