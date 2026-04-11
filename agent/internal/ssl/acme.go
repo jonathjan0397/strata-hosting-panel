@@ -14,8 +14,9 @@ const (
 )
 
 type IssueRequest struct {
-	Domain   string `json:"domain"`
-	Wildcard bool   `json:"wildcard"`
+	Domain    string `json:"domain"`
+	Wildcard  bool   `json:"wildcard"`
+	WebServer string `json:"web_server"`
 }
 
 type CertPaths struct {
@@ -71,13 +72,17 @@ func Issue(req IssueRequest) (*CertPaths, error) {
 	}
 
 	paths := Paths(req.Domain)
+	reloadCmd := "systemctl reload nginx"
+	if strings.EqualFold(strings.TrimSpace(req.WebServer), "apache") {
+		reloadCmd = "systemctl reload apache2"
+	}
 
 	installArgs := []string{
 		"--install-cert", "-d", req.Domain,
 		"--cert-file", paths.CertFile,
 		"--key-file", paths.KeyFile,
 		"--fullchain-file", paths.ChainFile,
-		"--reloadcmd", "systemctl reload nginx",
+		"--reloadcmd", reloadCmd,
 	}
 	installCmd := exec.Command(acmeBin, installArgs...)
 	installCmd.Env = append(os.Environ(), "HOME=/root")

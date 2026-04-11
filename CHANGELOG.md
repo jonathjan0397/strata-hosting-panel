@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-BETA-3.15] - 2026-04-11
+
+Public beta target: `1.0.0-BETA-3.15`.
+
+### Fixed - Apache domain SSL issuance reload path
+
+**SSL / Apache**
+- Domain SSL issuance now passes the node web server to the agent instead of assuming Nginx
+- The agent ACME install step now reloads Apache for Apache-backed domains instead of hardcoding `systemctl reload nginx`
+- This fixes Apache installs where certificate issuance succeeded but failed during `acme.sh --install-cert` because `nginx.service` was not present
+
 ## [1.0.0-BETA-3.14] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.14`.
