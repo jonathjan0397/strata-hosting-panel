@@ -12,7 +12,7 @@ class AppInstallation extends Model
         'account_id', 'domain_id', 'node_id',
         'app_slug', 'install_path', 'install_dir',
         'db_name', 'db_user', 'db_password',
-        'site_url', 'site_title', 'admin_email',
+        'site_url', 'site_title', 'admin_email', 'admin_username', 'admin_password',
         'setup_url',
         'installed_version', 'latest_version',
         'update_available', 'auto_update',
@@ -28,7 +28,7 @@ class AppInstallation extends Model
         'last_updated_at'  => 'datetime',
     ];
 
-    protected $hidden = ['db_password'];
+    protected $hidden = ['db_password', 'admin_password'];
 
     // ── Accessors ─────────────────────────────────────────────────────────────
 
@@ -40,6 +40,16 @@ class AppInstallation extends Model
     public function setDbPasswordAttribute(?string $value): void
     {
         $this->attributes['db_password'] = $value ? Crypt::encryptString($value) : null;
+    }
+
+    public function getAdminPasswordPlainAttribute(): ?string
+    {
+        return $this->admin_password ? Crypt::decryptString($this->admin_password) : null;
+    }
+
+    public function setAdminPasswordAttribute(?string $value): void
+    {
+        $this->attributes['admin_password'] = $value ? Crypt::encryptString($value) : null;
     }
 
     public function getAppConfigAttribute(): array

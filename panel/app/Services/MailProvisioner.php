@@ -202,7 +202,12 @@ class MailProvisioner
     public function deleteForwarder(EmailForwarder $forwarder): array
     {
         try {
-            $response = AgentClient::for($forwarder->node)->delete("/mail/forwarder/{$forwarder->source}");
+            $node = $forwarder->node ?? $forwarder->domain?->node;
+            if (! $node) {
+                return [false, 'Forwarder is missing an associated node.'];
+            }
+
+            $response = AgentClient::for($node)->delete("/mail/forwarder/{$forwarder->source}");
             if (! $response->successful()) {
                 return [false, $response->body()];
             }

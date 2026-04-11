@@ -68,6 +68,12 @@
                     <button @click="installing = null" class="text-gray-500 hover:text-gray-300">✕</button>
                 </div>
                 <form @submit.prevent="submitInstall" class="px-6 py-5 space-y-4">
+                    <div v-if="Object.keys(form.errors).length" class="rounded-lg border border-red-700/40 bg-red-900/20 px-3 py-2.5">
+                        <ul class="space-y-1 text-xs text-red-300">
+                            <li v-for="(error, key) in form.errors" :key="key">{{ error }}</li>
+                        </ul>
+                    </div>
+
                     <div v-if="!installing.automated" class="rounded-lg bg-amber-900/20 border border-amber-700/40 px-3 py-2.5">
                         <p class="text-xs text-amber-300">
                             After installation, you'll be shown a link to complete setup in your browser.
@@ -98,10 +104,24 @@
                     <div>
                         <label class="label">Admin email</label>
                         <input v-model="form.admin_email" type="email" class="field" required />
-                        <p v-if="installing.automated" class="mt-1 text-xs text-gray-500">
-                            A temporary admin password will be emailed here after install. Change it on first login.
+                        <p v-if="installing.automated && !installing.supports_admin_credentials" class="mt-1 text-xs text-gray-500">
+                            This installer completes the application setup automatically.
                         </p>
                     </div>
+
+                    <template v-if="installing.supports_admin_credentials">
+                        <div>
+                            <label class="label">Admin username</label>
+                            <input v-model="form.admin_username" type="text" class="field" autocomplete="username" required />
+                            <p class="mt-1 text-xs text-gray-500">Used for the initial application login.</p>
+                        </div>
+
+                        <div>
+                            <label class="label">Admin password</label>
+                            <input v-model="form.admin_password" type="password" class="field" autocomplete="new-password" />
+                            <p class="mt-1 text-xs text-gray-500">Leave blank to generate a strong password automatically.</p>
+                        </div>
+                    </template>
 
                     <div class="flex items-center gap-3 rounded-lg bg-gray-800/50 px-3 py-2.5">
                         <input v-model="form.auto_update" type="checkbox" id="auto_update" class="rounded border-gray-600 bg-gray-700 text-indigo-500" />
@@ -157,15 +177,20 @@ const form = useForm({
     install_path: '/',
     site_title: '',
     admin_email: '',
+    admin_username: '',
+    admin_password: '',
     auto_update: true,
 });
 
 function openInstall(slug, app) {
     installing.value = { slug, ...app };
     form.reset();
+    form.clearErrors();
     form.app_slug = slug;
     form.install_path = '/';
     form.auto_update = true;
+    form.admin_username = app.supports_admin_credentials ? 'admin' : '';
+    form.admin_password = '';
 }
 
 function submitInstall() {

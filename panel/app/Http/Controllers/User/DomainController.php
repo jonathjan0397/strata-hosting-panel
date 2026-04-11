@@ -32,7 +32,7 @@ class DomainController extends Controller
     public function create(): Response
     {
         return Inertia::render('User/Domains/Create', [
-            'phpVersions' => ['8.1', '8.2', '8.3'],
+            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
         ]);
     }
 
@@ -55,7 +55,7 @@ class DomainController extends Controller
         $data = $request->validate([
             'domain'      => ['required', 'string', 'regex:/^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/', Rule::unique('domains', 'domain')->whereNull('deleted_at')],
             'type'        => ['required', 'in:addon,subdomain,parked'],
-            'php_version' => ['nullable', 'in:8.1,8.2,8.3'],
+            'php_version' => ['nullable', 'in:8.1,8.2,8.3,8.4'],
         ]);
 
         $slug    = str_replace(['.', '-'], '_', $data['domain']);
@@ -93,7 +93,7 @@ class DomainController extends Controller
 
         return Inertia::render('User/Domains/Show', [
             'domain'      => $domain,
-            'phpVersions' => ['8.1', '8.2', '8.3'],
+            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
             'canIssueWildcardSsl' => app(DomainProvisioner::class)->supportsWildcardSsl($domain),
             'canManagePrivacy' => $account->hasFeature('directory_privacy'),
             'canManageHotlinkProtection' => $account->hasFeature('hotlink_protection'),
@@ -190,7 +190,7 @@ class DomainController extends Controller
         abort_unless($domain->account_id === $account->id, 403);
 
         $data = $request->validate([
-            'php_version' => ['required', 'in:8.1,8.2,8.3'],
+            'php_version' => ['required', 'in:8.1,8.2,8.3,8.4'],
         ]);
 
         [$success, $error] = app(DomainProvisioner::class)->changePhpVersion($domain, $data['php_version']);

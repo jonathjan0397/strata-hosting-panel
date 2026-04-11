@@ -21,4 +21,9 @@ class EmailForwarder extends Model
     {
         return $this->belongsTo(Account::class);
     }
+
+    public function node(): BelongsTo
+    {
+        return $this->belongsTo(Node::class);
+    }
 }

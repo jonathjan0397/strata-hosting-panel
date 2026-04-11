@@ -11,6 +11,8 @@ panel/bootstrap/cache/*.php
 # Agent
 agent/strata-agent
 agent/*.exe
+agent/.gocache/
+agent/.gomodcache/
 
 # Local tooling and ops artifacts
 .tools/
@@ -19,11 +21,43 @@ routes.json
 live-*.log
 panel-build-status-deploy.tar.gz
 panel-build-status-deploy.zip
+.tmp-stage-*/
+.tmp-stage-*.sh
+.tmp-stage-*.zip
 tools/__pycache__/
+tools/_gocache/
+tools/_gomodcache/
 tools/*.tar.gz
 tools/*.zip
 tools/*.log
 tools/*.json
+tools/apply_live_*.sh
+tools/check_primary_*
+tools/check_live_*
+tools/deploy_primary_*
+tools/deploy_live_*
+tools/fix_base_zone.sql
+tools/fix_primary_*
+tools/fix_live_*
+tools/fix_remote_*
+tools/inspect_*
+tools/inspect_live_*
+tools/live_*
+tools/migrate_live_*
+tools/migrate_strata_storage.sh
+tools/php_exec_probe.php
+tools/prune_rollback_backups.sh
+tools/repair_*
+tools/remote_*
+tools/reset_live_*
+tools/restart_and_check_postfix.sh
+tools/rollback_strata_storage_migration.sh
+tools/run_live_*
+tools/set_nodes_online.sql
+tools/show_nodes.sql
+tools/temp_*
+tools/test_*
+tools/verify_live_*
 
 # OS
 .DS_Store

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\AppInstallation;
+use App\Models\HostingDatabase;
 use App\Services\AgentClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,11 +35,28 @@ class InstallAppJob implements ShouldQueue
                 'site_url'     => $inst->site_url,
                 'site_title'   => $inst->site_title,
                 'admin_email'  => $inst->admin_email,
+                'admin_username' => $inst->admin_username,
+                'admin_password' => $inst->admin_password_plain,
                 'site_owner'   => $inst->account->username,
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
+                if ($inst->db_name && $inst->db_user) {
+                    HostingDatabase::firstOrCreate(
+                        [
+                            'account_id' => $inst->account_id,
+                            'db_name' => $inst->db_name,
+                        ],
+                        [
+                            'node_id' => $inst->node_id,
+                            'engine' => 'mysql',
+                            'db_user' => $inst->db_user,
+                            'note' => "App installer: {$inst->app_name}",
+                        ],
+                    );
+                }
+
                 $inst->update([
                     'status'            => 'active',
                     'installed_version' => $data['version'] ?? null,

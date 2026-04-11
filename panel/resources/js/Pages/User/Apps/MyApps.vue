@@ -69,6 +69,36 @@
                                 </a>
                                 <span class="block mt-1 text-amber-400/70">Remove the installer directory when done.</span>
                             </p>
+                            <div v-if="inst.requires_db" class="mt-3 grid gap-2 sm:grid-cols-3">
+                                <div class="rounded bg-gray-950/60 px-3 py-2">
+                                    <div class="text-[11px] uppercase tracking-wide text-gray-500">Database</div>
+                                    <div class="mt-1 break-all font-mono text-xs text-gray-100">{{ inst.db_name }}</div>
+                                </div>
+                                <div class="rounded bg-gray-950/60 px-3 py-2">
+                                    <div class="text-[11px] uppercase tracking-wide text-gray-500">DB User</div>
+                                    <div class="mt-1 break-all font-mono text-xs text-gray-100">{{ inst.db_user }}</div>
+                                </div>
+                                <div class="rounded bg-gray-950/60 px-3 py-2">
+                                    <div class="text-[11px] uppercase tracking-wide text-gray-500">DB Password</div>
+                                    <div class="mt-1 break-all font-mono text-xs text-gray-100">{{ inst.db_password }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="inst.status === 'active' && inst.supports_admin_credentials && inst.admin_username"
+                            class="mt-2 rounded-lg bg-indigo-900/20 border border-indigo-700/40 px-3 py-2">
+                            <p class="text-xs text-indigo-200">Application admin credentials</p>
+                            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                                <div class="rounded bg-gray-950/60 px-3 py-2">
+                                    <div class="text-[11px] uppercase tracking-wide text-gray-500">Admin Username</div>
+                                    <div class="mt-1 break-all font-mono text-xs text-gray-100">{{ inst.admin_username }}</div>
+                                </div>
+                                <div class="rounded bg-gray-950/60 px-3 py-2">
+                                    <div class="text-[11px] uppercase tracking-wide text-gray-500">Admin Password</div>
+                                    <div class="mt-1 break-all font-mono text-xs text-gray-100">{{ inst.admin_password || 'Generated during install' }}</div>
+                                </div>
+                            </div>
+                            <p class="mt-2 text-xs text-indigo-300/80">Change this inside the app after first login.</p>
                         </div>
 
                         <div v-if="inst.migration_verification_required"

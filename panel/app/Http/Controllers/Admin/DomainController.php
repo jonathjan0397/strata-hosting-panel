@@ -39,7 +39,7 @@ class DomainController extends Controller
         return Inertia::render('Admin/Domains/Create', [
             'accounts'    => Account::with('user')->where('status', 'active')->get()
                 ->map(fn ($a) => ['id' => $a->id, 'label' => "{$a->username} ({$a->user->email})", 'node_id' => $a->node_id]),
-            'phpVersions' => ['8.1', '8.2', '8.3'],
+            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
             'preselect'   => $request->input('account_id'),
         ]);
     }
@@ -52,7 +52,7 @@ class DomainController extends Controller
             'account_id'   => ['required', 'exists:accounts,id'],
             'domain'       => ['required', 'string', 'regex:/^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/', Rule::unique('domains', 'domain')->whereNull('deleted_at')],
             'type'         => ['required', 'in:main,addon,subdomain,parked'],
-            'php_version'  => ['nullable', 'in:8.1,8.2,8.3'],
+            'php_version'  => ['nullable', 'in:8.1,8.2,8.3,8.4'],
             'web_server'   => ['nullable', 'in:nginx,apache'],
         ]);
 

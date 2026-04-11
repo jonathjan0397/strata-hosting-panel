@@ -20,6 +20,8 @@ type appInstallRequest struct {
 	SiteURL    string `json:"site_url"`
 	SiteTitle  string `json:"site_title"`
 	AdminEmail string `json:"admin_email"`
+	AdminUser  string `json:"admin_username"`
+	AdminPass  string `json:"admin_password"`
 	SiteOwner  string `json:"site_owner"`
 }
 
@@ -188,8 +190,8 @@ func installWordPress(req appInstallRequest) (string, error) {
 		return strings.TrimSpace(string(out)), err
 	}
 
-	// Download core
-	if out, err := wp("core", "download", "--skip-content"); err != nil {
+	// Download core with bundled default themes so the site can render immediately.
+	if out, err := wp("core", "download"); err != nil {
 		return "", fmt.Errorf("wp core download: %s", out)
 	}
 
@@ -209,11 +211,17 @@ func installWordPress(req appInstallRequest) (string, error) {
 	wp("config", "set", "WP_DEBUG", "false", "--raw")
 	wp("config", "set", "WP_DEBUG_LOG", "false", "--raw")
 
-	// Generate a secure admin password (not stored — user sets via email)
-	adminPass := generateRandomHex(12)
+	adminUser := strings.TrimSpace(req.AdminUser)
+	if adminUser == "" {
+		adminUser = "admin"
+	}
+
+	adminPass := strings.TrimSpace(req.AdminPass)
+	if adminPass == "" {
+		adminPass = generateRandomHex(12)
+	}
 
 	// Install WordPress
-	adminUser := "admin"
 	if out, err := wp("core", "install",
 		"--url="+req.SiteURL,
 		"--title="+req.SiteTitle,
@@ -226,6 +234,17 @@ func installWordPress(req appInstallRequest) (string, error) {
 
 	// Install Akismet (spam protection) and Hello Dolly-free setup
 	wp("plugin", "delete", "hello")
+
+	// Ensure the install has an active theme. A blank front page can occur if
+	// WordPress is installed without bundled content or the active theme is missing.
+	activeTheme, _ := wp("theme", "list", "--status=active", "--field=name")
+	if strings.TrimSpace(activeTheme) == "" {
+		for _, candidate := range []string{"twentytwentyfive", "twentytwentyfour", "twentytwentythree"} {
+			if _, err := wp("theme", "install", candidate, "--activate"); err == nil {
+				break
+			}
+		}
+	}
 
 	// Harden file permissions
 	hardenWordPressPermissions(dir)

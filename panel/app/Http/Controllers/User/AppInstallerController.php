@@ -7,9 +7,11 @@ use App\Jobs\InstallAppJob;
 use App\Jobs\UpdateAppJob;
 use App\Models\AppInstallation;
 use App\Models\Domain;
+use App\Models\HostingDatabase;
 use App\Services\AgentClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class AppInstallerController extends Controller
@@ -49,6 +51,14 @@ class AppInstallerController extends Controller
                 'install_path'      => $i->install_path,
                 'site_url'          => $i->site_url,
                 'setup_url'         => $i->setup_url,
+                'db_name'           => $i->db_name,
+                'db_user'           => $i->db_user,
+                'db_password'       => $i->db_password_plain,
+                'admin_username'    => $i->admin_username,
+                'admin_password'    => $i->admin_password_plain,
+                'supports_admin_credentials' => (bool) ($i->app_config['supports_admin_credentials'] ?? false),
+                'requires_db'       => (bool) ($i->app_config['requires_db'] ?? false),
+                'automated'         => (bool) ($i->app_config['automated'] ?? false),
                 'installed_version' => $i->installed_version,
                 'latest_version'    => $i->latest_version,
                 'update_available'  => $i->update_available,
@@ -67,6 +77,7 @@ class AppInstallerController extends Controller
     public function install(Request $request)
     {
         $account = Auth::user()->account;
+        $appCatalog = config('apps');
 
         $data = $request->validate([
             'app_slug'    => ['required', 'string', 'in:' . implode(',', array_keys(config('apps')))],
@@ -74,8 +85,28 @@ class AppInstallerController extends Controller
             'install_path'=> ['required', 'string', 'regex:/^\/[a-zA-Z0-9_\-\/]*$/'],
             'site_title'  => ['required', 'string', 'max:255'],
             'admin_email' => ['required', 'email'],
+            'admin_username' => ['nullable', 'string', 'min:3', 'max:60', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'admin_password' => ['nullable', 'string', 'min:12', 'max:255'],
             'auto_update' => ['boolean'],
         ]);
+
+        $appConfig = $appCatalog[$data['app_slug']] ?? [];
+        $supportsAdminCredentials = (bool) ($appConfig['supports_admin_credentials'] ?? false);
+
+        if ($supportsAdminCredentials) {
+            $data['admin_username'] = trim((string) ($data['admin_username'] ?? ''));
+            if ($data['admin_username'] === '') {
+                $data['admin_username'] = 'admin';
+            }
+
+            $data['admin_password'] = trim((string) ($data['admin_password'] ?? ''));
+            if ($data['admin_password'] === '') {
+                $data['admin_password'] = Str::password(20, true, true, false, false);
+            }
+        } else {
+            $data['admin_username'] = null;
+            $data['admin_password'] = null;
+        }
 
         $domain = Domain::where('id', $data['domain_id'])
             ->where('account_id', $account->id)
@@ -108,6 +139,8 @@ class AppInstallerController extends Controller
             'site_url'     => $siteUrl,
             'site_title'   => $data['site_title'],
             'admin_email'  => $data['admin_email'],
+            'admin_username' => $data['admin_username'],
+            'admin_password' => $data['admin_password'] ?: null,
             'auto_update'  => $data['auto_update'] ?? true,
             'status'       => 'queued',
         ]);
@@ -177,6 +210,11 @@ class AppInstallerController extends Controller
         if (! $response->successful()) {
             return back()->with('error', 'Failed to remove app: ' . $response->body());
         }
+
+        HostingDatabase::where('account_id', $account->id)
+            ->where('db_name', $installation->db_name)
+            ->where('db_user', $installation->db_user)
+            ->delete();
 
         $installation->delete();
 
