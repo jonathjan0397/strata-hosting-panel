@@ -5,6 +5,10 @@ Current release line: `1.0.0-BETA-3.12`
 
 This document is the production security gate for Strata Hosting Panel. Public beta is acceptable with known risk. Production release is blocked until the mandatory items below are satisfied or explicitly accepted as residual risk.
 
+Execution runbook:
+
+- [docs/STAGING-SECURITY-VALIDATION.md](C:/Users/Jcovington/Desktop/Strata%20Hosting%20Panel%20-Audit/docs/STAGING-SECURITY-VALIDATION.md)
+
 ## Current Assessment
 
 Status: `Not yet production-ready`
