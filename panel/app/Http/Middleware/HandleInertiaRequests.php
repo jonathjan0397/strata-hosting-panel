@@ -80,8 +80,9 @@ class HandleInertiaRequests extends Middleware
                 'synced_at' => StrataLicense::cached()['synced_at'] ?? null,
             ],
             'app' => [
-                'version'   => config('strata.version', 'dev'),
+                'version' => config('strata.version', 'dev'),
                 'demo_mode' => (bool) config('strata.demo_mode'),
+                'browser_shell_enabled' => (bool) config('strata.browser_shell_enabled'),
             ],
             // White-label: if the authenticated user has a reseller with branding,
             // pass it through so the UI can swap the panel name/colour.

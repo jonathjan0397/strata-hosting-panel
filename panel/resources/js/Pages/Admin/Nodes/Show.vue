@@ -27,6 +27,7 @@
                         {{ agentUpgradeForm.processing ? 'Starting agent update...' : 'Push Agent Update' }}
                     </button>
                     <Link
+                        v-if="browserShellEnabled"
                         :href="route('admin.nodes.shell', node.id)"
                         class="flex items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-300 hover:bg-gray-800 transition-colors"
                     >
@@ -242,7 +243,10 @@
             <!-- Agent install instructions -->
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5 mb-5">
                 <h3 class="text-sm font-semibold text-gray-200 mb-3">Agent Install Command</h3>
-                <p class="text-xs text-gray-400 mb-3">Run this on the target Debian server as root. It installs the node service stack plus the agent.</p>
+                <p class="text-xs text-gray-400 mb-3">
+                    Run this on the target Debian server as root. Replace <code>&lt;node-secret&gt;</code> with the node HMAC secret from your secure admin records.
+                    The browser no longer receives that secret by default.
+                </p>
                 <pre class="rounded-lg bg-gray-950 px-4 py-3 text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap break-all">{{ installCommand }}</pre>
             </div>
 
@@ -263,7 +267,7 @@
 </template>
 
 <script setup>
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NodeStatusBadge from '@/Components/NodeStatusBadge.vue';
@@ -275,13 +279,14 @@ const props = defineProps({
     healthError: String,
     certificate: Object,
     publicTls: Object,
-    installSecret: String,
     panelVersion: String,
 });
 
 const certificateForm = useForm({});
 const publicTlsForm = useForm({});
 const agentUpgradeForm = useForm({});
+const page = usePage();
+const browserShellEnabled = computed(() => !!page.props.app?.browser_shell_enabled);
 
 const certificateBadgeClass = computed(() => {
     if (props.certificate?.status === 'valid') {
@@ -355,7 +360,7 @@ function publicTlsBadgeClass(certificate) {
 }
 
 const installCommand = computed(() => {
-    return `STRATA_HMAC_SECRET="${props.installSecret ?? '<secret>'}" \\
+    return `STRATA_HMAC_SECRET="<node-secret>" \\
 STRATA_NODE_ID="${props.node.node_id}" \\
 STRATA_NODE_HOSTNAME="${props.node.hostname}" \\
 STRATA_WEB_SERVER="${props.node.web_server ?? 'nginx'}" \\

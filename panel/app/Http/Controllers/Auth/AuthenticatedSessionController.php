@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,12 +36,24 @@ class AuthenticatedSessionController extends Controller
             'password' => ['required'],
         ]);
 
+        $throttleKey = $this->throttleKey($request->input('email', ''), $request->ip());
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'email' => "Too many login attempts. Try again in {$seconds} seconds.",
+            ]);
+        }
+
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            RateLimiter::hit($throttleKey, 300);
             return back()->withErrors([
                 'email' => 'The provided credentials are incorrect.',
             ])->onlyInput('email');
         }
 
+        RateLimiter::clear($throttleKey);
         $request->session()->regenerate();
 
         return redirect()->intended('/dashboard');
@@ -52,5 +67,10 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/login');
+    }
+
+    private function throttleKey(string $email, ?string $ip): string
+    {
+        return Str::lower(trim($email)) . '|' . ($ip ?: 'unknown');
     }
 }

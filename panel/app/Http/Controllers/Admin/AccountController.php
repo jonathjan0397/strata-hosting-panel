@@ -21,8 +21,10 @@ class AccountController extends Controller
     {
         $accounts = Account::with(['user', 'node', 'hostingPackage'])
             ->when($request->input('search'), fn ($q, $s) =>
-                $q->where('username', 'like', "%{$s}%")
-                  ->orWhereHas('user', fn ($q) => $q->where('email', 'like', "%{$s}%"))
+                $q->where(function ($searchQuery) use ($s) {
+                    $searchQuery->where('username', 'like', "%{$s}%")
+                        ->orWhereHas('user', fn ($userQuery) => $userQuery->where('email', 'like', "%{$s}%"));
+                })
             )
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->latest()

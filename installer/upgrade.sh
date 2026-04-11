@@ -412,6 +412,7 @@ write_backup_metadata() {
   "source_value": "$(json_escape "$source_value")"
 }
 EOF
+    chmod 600 "$BACKUP_DIR/metadata.json"
 }
 
 list_backups() {
@@ -536,7 +537,10 @@ BACKUP_DIR="$BACKUP_ROOT/$timestamp"
 WORKDIR="$(mktemp -d /tmp/strata-upgrade.XXXXXX)"
 archive="$WORKDIR/source.tar"
 
+mkdir -p "$BACKUP_ROOT"
+chmod 700 "$BACKUP_ROOT"
 mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
 info "Creating rollback backup at $BACKUP_DIR..."
 cp -a "$INSTALL_DIR/panel" "$BACKUP_DIR/panel"
 [[ -d "$INSTALL_DIR/agent-src" ]] && cp -a "$INSTALL_DIR/agent-src" "$BACKUP_DIR/agent-src"

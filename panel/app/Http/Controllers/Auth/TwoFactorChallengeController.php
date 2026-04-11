@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use PragmaRX\Google2FA\Google2FA;
@@ -28,6 +30,16 @@ class TwoFactorChallengeController extends Controller
             return redirect()->route('dashboard');
         }
 
+        $throttleKey = sprintf('2fa:%s|%s', $user->id, $request->ip() ?: 'unknown');
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'code' => "Too many verification attempts. Try again in {$seconds} seconds.",
+            ]);
+        }
+
         $code     = $request->input('code', '');
         $recovery = $request->input('recovery_code', '');
 
@@ -37,6 +49,7 @@ class TwoFactorChallengeController extends Controller
             $secret    = decrypt($user->two_factor_secret);
 
             if ($google2fa->verifyKey($secret, preg_replace('/\s+/', '', $code))) {
+                RateLimiter::clear($throttleKey);
                 $request->session()->put('auth.two_factor_confirmed', true);
                 return redirect()->intended(route('dashboard'));
             }
@@ -54,11 +67,13 @@ class TwoFactorChallengeController extends Controller
                     'two_factor_recovery_codes' => encrypt(json_encode(array_values($codes))),
                 ]);
 
+                RateLimiter::clear($throttleKey);
                 $request->session()->put('auth.two_factor_confirmed', true);
                 return redirect()->intended(route('dashboard'));
             }
         }
 
+        RateLimiter::hit($throttleKey, 300);
         return back()->withErrors(['code' => 'The provided code was invalid.']);
     }
 }

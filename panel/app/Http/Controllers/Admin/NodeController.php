@@ -101,7 +101,6 @@ class NodeController extends Controller
             'healthError' => $healthError,
             'certificate' => $this->inspectCertificate($node),
             'publicTls' => $this->inspectPublicTls($node),
-            'installSecret' => $node->hmac_secret,
             'panelVersion' => config('strata.version'),
         ]);
     }

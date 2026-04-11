@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Node;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,6 +20,10 @@ class ShellController extends Controller
      */
     public function show(Request $request, Node $node): Response
     {
+        if (! config('strata.browser_shell_enabled')) {
+            throw new AuthorizationException('Browser shell is disabled on this installation.');
+        }
+
         $ts     = time();
         $origin = rtrim(config('app.url'), '/');
         $sig    = hash_hmac('sha256', "shell:{$ts}:{$origin}", $node->hmac_secret);

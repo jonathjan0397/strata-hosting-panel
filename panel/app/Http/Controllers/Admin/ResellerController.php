@@ -19,8 +19,10 @@ class ResellerController extends Controller
         $resellers = User::role('reseller')
             ->withCount('resellerClients')
             ->when($request->input('search'), fn ($q, $s) =>
-                $q->where('name', 'like', "%{$s}%")
-                  ->orWhere('email', 'like', "%{$s}%")
+                $q->where(function ($searchQuery) use ($s) {
+                    $searchQuery->where('name', 'like', "%{$s}%")
+                        ->orWhere('email', 'like', "%{$s}%");
+                })
             )
             ->latest()
             ->paginate(25)

@@ -44,4 +44,17 @@ return [
 
     'demo_mode' => env('STRATA_DEMO_MODE', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Browser Shell
+    |--------------------------------------------------------------------------
+    |
+    | The browser shell opens an interactive node shell from the panel. This
+    | is high impact and should stay disabled unless the operator explicitly
+    | enables it for a trusted environment.
+    |
+    */
+
+    'browser_shell_enabled' => env('STRATA_BROWSER_SHELL_ENABLED', false),
+
 ];

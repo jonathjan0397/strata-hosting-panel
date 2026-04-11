@@ -69,6 +69,7 @@
                                     Push Update
                                 </button>
                                 <Link
+                                    v-if="browserShellEnabled"
                                     :href="route('admin.nodes.shell', node.id)"
                                     class="mr-3 font-mono text-xs text-gray-400 transition-colors hover:text-gray-200"
                                 >
@@ -114,13 +115,15 @@ import EmptyState from '@/Components/EmptyState.vue';
 import NodeStatusBadge from '@/Components/NodeStatusBadge.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import StatCard from '@/Components/StatCard.vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 
 const props = defineProps({ nodes: Array, panelVersion: String });
+const page = usePage();
 
 const onlineCount = computed(() => props.nodes.filter((node) => node.status === 'online').length);
 const primaryCount = computed(() => props.nodes.filter((node) => node.is_primary).length);
 const dnsNodeCount = computed(() => props.nodes.filter((node) => node.hosts_dns).length);
+const browserShellEnabled = computed(() => !!page.props.app?.browser_shell_enabled);
 
 function normalizedVersion(version) {
     const value = (version || '').trim();
