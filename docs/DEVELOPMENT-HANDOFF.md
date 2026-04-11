@@ -75,6 +75,7 @@ Windows local development is supported.
 Important local helpers:
 
 - bootstrap script: [tools/bootstrap-local-windows.ps1](../tools/bootstrap-local-windows.ps1)
+- curated ops scripts: [tools/ops/README.md](../tools/ops/README.md)
 - local Windows dev doc: [docs/LOCAL-DEVELOPMENT-WINDOWS.md](LOCAL-DEVELOPMENT-WINDOWS.md)
 
 Repo-local PHP runtime:

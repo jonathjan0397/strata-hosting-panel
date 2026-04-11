@@ -16,9 +16,14 @@ agent/*.exe
 .tools/
 deploy-logs/
 routes.json
+live-*.log
+panel-build-status-deploy.tar.gz
+panel-build-status-deploy.zip
 tools/__pycache__/
 tools/*.tar.gz
 tools/*.zip
+tools/*.log
+tools/*.json
 
 # OS
 .DS_Store
