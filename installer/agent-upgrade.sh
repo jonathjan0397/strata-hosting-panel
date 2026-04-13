@@ -10,6 +10,17 @@ NEW_BINARY="$WORKDIR/strata-agent"
 NEW_WEBDAV_BINARY="$WORKDIR/strata-webdav"
 export PATH="/usr/local/go/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
+ensure_sudo_installed() {
+    if command -v sudo >/dev/null 2>&1; then
+        return
+    fi
+
+    echo "[*] Installing sudo..."
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y sudo
+}
+
 install_rspamd_if_missing() {
     if systemctl list-unit-files rspamd.service >/dev/null 2>&1; then
         return
@@ -209,6 +220,8 @@ validate_binary() {
         exit 1
     }
 }
+
+ensure_sudo_installed
 
 install_storage_migration_tools() {
     local repo_root="$1"

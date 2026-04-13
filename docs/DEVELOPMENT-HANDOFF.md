@@ -19,8 +19,9 @@ Project:
 
 Current public release line:
 
-- latest published release at the time of this handoff: `1.0.1`
-- `main`, `latest-untested`, and tag `1.0.1` should be treated as the current aligned baseline after this release
+- latest published release at the time of this handoff: `1.0.2`
+- `main` and tag `1.0.2` should be treated as the current stable release baseline
+- `latest-untested` may move forward after this release and should not be assumed to match `main`
 
 Current operational state:
 
@@ -35,11 +36,12 @@ Recent release lesson:
 - `1.0.0-BETA-3.32` fixed the admin updates screen `500` caused by unreadable `/etc/strata-panel/storage.conf`
 - `1.0.0` is the stable-line promotion of the frozen `1.0.0-BETA-3.32` baseline
 - `1.0.1` adds the missing executable storage migration flow to the admin Updates page and scopes migration to the selected item
+- `1.0.2` ensures `sudo` is installed automatically during panel and node install/upgrade flows before sudoers-dependent features are configured
 - the failure mode was not runtime code incompatibility, it was that older live `/usr/sbin/strata-upgrade` binaries could not safely apply the newer release without the fix
 
 Current branch policy:
 
-- `main` = frozen release branch at `1.0.1` except for release blockers
+- `main` = frozen release branch at `1.0.2` except for release blockers
 - `latest-untested` = active pre-release validation branch for new work after the freeze point
 - `experimental` = high-risk branch for unfinished work
 

@@ -35,6 +35,17 @@ success() { echo "${GREEN}[OK]${NC} $*"; }
 warn() { echo "${YELLOW}[WARN]${NC} $*"; }
 die() { echo "${RED}[ERR]${NC} $*" >&2; exit 1; }
 
+ensure_sudo_installed() {
+    if command -v sudo >/dev/null 2>&1; then
+        return
+    fi
+
+    info "Installing sudo..."
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y sudo
+}
+
 usage() {
     cat <<EOF
 Strata Hosting Panel upgrade utility
@@ -108,6 +119,7 @@ fi
 
 [[ -d "$INSTALL_DIR/panel" ]] || die "Panel install not found at $INSTALL_DIR/panel."
 [[ -f "$INSTALL_DIR/panel/.env" ]] || die "Panel .env not found at $INSTALL_DIR/panel/.env."
+ensure_sudo_installed
 
 detect_php() {
     if [[ -n "$PHP_BIN" ]]; then

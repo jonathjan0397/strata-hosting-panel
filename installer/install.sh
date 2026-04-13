@@ -24,6 +24,17 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 die()     { echo -e "${RED}[fail]${NC} $*" >&2; exit 1; }
 prompt()  { echo -e "${CYAN}$*${NC}"; }
 
+ensure_sudo_installed() {
+    if command -v sudo >/dev/null 2>&1; then
+        return
+    fi
+
+    info "Installing sudo..."
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y sudo
+}
+
 human_bytes() {
     local value="${1:-0}"
     if command -v numfmt >/dev/null 2>&1; then
@@ -237,6 +248,7 @@ fi
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
 [[ "$DEBIAN_VERSION" == "11" || "$DEBIAN_VERSION" == "12" || "$DEBIAN_VERSION" == "13" ]] \
     || die "Unsupported OS. Debian 11, 12, or 13 required (detected: $DEBIAN_VERSION)."
+ensure_sudo_installed
 INSTALLER_VERSION="$(resolve_installer_version)"
 
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')

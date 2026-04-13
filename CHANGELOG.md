@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.2] - 2026-04-13
+
+Release target: `1.0.2`.
+
+### Fixed - Ensure sudo exists for installs and upgrades
+
+- Installed `sudo` automatically during fresh panel installs before sudoers rules are written
+- Installed `sudo` automatically during fresh remote node installs before sudoers rules are written
+- Installed `sudo` automatically during panel upgrades so storage migration and update workflows do not assume a non-default Debian package is already present
+- Installed `sudo` automatically during remote agent upgrades for the same compatibility reason
+
 ## [1.0.1] - 2026-04-13
 
 Release target: `1.0.1`.
