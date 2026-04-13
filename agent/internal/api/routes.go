@@ -98,6 +98,7 @@ func Routes() chi.Router {
 	r.Post("/databases", handleDatabaseCreate)
 	r.Delete("/databases/{name}", handleDatabaseDelete)
 	r.Put("/databases/users/{username}/password", handleDatabasePasswordChange)
+	r.Post("/databases/stats", handleDatabaseStats)
 
 	// Database grants
 	r.Post("/databases/grant", handleDatabaseGrant)

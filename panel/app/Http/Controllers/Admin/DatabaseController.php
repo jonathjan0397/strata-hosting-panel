@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\DatabaseGrant;
+use App\Models\Domain;
 use App\Models\HostingDatabase;
 use App\Services\AgentClient;
 use App\Services\DatabaseProvisioner;
@@ -22,11 +23,14 @@ class DatabaseController extends Controller
     public function index(Account $account): Response
     {
         $account->load('node');
-        $databases = HostingDatabase::where('account_id', $account->id)->latest()->get();
+        $databases = HostingDatabase::where('account_id', $account->id)->with('domain:id,domain')->latest()->get();
 
         return Inertia::render('Admin/Database/Index', [
             'account'   => $account,
             'databases' => $databases,
+            'domains' => Domain::where('account_id', $account->id)
+                ->orderBy('domain')
+                ->get(['id', 'domain']),
             'grants' => DatabaseGrant::where('account_id', $account->id)
                 ->latest()
                 ->get(['id', 'engine', 'db_name', 'db_user', 'host', 'password_hint', 'created_at']),
@@ -51,8 +55,13 @@ class DatabaseController extends Controller
             'db_user'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,15}$/', 'unique:hosting_databases,db_user'],
             'engine'   => ['required', 'in:mysql,postgresql'],
             'password' => ['required', 'string', 'min:8'],
+            'domain_id' => ['nullable', 'integer', 'exists:domains,id'],
             'note'     => ['nullable', 'string', 'max:255'],
         ]);
+
+        if (! empty($data['domain_id'])) {
+            Domain::where('account_id', $account->id)->findOrFail($data['domain_id']);
+        }
 
         $client   = AgentClient::for($account->node);
         $provisioner = new DatabaseProvisioner($client);
@@ -62,6 +71,7 @@ class DatabaseController extends Controller
             $data['db_name'],
             $data['db_user'],
             $data['password'],
+            $data['domain_id'] ?? null,
             $data['note'] ?? null,
             $data['engine'],
         );
@@ -169,6 +179,30 @@ class DatabaseController extends Controller
         return $success
             ? back()->with('success', "Password updated for {$database->db_user}.")
             : back()->with('error', "Password change failed: {$error}");
+    }
+
+    public function updateDomain(Request $request, HostingDatabase $database): RedirectResponse
+    {
+        $account = $database->account;
+
+        $data = $request->validate([
+            'domain_id' => ['nullable', 'integer', 'exists:domains,id'],
+        ]);
+
+        if (! empty($data['domain_id'])) {
+            Domain::where('account_id', $account->id)->findOrFail($data['domain_id']);
+        }
+
+        $database->update([
+            'domain_id' => $data['domain_id'] ?? null,
+        ]);
+
+        AuditLog::record('database.domain_updated', $account, [
+            'db_name' => $database->db_name,
+            'domain_id' => $data['domain_id'] ?? null,
+        ]);
+
+        return back()->with('success', "Domain assignment updated for {$database->db_name}.");
     }
 
     public function grantUser(Request $request, Account $account): RedirectResponse

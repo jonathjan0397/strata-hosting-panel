@@ -11,7 +11,7 @@ class HostingDatabase extends Model
     protected $table = 'hosting_databases';
 
     protected $fillable = [
-        'account_id', 'node_id', 'engine', 'db_name', 'db_user', 'password', 'note', 'migration_reset_required',
+        'account_id', 'domain_id', 'node_id', 'engine', 'db_name', 'db_user', 'password', 'note', 'migration_reset_required',
     ];
 
     protected $casts = [
@@ -33,6 +33,11 @@ class HostingDatabase extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function domain(): BelongsTo
+    {
+        return $this->belongsTo(Domain::class);
     }
 
     public function node(): BelongsTo

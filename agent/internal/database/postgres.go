@@ -1,9 +1,12 @@
 package database
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -149,4 +152,73 @@ func ChangePostgresUserPassword(username, password string) error {
 		return fmt.Errorf("invalid username: %s", username)
 	}
 	return postgres("", fmt.Sprintf("ALTER ROLE %s PASSWORD %s;", pgIdent(username), pgLiteral(password)))
+}
+
+func PostgresDatabaseSizes(dbNames []string) (map[string]int64, error) {
+	validNames := make([]string, 0, len(dbNames))
+	for _, dbName := range dbNames {
+		if !reName.MatchString(dbName) {
+			return nil, fmt.Errorf("invalid database name: %s", dbName)
+		}
+		validNames = append(validNames, dbName)
+	}
+
+	if len(validNames) == 0 {
+		return map[string]int64{}, nil
+	}
+
+	sort.Strings(validNames)
+
+	literals := make([]string, 0, len(validNames))
+	for _, name := range validNames {
+		literals = append(literals, pgLiteral(name))
+	}
+
+	query := fmt.Sprintf(`
+SELECT datname, pg_database_size(datname)
+FROM pg_database
+WHERE datname IN (%s);
+`, strings.Join(literals, ","))
+
+	var cmd *exec.Cmd
+	args := postgresArgs("", query)
+	if pgHost == "" && pgPassword == "" {
+		cmd = exec.Command("sudo", append([]string{"-u", pgAdminUser, "psql"}, args...)...)
+	} else {
+		cmd = exec.Command("psql", args...)
+	}
+
+	cmd.Env = os.Environ()
+	if pgPassword != "" {
+		cmd.Env = append(cmd.Env, "PGPASSWORD="+pgPassword)
+	}
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("postgres: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	sizes := make(map[string]int64, len(validNames))
+	for _, name := range validNames {
+		sizes[name] = 0
+	}
+
+	for _, line := range bytes.Split(bytes.TrimSpace(out), []byte("\n")) {
+		if len(line) == 0 {
+			continue
+		}
+		parts := bytes.SplitN(line, []byte("|"), 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		size, err := strconv.ParseInt(strings.TrimSpace(string(parts[1])), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse database size for %s: %w", string(parts[0]), err)
+		}
+
+		sizes[strings.TrimSpace(string(parts[0]))] = size
+	}
+
+	return sizes, nil
 }

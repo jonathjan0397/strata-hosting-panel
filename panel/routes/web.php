@@ -161,6 +161,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('databases', [User\DatabaseController::class, 'store'])->name('databases.store');
             Route::delete('databases/{database}', [User\DatabaseController::class, 'destroy'])->name('databases.destroy');
             Route::put('databases/{database}/password', [User\DatabaseController::class, 'changePassword'])->name('databases.password');
+            Route::put('databases/{database}/domain', [User\DatabaseController::class, 'updateDomain'])->name('databases.domain');
             Route::post('databases/{database}/grant', [User\DatabaseController::class, 'grantUser'])->name('databases.grant');
             Route::delete('databases/{database}/revoke', [User\DatabaseController::class, 'revokeUser'])->name('databases.revoke');
         });
@@ -322,6 +323,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('accounts/{account}/databases/bulk-delete', [DatabaseController::class, 'bulkDestroy'])->name('accounts.databases.bulk-destroy');
         Route::delete('databases/{database}', [DatabaseController::class, 'destroy'])->name('databases.destroy');
         Route::put('databases/{database}/password', [DatabaseController::class, 'changePassword'])->name('databases.password');
+        Route::put('databases/{database}/domain', [DatabaseController::class, 'updateDomain'])->name('databases.domain');
         Route::post('accounts/{account}/databases/grant', [DatabaseController::class, 'grantUser'])->name('databases.grant');
         Route::delete('accounts/{account}/databases/revoke', [DatabaseController::class, 'revokeUser'])->name('databases.revoke');
 

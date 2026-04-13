@@ -50,6 +50,7 @@ class InstallAppJob implements ShouldQueue
                         ],
                         [
                             'node_id' => $inst->node_id,
+                            'domain_id' => $inst->domain_id,
                             'engine' => 'mysql',
                             'db_user' => $inst->db_user,
                             'password' => $inst->db_password_plain,

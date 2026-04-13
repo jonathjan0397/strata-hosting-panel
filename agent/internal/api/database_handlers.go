@@ -126,3 +126,73 @@ func handleDatabasePasswordChange(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, http.StatusOK, map[string]string{"status": "updated", "username": username})
 }
+
+func handleDatabaseStats(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Databases []struct {
+			DBName string `json:"db_name"`
+			Engine string `json:"engine"`
+		} `json:"databases"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.Databases) == 0 {
+		respond(w, http.StatusOK, map[string]any{"databases": []map[string]any{}})
+		return
+	}
+
+	mysqlNames := make([]string, 0)
+	postgresNames := make([]string, 0)
+	for _, db := range req.Databases {
+		engine := db.Engine
+		if engine == "" {
+			engine = "mysql"
+		}
+
+		switch engine {
+		case "mysql":
+			mysqlNames = append(mysqlNames, db.DBName)
+		case "postgresql":
+			postgresNames = append(postgresNames, db.DBName)
+		default:
+			http.Error(w, "unsupported database engine", http.StatusBadRequest)
+			return
+		}
+	}
+
+	mysqlSizes, err := database.DatabaseSizes(mysqlNames)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	postgresSizes, err := database.PostgresDatabaseSizes(postgresNames)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	rows := make([]map[string]any, 0, len(req.Databases))
+	for _, db := range req.Databases {
+		engine := db.Engine
+		if engine == "" {
+			engine = "mysql"
+		}
+
+		sizeBytes := int64(0)
+		if engine == "postgresql" {
+			sizeBytes = postgresSizes[db.DBName]
+		} else {
+			sizeBytes = mysqlSizes[db.DBName]
+		}
+
+		rows = append(rows, map[string]any{
+			"db_name":    db.DBName,
+			"engine":     engine,
+			"size_bytes": sizeBytes,
+		})
+	}
+
+	respond(w, http.StatusOK, map[string]any{"databases": rows})
+}

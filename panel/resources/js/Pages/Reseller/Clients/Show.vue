@@ -1,6 +1,6 @@
 <template>
     <AppLayout :title="`Client - ${account.username}`">
-        <div class="max-w-2xl space-y-6 p-6">
+        <div class="max-w-7xl space-y-6 p-6">
             <div class="flex items-center gap-3">
                 <Link :href="route('reseller.accounts.index')" class="text-gray-500 transition-colors hover:text-gray-300">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -56,6 +56,12 @@
                     <dd class="text-gray-200">{{ account.created_at }}</dd>
                 </dl>
             </div>
+
+            <AccountUsageSummary
+                :usage-metrics="usageMetrics"
+                title="Client Usage"
+                description="Review this client by domain with disk space, email storage, database inventory, and recent traffic together."
+            />
 
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <div class="flex items-center justify-between">
@@ -114,12 +120,14 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import AccountUsageSummary from '@/Components/AccountUsageSummary.vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 
 const props = defineProps({
     account: Object,
     packages: Array,
+    usageMetrics: Object,
 });
 
 const saved = ref(false);

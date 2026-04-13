@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0-BETA-3.24] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.24`.
+
+### Changed - Account metrics, domain attribution, and database storage telemetry
+
+**Metrics**
+- Added a shared usage-metrics layer for admin, reseller, and user views so disk space, email usage, database inventory, and domain activity are visible in one place
+- Admin account pages and reseller client pages now include the same per-domain usage breakdown already available to end users instead of only raw object counts
+- Domain metrics now include mailbox totals, email storage consumption, request volume, bandwidth, and error counts in one consolidated table
+
+**Database Attribution And Storage**
+- Hosting databases now support explicit domain assignment through `hosting_databases.domain_id`, with migration backfill from tracked app installations where possible
+- User and admin database management screens can assign or reassign any database to a specific hosted domain so older manual databases participate in exact per-domain reporting
+- The agent now exposes batch database size telemetry for MySQL and PostgreSQL, and the panel rolls those live byte totals up into account-wide and per-domain metrics
+
 ## [1.0.0-BETA-3.23] - 2026-04-11
 
 Public beta target: `1.0.0-BETA-3.23`.

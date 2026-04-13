@@ -146,6 +146,14 @@
             </div>
         </div>
 
+        <div class="mt-6">
+            <AccountUsageSummary
+                :usage-metrics="usageMetrics"
+                title="Account Usage"
+                description="Review this user by domain with disk space, email storage, database inventory, and recent traffic in one place."
+            />
+        </div>
+
         <!-- Domains -->
         <div class="mt-6">
             <div class="mb-3 flex items-center justify-between">
@@ -198,9 +206,13 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import AccountUsageSummary from '@/Components/AccountUsageSummary.vue';
 import AccountStatusBadge from '@/Components/AccountStatusBadge.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 import ResourceBar from '@/Components/ResourceBar.vue';
 
-defineProps({ account: Object });
+defineProps({
+    account: Object,
+    usageMetrics: Object,
+});
 </script>

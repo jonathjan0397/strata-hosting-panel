@@ -288,6 +288,13 @@ class AgentClient
         return $this->put("/databases/users/{$username}/password", ['password' => $password, 'engine' => $engine]);
     }
 
+    public function databaseStats(array $databases): Response
+    {
+        return $this->post('/databases/stats', [
+            'databases' => $databases,
+        ]);
+    }
+
     // ── FTP ───────────────────────────────────────────────────────────────────
 
     public function createFtpAccount(array $data): Response

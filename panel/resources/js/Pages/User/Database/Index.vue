@@ -26,6 +26,12 @@
                             <option value="postgresql">PostgreSQL</option>
                         </select>
                     </FormField>
+                    <FormField label="Assigned Domain" :error="form.errors.domain_id">
+                        <select v-model="form.domain_id" class="field w-full">
+                            <option :value="''">Account level / unassigned</option>
+                            <option v-for="domain in domains" :key="domain.id" :value="domain.id">{{ domain.domain }}</option>
+                        </select>
+                    </FormField>
                     <FormField label="Database name" :error="form.errors.db_name">
                         <input
                             v-model="form.db_name"
@@ -68,6 +74,7 @@
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Database</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Engine</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Domain</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">User</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Note</th>
                             <th class="px-5 py-3"></th>
@@ -84,6 +91,16 @@
                                 </div>
                             </td>
                             <td class="px-5 py-3.5 text-sm text-gray-400">{{ engineLabel(db.engine) }}</td>
+                            <td class="px-5 py-3.5 text-sm text-gray-400">
+                                <select
+                                    class="field min-w-52"
+                                    :value="db.domain_id ?? ''"
+                                    @change="updateDomain(db, $event.target.value)"
+                                >
+                                    <option value="">Account level / unassigned</option>
+                                    <option v-for="domain in domains" :key="domain.id" :value="domain.id">{{ domain.domain }}</option>
+                                </select>
+                            </td>
                             <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ db.db_user }}</td>
                             <td class="px-5 py-3.5 text-sm text-gray-500">{{ db.note ?? '-' }}</td>
                             <td class="px-5 py-3.5 text-right">
@@ -105,7 +122,7 @@
                             </td>
                         </tr>
                         <tr v-if="databases.length === 0">
-                            <td colspan="5" class="px-5 py-8">
+                            <td colspan="6" class="px-5 py-8">
                                 <EmptyState
                                     title="No databases yet"
                                     description="Create a MySQL or PostgreSQL database and matching user for your first application."
@@ -219,6 +236,7 @@ import StatCard from '@/Components/StatCard.vue';
 const props = defineProps({
     account: Object,
     databases: Array,
+    domains: Array,
     grants: { type: Array, default: () => [] },
 });
 
@@ -228,11 +246,19 @@ const remainingDatabases = computed(() => {
     return Math.max(props.account.max_databases - props.databases.length, 0);
 });
 
-const form = useForm({ engine: 'mysql', db_name: '', db_user: '', password: '' });
+const form = useForm({ engine: 'mysql', domain_id: '', db_name: '', db_user: '', password: '' });
 const grantForm = useForm({ database_id: '', db_user: '', password: '', host: 'localhost' });
 
 function submit() {
     form.post(route('my.databases.store'), { onSuccess: () => form.reset() });
+}
+
+function updateDomain(database, domainId) {
+    router.put(route('my.databases.domain', database.id), {
+        domain_id: domainId === '' ? null : Number(domainId),
+    }, {
+        preserveScroll: true,
+    });
 }
 
 function engineLabel(engine) {

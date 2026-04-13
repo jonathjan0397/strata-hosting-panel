@@ -10,6 +10,7 @@ use App\Models\HostingPackage;
 use App\Models\Node;
 use App\Models\User;
 use App\Services\AccountProvisioner;
+use App\Services\AccountUsageMetricsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,6 +18,10 @@ use Inertia\Response;
 
 class AccountController extends Controller
 {
+    public function __construct(private readonly AccountUsageMetricsService $usageMetrics)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $accounts = Account::with(['user', 'node', 'hostingPackage'])
@@ -125,6 +130,7 @@ class AccountController extends Controller
 
         return Inertia::render('Admin/Accounts/Show', [
             'account' => $account,
+            'usageMetrics' => $this->usageMetrics->build($account),
         ]);
     }
 

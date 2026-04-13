@@ -15,7 +15,7 @@ Upgrade from a tagged release:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/main/installer/upgrade.sh -o /usr/sbin/strata-upgrade
 chmod +x /usr/sbin/strata-upgrade
-/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.23
+/usr/sbin/strata-upgrade --version 1.0.0-BETA-3.24
 ```
 
 Upgrade from a supported update channel:
@@ -33,7 +33,7 @@ Supported channels:
 Upgrade from a manually uploaded archive:
 
 ```bash
-/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.23.tar.gz
+/usr/sbin/strata-upgrade --file /root/strata-hosting-panel-1.0.0-BETA-3.24.tar.gz
 ```
 
 The file may be a GitHub source archive or an equivalent `.tar`, `.tar.gz`, or `.tgz` archive containing the repository root.

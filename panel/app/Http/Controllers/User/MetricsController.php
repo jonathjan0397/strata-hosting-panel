@@ -10,6 +10,7 @@ use App\Models\EmailAccount;
 use App\Models\FtpAccount;
 use App\Models\HostingDatabase;
 use App\Services\AgentClient;
+use App\Services\AccountUsageMetricsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,9 +19,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MetricsController extends Controller
 {
+    public function __construct(private readonly AccountUsageMetricsService $usageMetrics)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $account = $this->account($request);
+        $usageMetrics = $this->usageMetrics->build($account);
 
         return Inertia::render('User/Metrics', [
             'account' => [
@@ -40,6 +46,7 @@ class MetricsController extends Controller
                 'mailboxes' => EmailAccount::where('account_id', $account->id)->count(),
                 'ftp_accounts' => FtpAccount::where('account_id', $account->id)->count(),
             ],
+            'usageMetrics' => $usageMetrics,
             'domains' => $account->domains
                 ->map(fn (Domain $domain) => [
                     'id' => $domain->id,

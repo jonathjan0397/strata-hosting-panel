@@ -1,10 +1,13 @@
 package database
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -31,6 +34,11 @@ func envOrDefault(key, def string) string {
 // mysql runs a SQL statement against MariaDB as root via the CLI.
 // The password is passed via MYSQL_PWD env var to avoid process-list exposure.
 func mysql(query string) error {
+	_, err := mysqlOutput(query)
+	return err
+}
+
+func mysqlOutput(query string) ([]byte, error) {
 	cmd := exec.Command("mysql",
 		"-u", "root",
 		"-h", dbHost,
@@ -42,9 +50,9 @@ func mysql(query string) error {
 	cmd.Env = append(os.Environ(), "MYSQL_PWD="+dbRootPw)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("mysql: %w: %s", err, strings.TrimSpace(string(out)))
+		return nil, fmt.Errorf("mysql: %w: %s", err, strings.TrimSpace(string(out)))
 	}
-	return nil
+	return out, nil
 }
 
 // CreateDatabase creates a MariaDB database with utf8mb4 charset.
@@ -173,4 +181,61 @@ func ChangeUserPassword(username, password string) error {
 		"ALTER USER '%s'@'127.0.0.1' IDENTIFIED BY '%s';",
 		username, escaped,
 	))
+}
+
+func DatabaseSizes(dbNames []string) (map[string]int64, error) {
+	validNames := make([]string, 0, len(dbNames))
+	for _, dbName := range dbNames {
+		if !reName.MatchString(dbName) {
+			return nil, fmt.Errorf("invalid database name: %s", dbName)
+		}
+		validNames = append(validNames, dbName)
+	}
+
+	if len(validNames) == 0 {
+		return map[string]int64{}, nil
+	}
+
+	sort.Strings(validNames)
+
+	quoted := make([]string, 0, len(validNames))
+	for _, name := range validNames {
+		quoted = append(quoted, "'"+name+"'")
+	}
+
+	query := fmt.Sprintf(`
+SELECT table_schema, COALESCE(SUM(data_length + index_length), 0)
+FROM information_schema.tables
+WHERE table_schema IN (%s)
+GROUP BY table_schema;
+`, strings.Join(quoted, ","))
+
+	out, err := mysqlOutput(query)
+	if err != nil {
+		return nil, err
+	}
+
+	sizes := make(map[string]int64, len(validNames))
+	for _, name := range validNames {
+		sizes[name] = 0
+	}
+
+	for _, line := range bytes.Split(bytes.TrimSpace(out), []byte("\n")) {
+		if len(line) == 0 {
+			continue
+		}
+		parts := bytes.SplitN(line, []byte("\t"), 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		size, err := strconv.ParseInt(string(parts[1]), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse database size for %s: %w", string(parts[0]), err)
+		}
+
+		sizes[string(parts[0])] = size
+	}
+
+	return sizes, nil
 }

@@ -15,7 +15,7 @@ class DatabaseProvisioner
      * Create a new database + user on the node and record in the panel DB.
      * Returns [bool $success, ?string $error].
      */
-    public function create(Account $account, string $dbName, string $dbUser, string $password, ?string $note = null, string $engine = 'mysql'): array
+    public function create(Account $account, string $dbName, string $dbUser, string $password, ?int $domainId = null, ?string $note = null, string $engine = 'mysql'): array
     {
         try {
             $response = $this->client->createDatabase($dbName, $dbUser, $password, $engine);
@@ -25,6 +25,7 @@ class DatabaseProvisioner
 
             HostingDatabase::create([
                 'account_id' => $account->id,
+                'domain_id'  => $domainId,
                 'node_id'    => $account->node_id,
                 'engine'     => $engine,
                 'db_name'    => $dbName,

@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\HostingPackage;
 use App\Models\User;
+use App\Services\AccountUsageMetricsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,6 +15,10 @@ use Inertia\Response;
 
 class ClientController extends Controller
 {
+    public function __construct(private readonly AccountUsageMetricsService $usageMetrics)
+    {
+    }
+
     /** View a single client account + edit their resource limits. */
     public function show(Request $request, Account $account): Response
     {
@@ -46,6 +51,7 @@ class ClientController extends Controller
                 'database_count'      => $account->databases->count(),
                 'ftp_count'           => $account->ftpAccounts->count(),
             ],
+            'usageMetrics' => $this->usageMetrics->build($account),
             'packages' => HostingPackage::query()
                 ->where('is_active', true)
                 ->where('available_to_resellers', true)

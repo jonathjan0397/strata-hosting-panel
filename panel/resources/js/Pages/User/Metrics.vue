@@ -4,7 +4,7 @@
             <PageHeader
                 eyebrow="Metrics"
                 title="Account Metrics"
-                description="Review account resource usage, hosted domains, and recent web/PHP log activity."
+                description="Review disk space, databases, email usage, hosted domains, and recent web/PHP log activity."
             />
 
             <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -13,6 +13,12 @@
                 <StatCard label="Mailboxes" :value="summary.mailboxes" color="amber" />
                 <StatCard label="FTP Accounts" :value="summary.ftp_accounts" color="gray" />
             </div>
+
+            <AccountUsageSummary
+                :usage-metrics="usageMetrics"
+                title="Storage And Service Usage"
+                description="Find disk space, email storage, database inventory, and per-domain activity in one place."
+            />
 
             <div class="grid gap-5 xl:grid-cols-2">
                 <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
@@ -206,6 +212,7 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import AccountUsageSummary from '@/Components/AccountUsageSummary.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import ResourceBar from '@/Components/ResourceBar.vue';
 import StatCard from '@/Components/StatCard.vue';
@@ -218,6 +225,7 @@ const props = defineProps({
     domains: Array,
     logTypes: Array,
     trafficHistory: Object,
+    usageMetrics: Object,
 });
 
 const selectedType = ref(props.logTypes[0]?.value ?? 'access');
