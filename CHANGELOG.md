@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.31] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.31`.
+
+### Fixed - Upgrade regression with optional storage roots
+
+- Fixed the panel upgrade script so empty optional storage roots for mail, MariaDB, and PostgreSQL no longer abort upgrades under `set -e`
+- Fixed the remote agent upgrade script with the same guard pattern so node upgrades remain safe when optional storage roots are unset
+- This is the safe follow-up release for servers that failed to apply `1.0.0-BETA-3.30` and rolled back to `1.0.0-BETA-3.29`
+
 ## [1.0.0-BETA-3.30] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.30`.

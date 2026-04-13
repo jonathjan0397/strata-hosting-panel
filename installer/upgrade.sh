@@ -238,11 +238,21 @@ EOF
 }
 
 reassert_storage_mounts() {
-    [[ -n "${HOSTING_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$HOSTING_STORAGE_ROOT" "${HOSTING_BIND_TARGET:-/var/www}" "strata-hosting-storage"
-    [[ -n "${BACKUP_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$BACKUP_STORAGE_ROOT" "${BACKUP_BIND_TARGET:-/var/backups/strata}" "strata-backup-storage"
-    [[ -n "${MAIL_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$MAIL_STORAGE_ROOT" "${MAIL_BIND_TARGET:-/var/mail}" "strata-mail-storage"
-    [[ -n "${MYSQL_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$MYSQL_STORAGE_ROOT" "${MYSQL_BIND_TARGET:-/var/lib/mysql}" "strata-mysql-storage"
-    [[ -n "${POSTGRES_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$POSTGRES_STORAGE_ROOT" "${POSTGRES_BIND_TARGET:-/var/lib/postgresql}" "strata-postgresql-storage"
+    if [[ -n "${HOSTING_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$HOSTING_STORAGE_ROOT" "${HOSTING_BIND_TARGET:-/var/www}" "strata-hosting-storage"
+    fi
+    if [[ -n "${BACKUP_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$BACKUP_STORAGE_ROOT" "${BACKUP_BIND_TARGET:-/var/backups/strata}" "strata-backup-storage"
+    fi
+    if [[ -n "${MAIL_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$MAIL_STORAGE_ROOT" "${MAIL_BIND_TARGET:-/var/mail}" "strata-mail-storage"
+    fi
+    if [[ -n "${MYSQL_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$MYSQL_STORAGE_ROOT" "${MYSQL_BIND_TARGET:-/var/lib/mysql}" "strata-mysql-storage"
+    fi
+    if [[ -n "${POSTGRES_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$POSTGRES_STORAGE_ROOT" "${POSTGRES_BIND_TARGET:-/var/lib/postgresql}" "strata-postgresql-storage"
+    fi
 }
 
 set_permissions() {

@@ -250,11 +250,21 @@ reassert_storage_mounts() {
         source /etc/strata-agent/install.env
     fi
 
-    [[ -n "${STRATA_HOSTING_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_HOSTING_STORAGE_ROOT" "/var/www" "strata-hosting-storage"
-    [[ -n "${STRATA_BACKUP_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_BACKUP_STORAGE_ROOT" "/var/backups/strata" "strata-backup-storage"
-    [[ -n "${STRATA_MAIL_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_MAIL_STORAGE_ROOT" "/var/mail" "strata-mail-storage"
-    [[ -n "${STRATA_MYSQL_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_MYSQL_STORAGE_ROOT" "/var/lib/mysql" "strata-mysql-storage"
-    [[ -n "${STRATA_POSTGRES_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_POSTGRES_STORAGE_ROOT" "/var/lib/postgresql" "strata-postgresql-storage"
+    if [[ -n "${STRATA_HOSTING_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$STRATA_HOSTING_STORAGE_ROOT" "/var/www" "strata-hosting-storage"
+    fi
+    if [[ -n "${STRATA_BACKUP_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$STRATA_BACKUP_STORAGE_ROOT" "/var/backups/strata" "strata-backup-storage"
+    fi
+    if [[ -n "${STRATA_MAIL_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$STRATA_MAIL_STORAGE_ROOT" "/var/mail" "strata-mail-storage"
+    fi
+    if [[ -n "${STRATA_MYSQL_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$STRATA_MYSQL_STORAGE_ROOT" "/var/lib/mysql" "strata-mysql-storage"
+    fi
+    if [[ -n "${STRATA_POSTGRES_STORAGE_ROOT:-}" ]]; then
+        ensure_bind_mount "$STRATA_POSTGRES_STORAGE_ROOT" "/var/lib/postgresql" "strata-postgresql-storage"
+    fi
 }
 
 cleanup() {
