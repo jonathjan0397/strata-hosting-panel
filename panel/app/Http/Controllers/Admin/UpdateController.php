@@ -76,6 +76,20 @@ class UpdateController extends Controller
                 ['match' => 'Remote agent upgrade requests queued.', 'progress' => 100, 'label' => 'Completed'],
             ],
         ],
+        'storage_migration' => [
+            'label' => 'Storage Migration',
+            'path' => 'strata-storage-migration.log',
+            'process_needles' => ['/usr/sbin/strata-storage-migrate'],
+            'stages' => [
+                ['match' => 'started storage migration for', 'progress' => 5, 'label' => 'Queued'],
+                ['match' => 'Rollback metadata saved', 'progress' => 12, 'label' => 'Preparing rollback metadata'],
+                ['match' => 'Initial sync to target storage', 'progress' => 24, 'label' => 'Initial sync'],
+                ['match' => 'Final sync with services stopped', 'progress' => 50, 'label' => 'Final sync'],
+                ['match' => 'Applying bind mount', 'progress' => 72, 'label' => 'Applying bind mounts'],
+                ['match' => 'Starting ', 'progress' => 88, 'label' => 'Restarting services'],
+                ['match' => 'Migration complete for item:', 'progress' => 100, 'label' => 'Completed'],
+            ],
+        ],
     ];
     private const SUPPORTED_CHANNELS = [
         ['value' => 'main', 'label' => 'Main', 'description' => 'Latest supported integration branch.'],
@@ -310,6 +324,84 @@ class UpdateController extends Controller
         return response()->json([
             'status' => 'started',
             'message' => 'Remote node agent upgrade started.',
+            'log_path' => $logPath,
+        ]);
+    }
+
+    public function storageMigration(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'item' => ['required', 'in:hosting,backups,mail,mysql,postgresql'],
+            'roots' => ['required', 'array'],
+            'roots.hosting' => ['required', 'string', 'max:255', 'regex:/^\//'],
+            'roots.backups' => ['required', 'string', 'max:255', 'regex:/^\//'],
+            'roots.mail' => ['required', 'string', 'max:255', 'regex:/^\//'],
+            'roots.mysql' => ['required', 'string', 'max:255', 'regex:/^\//'],
+            'roots.postgresql' => ['required', 'string', 'max:255', 'regex:/^\//'],
+        ]);
+
+        if (! is_executable(self::STORAGE_MIGRATE_BIN)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'The storage migration utility is not installed on this server.',
+            ], 500);
+        }
+
+        $roots = array_map(
+            static fn ($value) => rtrim(trim((string) $value), '/') ?: '/',
+            $data['roots']
+        );
+        $item = $data['item'];
+        $currentRoots = collect($this->currentStorageRoots())->keyBy('key');
+        abort_unless($currentRoots->has($item), 422, 'Unknown storage item.');
+        abort_unless(
+            $roots[$item] !== ($currentRoots[$item]['current_root'] ?? null),
+            422,
+            'Select a different target path before starting migration.'
+        );
+
+        $logPath = storage_path('logs/strata-storage-migration.log');
+        File::ensureDirectoryExists(dirname($logPath));
+        File::append(
+            $logPath,
+            sprintf(
+                "[%s] Admin %s started storage migration for %s: target=%s\n",
+                now()->toDateTimeString(),
+                $request->user()->email,
+                $item,
+                $roots[$item]
+            )
+        );
+
+        $envAssignments = [
+            'HOSTING_TARGET' => $roots['hosting'],
+            'BACKUP_TARGET' => $roots['backups'],
+            'MAIL_TARGET' => $roots['mail'],
+            'MYSQL_TARGET' => $roots['mysql'],
+            'POSTGRES_TARGET' => $roots['postgresql'],
+        ];
+        $envPrefix = collect($envAssignments)
+            ->map(fn (string $value, string $key) => $key . '=' . escapeshellarg($value))
+            ->implode(' ');
+
+        $command = sprintf(
+            'nohup env MIGRATION_ITEM=%s %s sudo -n %s >> %s 2>&1 < /dev/null &',
+            escapeshellarg($item),
+            $envPrefix,
+            escapeshellarg(self::STORAGE_MIGRATE_BIN),
+            escapeshellarg($logPath)
+        );
+
+        Process::fromShellCommandline('/bin/bash -lc ' . escapeshellarg($command))->run();
+
+        AuditLog::record('panel.storage_migration.started', null, [
+            'item' => $item,
+            'roots' => $roots,
+        ]);
+
+        return response()->json([
+            'status' => 'started',
+            'message' => sprintf('Storage migration for %s started. Services on the primary server will restart during cutover.', $item),
             'log_path' => $logPath,
         ]);
     }

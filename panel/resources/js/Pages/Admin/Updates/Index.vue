@@ -186,7 +186,7 @@
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <div class="text-sm font-medium text-gray-100">Storage Migration</div>
-                <div class="mt-1 text-xs text-gray-400">Generate the live server command for migrating hosting, backups, mail, MariaDB, and PostgreSQL onto new storage roots. Run this over SSH as root during a maintenance window.</div>
+                <div class="mt-1 text-xs text-gray-400">Migrate one storage item at a time onto a new root. The selected item can be launched from here or via the generated SSH command during a maintenance window.</div>
               </div>
               <div class="rounded-lg border px-3 py-2 text-xs" :class="storageMigration.available ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-red-700/40 bg-red-900/20 text-red-300'">
                 {{ storageMigration.available ? 'Utility installed on primary server' : 'Utility not installed on this server yet' }}
@@ -208,19 +208,27 @@
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b border-gray-800 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th class="px-4 py-3">Select</th>
                     <th class="px-4 py-3">Path</th>
                     <th class="px-4 py-3">Runtime Mount</th>
                     <th class="px-4 py-3">Current Root</th>
                     <th class="px-4 py-3">New Root</th>
+                    <th class="px-4 py-3">Status</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-800">
                   <tr v-for="root in storageMigration.current_roots || []" :key="root.key">
+                    <td class="px-4 py-3">
+                      <input v-model="selectedStorageKey" :value="root.key" type="radio" class="border-gray-600 bg-gray-800 text-sky-500" />
+                    </td>
                     <td class="px-4 py-3 text-gray-200">{{ root.label }}</td>
                     <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ root.runtime_path }}</td>
                     <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ root.current_root }}</td>
                     <td class="px-4 py-3">
                       <input v-model="storageForm[root.key]" type="text" class="field w-full font-mono text-xs" />
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="rounded-full border px-2.5 py-1 text-[11px]" :class="storageItemStatusClasses(root.key)">{{ storageItemStatusLabel(root.key) }}</span>
                     </td>
                   </tr>
                 </tbody>
@@ -229,6 +237,18 @@
 
             <div class="rounded-xl border border-blue-700/30 bg-blue-900/20 p-4 text-xs text-blue-100">
               The migration utility stops services, performs a final rsync, swaps bind mounts, and writes a rollback env file under <span class="font-mono text-blue-50">/root/strata-storage-migration-YYYYMMDD-HHMMSS.env</span>.
+            </div>
+
+            <div class="rounded-xl border border-gray-800 bg-gray-900/70 p-3 text-xs text-gray-300">
+              <div class="uppercase tracking-wide text-gray-500">Selected Item</div>
+              <div class="mt-1 font-mono text-sm text-gray-100">{{ selectedStorageRoot?.label || 'None selected' }}</div>
+              <div v-if="selectedStorageRoot" class="mt-1 text-gray-400">Target: <span class="font-mono">{{ storageForm[selectedStorageRoot.key] }}</span></div>
+            </div>
+
+            <div class="flex justify-end">
+              <button @click="startStorageMigration" :disabled="panelApplying || !storageMigration.available || !selectedStorageRoot" class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60 transition-colors">
+                {{ panelApplying ? 'Starting...' : `Start ${selectedStorageRoot?.label || 'Storage'} Migration` }}
+              </button>
             </div>
 
             <div class="rounded-xl border border-gray-800 bg-[#08111f]">
@@ -317,6 +337,9 @@ const storageForm = ref(buildStorageForm(storageMigration.value.current_roots ||
 const resolvedPanelSourceValue = computed(() => resolvedPanelPayload().source_value);
 const activityEntries = computed(() => panelActivity.value?.activities || []);
 const currentActivity = computed(() => activityEntries.value.find((entry) => entry.key === selectedActivityKey.value) || activityEntries.value[0] || null);
+const selectedStorageKey = ref(storageMigration.value.current_roots?.[0]?.key || null);
+const storageMigrationActivity = computed(() => activityEntries.value.find((entry) => entry.key === 'storage_migration') || null);
+const selectedStorageRoot = computed(() => (storageMigration.value.current_roots || []).find((root) => root.key === selectedStorageKey.value) || null);
 const storageCommand = computed(() => buildStorageCommand());
 const storageRollbackCommand = computed(() => `${storageMigration.value.rollback_bin || '/usr/sbin/strata-storage-migrate-rollback'} /root/strata-storage-migration-YYYYMMDD-HHMMSS.env`);
 
@@ -324,8 +347,11 @@ function formatDate(value) { return value ? new Date(value).toLocaleString() : '
 function suggestedStorageRoot(root) { if (!root?.runtime_path) return root?.current_root || ''; if (root.current_root && root.current_root !== root.runtime_path) return root.current_root; const suffixMap = { hosting: 'www', backups: 'backups', mail: 'mail', mysql: 'mysql', postgresql: 'postgresql' }; return `/srv/strata/${suffixMap[root.key] || root.key}`; }
 function buildStorageForm(roots) { return Object.fromEntries((roots || []).map((root) => [root.key, suggestedStorageRoot(root)])); }
 function shellEscape(value) { return `'${String(value ?? '').replace(/'/g, `'\"'\"'`)}'`; }
-function buildStorageCommand() { const path = storageMigration.value.migrate_bin || '/usr/sbin/strata-storage-migrate'; const mapping = storageMigration.value.current_roots || []; const envLines = mapping.map((root) => `${root.env_key}=${shellEscape(storageForm.value[root.key] || root.current_root || root.runtime_path)}`); return `${envLines.join(' \\\n')}${envLines.length ? ' \\\n' : ''}${path}`; }
+function buildStorageCommand() { const path = storageMigration.value.migrate_bin || '/usr/sbin/strata-storage-migrate'; const mapping = storageMigration.value.current_roots || []; const envLines = mapping.map((root) => `${root.env_key}=${shellEscape(storageForm.value[root.key] || root.current_root || root.runtime_path)}`); const selected = selectedStorageKey.value ? `MIGRATION_ITEM=${shellEscape(selectedStorageKey.value)}` : ''; return `${selected}${selected ? ' \\\n' : ''}${envLines.join(' \\\n')}${envLines.length ? ' \\\n' : ''}${path}`; }
 async function copyText(value) { try { await navigator.clipboard.writeText(value); panelMessage.value = { status: 'saved', message: 'Command copied to clipboard.' }; } catch { panelMessage.value = { status: 'error', message: 'Failed to copy command to clipboard.' }; } }
+function currentStorageMigrationItem() { const lines = storageMigrationActivity.value?.lines || []; for (const line of [...lines].reverse()) { const match = line.match(/started storage migration for ([a-z]+)/i); if (match) return match[1].toLowerCase(); const complete = line.match(/Migration complete for item: ([a-z]+)/i); if (complete) return complete[1].toLowerCase(); } return null; }
+function storageItemStatusLabel(key) { const activity = storageMigrationActivity.value; const currentItem = currentStorageMigrationItem(); if (!activity || currentItem !== key) return key === selectedStorageKey.value ? 'Selected' : 'Idle'; if (activity.status === 'running') return 'Running'; if (activity.status === 'completed') return 'Completed'; if (activity.status === 'failed') return 'Failed'; return 'Idle'; }
+function storageItemStatusClasses(key) { const label = storageItemStatusLabel(key); if (label === 'Running') return 'border-blue-700/40 bg-blue-900/20 text-blue-300'; if (label === 'Completed') return 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300'; if (label === 'Failed') return 'border-red-700/40 bg-red-900/20 text-red-300'; if (label === 'Selected') return 'border-sky-700/40 bg-sky-900/20 text-sky-300'; return 'border-gray-700 bg-gray-900 text-gray-400'; }
 function useLatestRelease() { if (props.panel?.latest_release?.tag_name) panelForm.value.version = props.panel.latest_release.tag_name; }
 function resolvedPanelPayload() { const version = panelForm.value.version?.trim(); const branch = panelForm.value.branch?.trim(); if (version) return { source_type: 'version', source_value: version }; if (branch) return { source_type: 'branch', source_value: branch }; return { source_type: 'version', source_value: '' }; }
 function currentLogUrl(name) { if (!currentActivity.value?.key) return null; return route(name, { key: currentActivity.value.key }); }
@@ -340,6 +366,7 @@ function stopActivityPolling() { if (activityPollHandle) { window.clearInterval(
 async function checkUpdates() { if (!selectedNode.value) return; checking.value = true; loadError.value = ''; applyResult.value = null; try { const res = await fetch(route('admin.updates.available') + '?node_id=' + selectedNode.value); const data = await res.json(); if (data.error) { loadError.value = data.error; packages.value = []; } else { packages.value = data.packages ?? []; } } catch { loadError.value = 'Failed to check updates.'; } finally { checking.value = false; } }
 async function applyUpdates() { if (!confirm('Apply all pending updates on this node? The upgrade runs in the background and may take a few minutes.')) return; applying.value = true; applyResult.value = null; try { const res = await fetch(route('admin.updates.apply'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify({ node_id: selectedNode.value }) }); applyResult.value = await res.json(); if (applyResult.value.status === 'upgraded') await checkUpdates(); } catch { applyResult.value = { status: 'error', output: 'Request failed.' }; } finally { applying.value = false; } }
 async function startPanelUpgrade() { if (!confirm('Start the Strata panel upgrade now? The panel may be briefly unavailable while services restart.')) return; panelApplying.value = true; panelMessage.value = null; try { const res = await fetch(route('admin.updates.panel-upgrade'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify(resolvedPanelPayload()) }); panelMessage.value = await res.json(); if (!res.ok && !panelMessage.value?.message) panelMessage.value = { status: 'error', message: 'Failed to start panel upgrade.' }; await refreshActivity(); } catch { panelMessage.value = { status: 'error', message: 'Failed to start panel upgrade.' }; } finally { panelApplying.value = false; } }
+async function startStorageMigration() { if (!selectedStorageRoot.value) return; if (!confirm(`Start the ${selectedStorageRoot.value.label} migration now? This will stop services during cutover and may make the panel briefly unavailable.`)) return; panelApplying.value = true; panelMessage.value = null; try { const payload = { item: selectedStorageRoot.value.key, roots: { hosting: storageForm.value.hosting, backups: storageForm.value.backups, mail: storageForm.value.mail, mysql: storageForm.value.mysql, postgresql: storageForm.value.postgresql } }; const res = await fetch(route('admin.updates.storage-migration'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify(payload) }); panelMessage.value = await res.json(); if (!res.ok && !panelMessage.value?.message) panelMessage.value = { status: 'error', message: 'Failed to start storage migration.' }; await refreshActivity(); } catch { panelMessage.value = { status: 'error', message: 'Failed to start storage migration.' }; } finally { panelApplying.value = false; } }
 async function savePanelSettings() { panelSettingsSaving.value = true; panelMessage.value = null; try { const res = await fetch(route('admin.updates.settings'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify(panelSettings.value) }); panelMessage.value = await res.json(); if (!res.ok && !panelMessage.value?.message) panelMessage.value = { status: 'error', message: 'Failed to save upgrade preference.' }; } catch { panelMessage.value = { status: 'error', message: 'Failed to save upgrade preference.' }; } finally { panelSettingsSaving.value = false; } }
 async function startRemoteAgentsUpgrade() { if (!confirm('Start the remote node agent upgrade now?')) return; panelApplying.value = true; panelMessage.value = null; try { const res = await fetch(route('admin.updates.remote-agents'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify(resolvedPanelPayload()) }); panelMessage.value = await res.json(); if (!res.ok && !panelMessage.value?.message) panelMessage.value = { status: 'error', message: 'Failed to start remote node agent upgrade.' }; await refreshActivity(); } catch { panelMessage.value = { status: 'error', message: 'Failed to start remote node agent upgrade.' }; } finally { panelApplying.value = false; } }
 async function startBackupRollback() { if (!rollbackBackupName.value) return; if (!confirm(`Roll back the panel to backup "${rollbackBackupName.value}" now? This restores the previously installed release state captured in that backup and may briefly interrupt the panel.`)) return; panelApplying.value = true; panelMessage.value = null; try { const res = await fetch(route('admin.updates.panel-rollback-backup'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify({ backup_name: rollbackBackupName.value }) }); panelMessage.value = await res.json(); if (!res.ok && !panelMessage.value?.message) panelMessage.value = { status: 'error', message: 'Failed to start backup rollback.' }; await refreshActivity(); } catch { panelMessage.value = { status: 'error', message: 'Failed to start backup rollback.' }; } finally { panelApplying.value = false; } }

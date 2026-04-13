@@ -420,6 +420,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('updates/panel-upgrade', [UpdateController::class, 'panelUpgrade'])->name('updates.panel-upgrade');
         Route::post('updates/panel-rollback-backup', [UpdateController::class, 'rollbackBackup'])->name('updates.panel-rollback-backup');
         Route::post('updates/remote-agents', [UpdateController::class, 'remoteAgentsUpgrade'])->name('updates.remote-agents');
+        Route::post('updates/storage-migration', [UpdateController::class, 'storageMigration'])->name('updates.storage-migration');
         Route::get('updates/activity', [UpdateController::class, 'activity'])->name('updates.activity');
         Route::get('updates/logs/export', [UpdateController::class, 'exportLog'])->name('updates.logs.export');
         Route::get('updates/logs/popup', [UpdateController::class, 'popupLog'])->name('updates.logs.popup');

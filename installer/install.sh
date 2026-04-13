@@ -1102,6 +1102,8 @@ else
     install_storage_migration_tools /tmp/strata-hosting-panel-src
     cat > /etc/sudoers.d/strata-upgrade <<'EOF'
 www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-storage-migrate
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-storage-migrate-rollback
 EOF
     chmod 440 /etc/sudoers.d/strata-upgrade
     rm -rf /tmp/strata-hosting-panel-src

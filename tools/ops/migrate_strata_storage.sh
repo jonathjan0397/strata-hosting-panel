@@ -91,6 +91,11 @@ update_agent_install_env() {
     info "Updated ${INSTALL_ENV_PATH}"
 }
 
+is_selected_item() {
+    local item="$1"
+    [[ "${MIGRATION_ITEM}" == "all" || "${MIGRATION_ITEM}" == "$item" ]]
+}
+
 sync_path() {
     local source_path="$1"
     local target_path="$2"
@@ -141,8 +146,14 @@ MYSQL_SOURCE="${MYSQL_SOURCE:-/var/lib/mysql}"
 MYSQL_TARGET="${MYSQL_TARGET:-/srv/strata/mysql}"
 POSTGRES_SOURCE="${POSTGRES_SOURCE:-/var/lib/postgresql}"
 POSTGRES_TARGET="${POSTGRES_TARGET:-/srv/strata/postgresql}"
+MIGRATION_ITEM="${MIGRATION_ITEM:-all}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 ROLLBACK_LOG="${ROLLBACK_LOG:-/root/strata-storage-migration-${TIMESTAMP}.env}"
+
+case "$MIGRATION_ITEM" in
+    all|hosting|backups|mail|mysql|postgresql) ;;
+    *) die "Unsupported MIGRATION_ITEM: ${MIGRATION_ITEM}" ;;
+esac
 
 [[ -d "$HOSTING_SOURCE" ]] || die "Hosting source path not found: $HOSTING_SOURCE"
 mkdir -p "$BACKUP_SOURCE" "$MAIL_SOURCE" "$MYSQL_SOURCE" "$POSTGRES_SOURCE"
@@ -164,12 +175,13 @@ EOF
 chmod 600 "$ROLLBACK_LOG"
 
 info "Rollback metadata saved to ${ROLLBACK_LOG}"
+info "Starting storage migration for item: ${MIGRATION_ITEM}"
 info "Initial sync to target storage..."
-sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
-sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
-sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
-sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
-sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
+is_selected_item hosting && sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
+is_selected_item backups && sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
+is_selected_item mail && sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
+is_selected_item mysql && sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
+is_selected_item postgresql && sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
 
 SERVICES=(
     strata-queue.service
@@ -197,17 +209,17 @@ for service in "${SERVICES[@]}"; do
 done
 
 info "Final sync with services stopped..."
-final_sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
-final_sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
-final_sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
-final_sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
-final_sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
+is_selected_item hosting && final_sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
+is_selected_item backups && final_sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
+is_selected_item mail && final_sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
+is_selected_item mysql && final_sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
+is_selected_item postgresql && final_sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
 
-cut_over_path "$HOSTING_SOURCE" "$HOSTING_TARGET" "hosting data" HOSTING_BACKUP "strata-hosting-storage"
-cut_over_path "$BACKUP_SOURCE" "$BACKUP_TARGET" "backup data" BACKUP_BACKUP "strata-backup-storage"
-cut_over_path "$MAIL_SOURCE" "$MAIL_TARGET" "mail data" MAIL_BACKUP "strata-mail-storage"
-cut_over_path "$MYSQL_SOURCE" "$MYSQL_TARGET" "MariaDB data" MYSQL_BACKUP "strata-mysql-storage"
-cut_over_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET" "PostgreSQL data" POSTGRES_BACKUP "strata-postgresql-storage"
+is_selected_item hosting && cut_over_path "$HOSTING_SOURCE" "$HOSTING_TARGET" "hosting data" HOSTING_BACKUP "strata-hosting-storage"
+is_selected_item backups && cut_over_path "$BACKUP_SOURCE" "$BACKUP_TARGET" "backup data" BACKUP_BACKUP "strata-backup-storage"
+is_selected_item mail && cut_over_path "$MAIL_SOURCE" "$MAIL_TARGET" "mail data" MAIL_BACKUP "strata-mail-storage"
+is_selected_item mysql && cut_over_path "$MYSQL_SOURCE" "$MYSQL_TARGET" "MariaDB data" MYSQL_BACKUP "strata-mysql-storage"
+is_selected_item postgresql && cut_over_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET" "PostgreSQL data" POSTGRES_BACKUP "strata-postgresql-storage"
 
 cat >> "$ROLLBACK_LOG" <<EOF
 HOSTING_BACKUP='${HOSTING_BACKUP}'
@@ -224,15 +236,15 @@ for service in "${SERVICES[@]}"; do
     start_if_present "$service"
 done
 
-info "Migration complete."
-printf 'findmnt %s -> %s\n' "$HOSTING_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$HOSTING_SOURCE" 2>/dev/null || true)"
-printf 'findmnt %s -> %s\n' "$BACKUP_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$BACKUP_SOURCE" 2>/dev/null || true)"
-printf 'findmnt %s -> %s\n' "$MAIL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MAIL_SOURCE" 2>/dev/null || true)"
-printf 'findmnt %s -> %s\n' "$MYSQL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MYSQL_SOURCE" 2>/dev/null || true)"
-printf 'findmnt %s -> %s\n' "$POSTGRES_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$POSTGRES_SOURCE" 2>/dev/null || true)"
-printf 'Original directories kept at:\n  %s\n  %s\n  %s\n  %s\n  %s\n' \
-    "$HOSTING_BACKUP" \
-    "$BACKUP_BACKUP" \
-    "$MAIL_BACKUP" \
-    "$MYSQL_BACKUP" \
-    "$POSTGRES_BACKUP"
+info "Migration complete for item: ${MIGRATION_ITEM}"
+is_selected_item hosting && printf 'findmnt %s -> %s\n' "$HOSTING_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$HOSTING_SOURCE" 2>/dev/null || true)"
+is_selected_item backups && printf 'findmnt %s -> %s\n' "$BACKUP_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$BACKUP_SOURCE" 2>/dev/null || true)"
+is_selected_item mail && printf 'findmnt %s -> %s\n' "$MAIL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MAIL_SOURCE" 2>/dev/null || true)"
+is_selected_item mysql && printf 'findmnt %s -> %s\n' "$MYSQL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MYSQL_SOURCE" 2>/dev/null || true)"
+is_selected_item postgresql && printf 'findmnt %s -> %s\n' "$POSTGRES_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$POSTGRES_SOURCE" 2>/dev/null || true)"
+printf 'Original directories kept at:\n'
+is_selected_item hosting && printf '  %s\n' "$HOSTING_BACKUP"
+is_selected_item backups && printf '  %s\n' "$BACKUP_BACKUP"
+is_selected_item mail && printf '  %s\n' "$MAIL_BACKUP"
+is_selected_item mysql && printf '  %s\n' "$MYSQL_BACKUP"
+is_selected_item postgresql && printf '  %s\n' "$POSTGRES_BACKUP"

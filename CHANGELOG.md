@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.1] - 2026-04-13
+
+Release target: `1.0.1`.
+
+### Fixed - Executable storage migration from the admin updates screen
+
+- Added a real admin action to launch storage migration from the Updates page instead of only generating shell commands
+- Scoped storage migration and rollback to the selected storage item so admins can migrate hosting, backups, mail, MariaDB, or PostgreSQL independently
+- Added per-item migration selection and status presentation in the admin Updates UI
+- Installed the required sudo permissions for the panel to execute the storage migration and rollback utilities directly
+
 ## [1.0.0] - 2026-04-13
 
 Release target: `1.0.0`.

@@ -43,15 +43,15 @@ restore_panel_storage_config() {
     [[ -f "$config_path" ]] || return 0
 
     cat > "$config_path" <<EOF
-HOSTING_STORAGE_ROOT='${HOSTING_SOURCE}'
+HOSTING_STORAGE_ROOT='$(storage_root_after_rollback "${HOSTING_BACKUP:-}" "$HOSTING_SOURCE" "$HOSTING_TARGET")'
 HOSTING_BIND_TARGET='${HOSTING_SOURCE}'
-BACKUP_STORAGE_ROOT='${BACKUP_SOURCE}'
+BACKUP_STORAGE_ROOT='$(storage_root_after_rollback "${BACKUP_BACKUP:-}" "$BACKUP_SOURCE" "$BACKUP_TARGET")'
 BACKUP_BIND_TARGET='${BACKUP_SOURCE}'
-MAIL_STORAGE_ROOT='${MAIL_SOURCE}'
+MAIL_STORAGE_ROOT='$(storage_root_after_rollback "${MAIL_BACKUP:-}" "$MAIL_SOURCE" "$MAIL_TARGET")'
 MAIL_BIND_TARGET='${MAIL_SOURCE}'
-MYSQL_STORAGE_ROOT='${MYSQL_SOURCE}'
+MYSQL_STORAGE_ROOT='$(storage_root_after_rollback "${MYSQL_BACKUP:-}" "$MYSQL_SOURCE" "$MYSQL_TARGET")'
 MYSQL_BIND_TARGET='${MYSQL_SOURCE}'
-POSTGRES_STORAGE_ROOT='${POSTGRES_SOURCE}'
+POSTGRES_STORAGE_ROOT='$(storage_root_after_rollback "${POSTGRES_BACKUP:-}" "$POSTGRES_SOURCE" "$POSTGRES_TARGET")'
 POSTGRES_BIND_TARGET='${POSTGRES_SOURCE}'
 EOF
     chmod 600 "$config_path"
@@ -73,13 +73,44 @@ restore_agent_install_env() {
     INSTALL_ENV_PATH="/etc/strata-agent/install.env"
     [[ -f "$INSTALL_ENV_PATH" ]] || return 0
 
-    upsert_install_env_value STRATA_HOSTING_STORAGE_ROOT "$HOSTING_SOURCE"
-    upsert_install_env_value STRATA_BACKUP_STORAGE_ROOT "$BACKUP_SOURCE"
-    upsert_install_env_value STRATA_MAIL_STORAGE_ROOT "$MAIL_SOURCE"
-    upsert_install_env_value STRATA_MYSQL_STORAGE_ROOT "$MYSQL_SOURCE"
-    upsert_install_env_value STRATA_POSTGRES_STORAGE_ROOT "$POSTGRES_SOURCE"
+    upsert_install_env_value STRATA_HOSTING_STORAGE_ROOT "$(storage_root_after_rollback "${HOSTING_BACKUP:-}" "$HOSTING_SOURCE" "$HOSTING_TARGET")"
+    upsert_install_env_value STRATA_BACKUP_STORAGE_ROOT "$(storage_root_after_rollback "${BACKUP_BACKUP:-}" "$BACKUP_SOURCE" "$BACKUP_TARGET")"
+    upsert_install_env_value STRATA_MAIL_STORAGE_ROOT "$(storage_root_after_rollback "${MAIL_BACKUP:-}" "$MAIL_SOURCE" "$MAIL_TARGET")"
+    upsert_install_env_value STRATA_MYSQL_STORAGE_ROOT "$(storage_root_after_rollback "${MYSQL_BACKUP:-}" "$MYSQL_SOURCE" "$MYSQL_TARGET")"
+    upsert_install_env_value STRATA_POSTGRES_STORAGE_ROOT "$(storage_root_after_rollback "${POSTGRES_BACKUP:-}" "$POSTGRES_SOURCE" "$POSTGRES_TARGET")"
     chmod 600 "$INSTALL_ENV_PATH"
     info "Updated ${INSTALL_ENV_PATH}"
+}
+
+storage_root_after_rollback() {
+    local backup_path="$1"
+    local source_path="$2"
+    local target_path="$3"
+
+    if [[ -n "$backup_path" ]]; then
+        printf '%s\n' "$source_path"
+    else
+        printf '%s\n' "$target_path"
+    fi
+}
+
+restore_if_selected() {
+    local source_path="$1"
+    local backup_path="$2"
+
+    [[ -n "$backup_path" ]] || return 0
+    restore_path "$source_path" "$backup_path"
+}
+
+remove_fstab_label_if_selected() {
+    local label="$1"
+    local backup_path="$2"
+
+    [[ -n "$backup_path" ]] || return 0
+    grep -vF "# ${label}" /etc/fstab > /etc/fstab.strata.rollback.tmp 2>/dev/null || true
+    if [[ -f /etc/fstab.strata.rollback.tmp ]]; then
+        mv /etc/fstab.strata.rollback.tmp /etc/fstab
+    fi
 }
 
 require_root
@@ -115,21 +146,17 @@ for service in "${SERVICES[@]}"; do
     stop_if_present "$service"
 done
 
-grep -vF '# strata-hosting-storage' /etc/fstab \
-    | grep -vF '# strata-backup-storage' \
-    | grep -vF '# strata-mail-storage' \
-    | grep -vF '# strata-mysql-storage' \
-    | grep -vF '# strata-postgresql-storage' \
-    > /etc/fstab.strata.rollback.tmp 2>/dev/null || true
-if [[ -f /etc/fstab.strata.rollback.tmp ]]; then
-    mv /etc/fstab.strata.rollback.tmp /etc/fstab
-fi
+remove_fstab_label_if_selected 'strata-hosting-storage' "${HOSTING_BACKUP:-}"
+remove_fstab_label_if_selected 'strata-backup-storage' "${BACKUP_BACKUP:-}"
+remove_fstab_label_if_selected 'strata-mail-storage' "${MAIL_BACKUP:-}"
+remove_fstab_label_if_selected 'strata-mysql-storage' "${MYSQL_BACKUP:-}"
+remove_fstab_label_if_selected 'strata-postgresql-storage' "${POSTGRES_BACKUP:-}"
 
-restore_path "$HOSTING_SOURCE" "$HOSTING_BACKUP"
-restore_path "$BACKUP_SOURCE" "$BACKUP_BACKUP"
-restore_path "$MAIL_SOURCE" "$MAIL_BACKUP"
-restore_path "$MYSQL_SOURCE" "$MYSQL_BACKUP"
-restore_path "$POSTGRES_SOURCE" "$POSTGRES_BACKUP"
+restore_if_selected "$HOSTING_SOURCE" "${HOSTING_BACKUP:-}"
+restore_if_selected "$BACKUP_SOURCE" "${BACKUP_BACKUP:-}"
+restore_if_selected "$MAIL_SOURCE" "${MAIL_BACKUP:-}"
+restore_if_selected "$MYSQL_SOURCE" "${MYSQL_BACKUP:-}"
+restore_if_selected "$POSTGRES_SOURCE" "${POSTGRES_BACKUP:-}"
 
 restore_panel_storage_config
 restore_agent_install_env

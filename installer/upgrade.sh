@@ -472,6 +472,8 @@ restore_from_backup_dir() {
     install_storage_migration_tools "$source_dir"
     cat > /etc/sudoers.d/strata-upgrade <<'EOF'
 www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-storage-migrate
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-storage-migrate-rollback
 EOF
     chmod 440 /etc/sudoers.d/strata-upgrade
     reassert_storage_mounts
@@ -756,6 +758,8 @@ if [[ -f "$extract_dir/installer/upgrade.sh" ]]; then
 fi
 cat > /etc/sudoers.d/strata-upgrade <<'EOF'
 www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-storage-migrate
+www-data ALL=(root) NOPASSWD: /usr/sbin/strata-storage-migrate-rollback
 EOF
 chmod 440 /etc/sudoers.d/strata-upgrade
 if grep -q '^STRATA_VERSION=' "$INSTALL_DIR/panel/.env"; then
