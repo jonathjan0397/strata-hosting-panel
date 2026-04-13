@@ -170,6 +170,17 @@ ensure_bind_mount() {
         || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$fstab_label" >> /etc/fstab
 }
 
+install_storage_migration_tools() {
+    local repo_root="$1"
+
+    if [[ -f "$repo_root/tools/ops/migrate_strata_storage.sh" ]]; then
+        install -m 755 "$repo_root/tools/ops/migrate_strata_storage.sh" /usr/sbin/strata-storage-migrate
+    fi
+    if [[ -f "$repo_root/tools/ops/rollback_strata_storage_migration.sh" ]]; then
+        install -m 755 "$repo_root/tools/ops/rollback_strata_storage_migration.sh" /usr/sbin/strata-storage-migrate-rollback
+    fi
+}
+
 directory_has_entries() {
     local path="${1:-}"
     [[ -d "$path" ]] || return 1
@@ -1083,10 +1094,12 @@ else
     mkdir -p "$INSTALL_DIR"
     cp -r /tmp/strata-hosting-panel-src/panel "$INSTALL_DIR/panel"
     cp -r /tmp/strata-hosting-panel-src/agent "$INSTALL_DIR/agent-src"
+    cp -r /tmp/strata-hosting-panel-src/tools "$INSTALL_DIR/tools"
     cp /tmp/strata-hosting-panel-src/VERSION "$INSTALL_DIR/VERSION" 2>/dev/null || echo "$PANEL_VERSION" > "$INSTALL_DIR/VERSION"
     install -m 755 /tmp/strata-hosting-panel-src/installer/agent-upgrade.sh /usr/sbin/strata-agent-upgrade
     install -m 755 /tmp/strata-hosting-panel-src/installer/upgrade.sh /root/strata-upgrade.sh
     install -m 755 /tmp/strata-hosting-panel-src/installer/upgrade.sh /usr/sbin/strata-upgrade
+    install_storage_migration_tools /tmp/strata-hosting-panel-src
     cat > /etc/sudoers.d/strata-upgrade <<'EOF'
 www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
 EOF

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.30] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.30`.
+
+### Changed - Admin storage migration guidance and utility installation
+
+- Added a storage migration section to the admin updates page so operators can see current primary-server storage roots and generate exact migration and rollback commands
+- Installed the storage migration utilities onto managed primary servers during panel install and upgrade
+- Installed the same storage migration utilities onto remote nodes during node install and agent upgrade so migration tooling is consistently available across the fleet
+
 ## [1.0.0-BETA-3.29] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.29`.

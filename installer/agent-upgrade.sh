@@ -210,6 +210,17 @@ validate_binary() {
     }
 }
 
+install_storage_migration_tools() {
+    local repo_root="$1"
+
+    if [[ -f "$repo_root/tools/ops/migrate_strata_storage.sh" ]]; then
+        install -m 755 "$repo_root/tools/ops/migrate_strata_storage.sh" /usr/sbin/strata-storage-migrate
+    fi
+    if [[ -f "$repo_root/tools/ops/rollback_strata_storage_migration.sh" ]]; then
+        install -m 755 "$repo_root/tools/ops/rollback_strata_storage_migration.sh" /usr/sbin/strata-storage-migrate-rollback
+    fi
+}
+
 ensure_bind_mount() {
     local source_path="$1"
     local target_path="$2"
@@ -320,6 +331,7 @@ fi
 
 install -m 755 "$NEW_BINARY" /usr/sbin/strata-agent
 install -m 755 "$NEW_WEBDAV_BINARY" /usr/sbin/strata-webdav
+install_storage_migration_tools "$WORKDIR/src"
 install_rspamd_if_missing
 reassert_storage_mounts
 repair_fail2ban_defaults

@@ -20,6 +20,8 @@ use Symfony\Component\Process\Process;
 class UpdateController extends Controller
 {
     private const PANEL_UPGRADE_BIN = '/usr/sbin/strata-upgrade';
+    private const STORAGE_MIGRATE_BIN = '/usr/sbin/strata-storage-migrate';
+    private const STORAGE_MIGRATE_ROLLBACK_BIN = '/usr/sbin/strata-storage-migrate-rollback';
     private const LOG_DEFINITIONS = [
         'backup_jobs' => [
             'label' => 'Backup Jobs',
@@ -99,6 +101,7 @@ class UpdateController extends Controller
                 'default_source_value' => $latestRelease['tag_name'] ?? '',
                 'auto_remote_agents' => SystemSetting::getValue('updates.auto_remote_agents', '1') === '1',
                 'rollback_backups' => $this->availableRollbackBackups(),
+                'storage_migration' => $this->storageMigrationPayload(),
             ],
         ]);
     }
@@ -402,6 +405,80 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
     private function panelUpgradeUtilityAvailable(): bool
     {
         return is_executable(self::PANEL_UPGRADE_BIN);
+    }
+
+    private function storageMigrationPayload(): array
+    {
+        $roots = $this->currentStorageRoots();
+
+        return [
+            'available' => is_executable(self::STORAGE_MIGRATE_BIN),
+            'rollback_available' => is_executable(self::STORAGE_MIGRATE_ROLLBACK_BIN),
+            'migrate_bin' => self::STORAGE_MIGRATE_BIN,
+            'rollback_bin' => self::STORAGE_MIGRATE_ROLLBACK_BIN,
+            'current_roots' => $roots,
+        ];
+    }
+
+    private function currentStorageRoots(): array
+    {
+        $config = $this->readShellAssignments('/etc/strata-panel/storage.conf');
+
+        return [
+            [
+                'key' => 'hosting',
+                'label' => 'Hosting data',
+                'env_key' => 'HOSTING_TARGET',
+                'runtime_path' => '/var/www',
+                'current_root' => $config['HOSTING_STORAGE_ROOT'] ?? '/var/www',
+            ],
+            [
+                'key' => 'backups',
+                'label' => 'Backup data',
+                'env_key' => 'BACKUP_TARGET',
+                'runtime_path' => '/var/backups/strata',
+                'current_root' => $config['BACKUP_STORAGE_ROOT'] ?? '/var/backups/strata',
+            ],
+            [
+                'key' => 'mail',
+                'label' => 'Mail data',
+                'env_key' => 'MAIL_TARGET',
+                'runtime_path' => '/var/mail',
+                'current_root' => $config['MAIL_STORAGE_ROOT'] ?? '/var/mail',
+            ],
+            [
+                'key' => 'mysql',
+                'label' => 'MariaDB data',
+                'env_key' => 'MYSQL_TARGET',
+                'runtime_path' => '/var/lib/mysql',
+                'current_root' => $config['MYSQL_STORAGE_ROOT'] ?? '/var/lib/mysql',
+            ],
+            [
+                'key' => 'postgresql',
+                'label' => 'PostgreSQL data',
+                'env_key' => 'POSTGRES_TARGET',
+                'runtime_path' => '/var/lib/postgresql',
+                'current_root' => $config['POSTGRES_STORAGE_ROOT'] ?? '/var/lib/postgresql',
+            ],
+        ];
+    }
+
+    private function readShellAssignments(string $path): array
+    {
+        if (! File::exists($path)) {
+            return [];
+        }
+
+        $values = [];
+        foreach (preg_split("/\r\n|\n|\r/", File::get($path)) ?: [] as $line) {
+            if (! preg_match('/^([A-Z0-9_]+)=([\'"]?)(.*)\2$/', trim($line), $matches)) {
+                continue;
+            }
+
+            $values[$matches[1]] = $matches[3];
+        }
+
+        return $values;
     }
 
     private function availableRollbackBackups(): array

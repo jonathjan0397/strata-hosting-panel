@@ -162,6 +162,17 @@ validate_binary() {
     file "$path" | grep -Eq 'ELF .* executable' || die "Binary validation failed: $path is not a native executable."
 }
 
+install_storage_migration_tools() {
+    local repo_root="$1"
+
+    if [[ -f "$repo_root/tools/ops/migrate_strata_storage.sh" ]]; then
+        install -m 755 "$repo_root/tools/ops/migrate_strata_storage.sh" /usr/sbin/strata-storage-migrate
+    fi
+    if [[ -f "$repo_root/tools/ops/rollback_strata_storage_migration.sh" ]]; then
+        install -m 755 "$repo_root/tools/ops/rollback_strata_storage_migration.sh" /usr/sbin/strata-storage-migrate-rollback
+    fi
+}
+
 ensure_bind_mount() {
     local source_path="$1"
     local target_path="$2"
@@ -431,6 +442,7 @@ restore_from_backup_dir() {
     cp -a "$source_dir/panel" "$INSTALL_DIR/panel"
     [[ -d "$source_dir/agent-src" ]] && cp -a "$source_dir/agent-src" "$INSTALL_DIR/agent-src"
     [[ -d "$source_dir/installer" ]] && cp -a "$source_dir/installer" "$INSTALL_DIR/installer"
+    [[ -d "$source_dir/tools" ]] && cp -a "$source_dir/tools" "$INSTALL_DIR/tools"
     [[ -f "$source_dir/VERSION" ]] && cp -a "$source_dir/VERSION" "$INSTALL_DIR/VERSION"
     if [[ -f "$source_dir/strata-agent" ]]; then
         cp -a "$source_dir/strata-agent" /usr/sbin/strata-agent
@@ -447,6 +459,7 @@ restore_from_backup_dir() {
         install -m 755 "$source_dir/installer/upgrade.sh" /root/strata-upgrade.sh
         install -m 755 "$source_dir/installer/upgrade.sh" /usr/sbin/strata-upgrade
     fi
+    install_storage_migration_tools "$source_dir"
     cat > /etc/sudoers.d/strata-upgrade <<'EOF'
 www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
 EOF
@@ -625,6 +638,7 @@ info "Creating rollback backup at $BACKUP_DIR..."
 cp -a "$INSTALL_DIR/panel" "$BACKUP_DIR/panel"
 [[ -d "$INSTALL_DIR/agent-src" ]] && cp -a "$INSTALL_DIR/agent-src" "$BACKUP_DIR/agent-src"
 [[ -d "$INSTALL_DIR/installer" ]] && cp -a "$INSTALL_DIR/installer" "$BACKUP_DIR/installer"
+[[ -d "$INSTALL_DIR/tools" ]] && cp -a "$INSTALL_DIR/tools" "$BACKUP_DIR/tools"
 [[ -f "$INSTALL_DIR/VERSION" ]] && cp -a "$INSTALL_DIR/VERSION" "$BACKUP_DIR/VERSION"
 if [[ -f /usr/sbin/strata-agent ]]; then
     OLD_AGENT="$BACKUP_DIR/strata-agent"
@@ -705,21 +719,24 @@ systemctl stop strata-agent 2>/dev/null || true
 systemctl stop strata-webdav 2>/dev/null || true
 
 info "Installing new source while preserving runtime state..."
-rm -rf "$INSTALL_DIR/panel.new" "$INSTALL_DIR/agent-src.new" "$INSTALL_DIR/installer.new"
+rm -rf "$INSTALL_DIR/panel.new" "$INSTALL_DIR/agent-src.new" "$INSTALL_DIR/installer.new" "$INSTALL_DIR/tools.new"
 cp -a "$extract_dir/panel" "$INSTALL_DIR/panel.new"
 cp -a "$extract_dir/agent" "$INSTALL_DIR/agent-src.new"
 cp -a "$extract_dir/installer" "$INSTALL_DIR/installer.new"
+[[ -d "$extract_dir/tools" ]] && cp -a "$extract_dir/tools" "$INSTALL_DIR/tools.new"
 cp "$extract_dir/VERSION" "$INSTALL_DIR/VERSION.new" 2>/dev/null || echo "$target_version" > "$INSTALL_DIR/VERSION.new"
 
 rm -rf "$INSTALL_DIR/panel.new/.env" "$INSTALL_DIR/panel.new/storage"
 cp -a "$INSTALL_DIR/panel/.env" "$INSTALL_DIR/panel.new/.env"
 cp -a "$INSTALL_DIR/panel/storage" "$INSTALL_DIR/panel.new/storage"
 
-rm -rf "$INSTALL_DIR/panel" "$INSTALL_DIR/agent-src" "$INSTALL_DIR/installer"
+rm -rf "$INSTALL_DIR/panel" "$INSTALL_DIR/agent-src" "$INSTALL_DIR/installer" "$INSTALL_DIR/tools"
 mv "$INSTALL_DIR/panel.new" "$INSTALL_DIR/panel"
 mv "$INSTALL_DIR/agent-src.new" "$INSTALL_DIR/agent-src"
 mv "$INSTALL_DIR/installer.new" "$INSTALL_DIR/installer"
+[[ -d "$INSTALL_DIR/tools.new" ]] && mv "$INSTALL_DIR/tools.new" "$INSTALL_DIR/tools"
 mv "$INSTALL_DIR/VERSION.new" "$INSTALL_DIR/VERSION"
+install_storage_migration_tools "$INSTALL_DIR"
 if [[ -f "$extract_dir/installer/agent-upgrade.sh" ]]; then
     install -m 755 "$extract_dir/installer/agent-upgrade.sh" /usr/sbin/strata-agent-upgrade
 fi

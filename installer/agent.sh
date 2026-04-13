@@ -166,6 +166,17 @@ ensure_bind_mount() {
         || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$fstab_label" >> /etc/fstab
 }
 
+install_storage_migration_tools() {
+    local repo_root="$1"
+
+    if [[ -f "$repo_root/tools/ops/migrate_strata_storage.sh" ]]; then
+        install -m 755 "$repo_root/tools/ops/migrate_strata_storage.sh" /usr/sbin/strata-storage-migrate
+    fi
+    if [[ -f "$repo_root/tools/ops/rollback_strata_storage_migration.sh" ]]; then
+        install -m 755 "$repo_root/tools/ops/rollback_strata_storage_migration.sh" /usr/sbin/strata-storage-migrate-rollback
+    fi
+}
+
 directory_has_entries() {
     local path="${1:-}"
     [[ -d "$path" ]] || return 1
@@ -656,6 +667,7 @@ GOOS=linux GOARCH=amd64 go build \
 GOOS=linux GOARCH=amd64 go build -o /usr/sbin/strata-webdav ./cmd/strata-webdav
 chmod 755 /usr/sbin/strata-agent /usr/sbin/strata-webdav
 install -m 755 /tmp/strata-src/installer/agent-upgrade.sh /usr/sbin/strata-agent-upgrade
+install_storage_migration_tools /tmp/strata-src
 rm -rf /tmp/strata-src
 
 mkdir -p /etc/strata-agent /etc/strata-webdav

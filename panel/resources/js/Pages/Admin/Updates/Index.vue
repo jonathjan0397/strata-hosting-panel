@@ -181,6 +181,72 @@
               <button @click="startRemoteAgentsUpgrade" :disabled="panelApplying" class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors disabled:opacity-50">Start Remote Agent Upgrade</button>
             </div>
           </div>
+
+          <div class="rounded-xl border border-gray-800 bg-gray-950/60 p-4 space-y-4">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div class="text-sm font-medium text-gray-100">Storage Migration</div>
+                <div class="mt-1 text-xs text-gray-400">Generate the live server command for migrating hosting, backups, mail, MariaDB, and PostgreSQL onto new storage roots. Run this over SSH as root during a maintenance window.</div>
+              </div>
+              <div class="rounded-lg border px-3 py-2 text-xs" :class="storageMigration.available ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-red-700/40 bg-red-900/20 text-red-300'">
+                {{ storageMigration.available ? 'Utility installed on primary server' : 'Utility not installed on this server yet' }}
+              </div>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-2">
+              <div class="rounded-xl border border-gray-800 bg-gray-900/70 p-3">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Migration Command Path</div>
+                <div class="mt-1 break-all font-mono text-xs text-gray-300">{{ storageMigration.migrate_bin || '/usr/sbin/strata-storage-migrate' }}</div>
+              </div>
+              <div class="rounded-xl border border-gray-800 bg-gray-900/70 p-3">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Rollback Command Path</div>
+                <div class="mt-1 break-all font-mono text-xs text-gray-300">{{ storageMigration.rollback_bin || '/usr/sbin/strata-storage-migrate-rollback' }}</div>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-gray-800 bg-gray-900/70 overflow-hidden">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-800 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th class="px-4 py-3">Path</th>
+                    <th class="px-4 py-3">Runtime Mount</th>
+                    <th class="px-4 py-3">Current Root</th>
+                    <th class="px-4 py-3">New Root</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800">
+                  <tr v-for="root in storageMigration.current_roots || []" :key="root.key">
+                    <td class="px-4 py-3 text-gray-200">{{ root.label }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ root.runtime_path }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ root.current_root }}</td>
+                    <td class="px-4 py-3">
+                      <input v-model="storageForm[root.key]" type="text" class="field w-full font-mono text-xs" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="rounded-xl border border-blue-700/30 bg-blue-900/20 p-4 text-xs text-blue-100">
+              The migration utility stops services, performs a final rsync, swaps bind mounts, and writes a rollback env file under <span class="font-mono text-blue-50">/root/strata-storage-migration-YYYYMMDD-HHMMSS.env</span>.
+            </div>
+
+            <div class="rounded-xl border border-gray-800 bg-[#08111f]">
+              <div class="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Primary Server Migration Command</div>
+                <button type="button" @click="copyText(storageCommand)" class="rounded-lg border border-gray-700 px-2.5 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">Copy Command</button>
+              </div>
+              <pre class="overflow-x-auto px-4 py-4 font-mono text-xs leading-6 text-sky-100 whitespace-pre-wrap">{{ storageCommand }}</pre>
+            </div>
+
+            <div class="rounded-xl border border-gray-800 bg-[#08111f]">
+              <div class="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Rollback Command</div>
+                <button type="button" @click="copyText(storageRollbackCommand)" class="rounded-lg border border-gray-700 px-2.5 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">Copy Rollback</button>
+              </div>
+              <pre class="overflow-x-auto px-4 py-4 font-mono text-xs leading-6 text-sky-100 whitespace-pre-wrap">{{ storageRollbackCommand }}</pre>
+            </div>
+          </div>
         </section>
 
         <section class="space-y-4 rounded-2xl border border-gray-800 bg-gray-900/70 p-5 backdrop-blur">
@@ -246,11 +312,20 @@ const selectedActivityKey = ref(props.panel?.activity?.current_log_key || 'panel
 const activityError = ref(''); const autoScrollLogs = ref(true); const logScroller = ref(null); let activityPollHandle = null;
 const panelForm = ref({ version: props.panel?.default_source_type === 'version' ? (props.panel?.default_source_value || '') : '', branch: props.panel?.default_source_type === 'branch' ? (props.panel?.default_source_value || '') : '' });
 const rollbackBackupName = ref(props.panel?.rollback_backups?.[0]?.name || ''); const panelSettings = ref({ auto_remote_agents: !!props.panel?.auto_remote_agents });
+const storageMigration = computed(() => props.panel?.storage_migration || { current_roots: [] });
+const storageForm = ref(buildStorageForm(storageMigration.value.current_roots || []));
 const resolvedPanelSourceValue = computed(() => resolvedPanelPayload().source_value);
 const activityEntries = computed(() => panelActivity.value?.activities || []);
 const currentActivity = computed(() => activityEntries.value.find((entry) => entry.key === selectedActivityKey.value) || activityEntries.value[0] || null);
+const storageCommand = computed(() => buildStorageCommand());
+const storageRollbackCommand = computed(() => `${storageMigration.value.rollback_bin || '/usr/sbin/strata-storage-migrate-rollback'} /root/strata-storage-migration-YYYYMMDD-HHMMSS.env`);
 
 function formatDate(value) { return value ? new Date(value).toLocaleString() : ''; }
+function suggestedStorageRoot(root) { if (!root?.runtime_path) return root?.current_root || ''; if (root.current_root && root.current_root !== root.runtime_path) return root.current_root; const suffixMap = { hosting: 'www', backups: 'backups', mail: 'mail', mysql: 'mysql', postgresql: 'postgresql' }; return `/srv/strata/${suffixMap[root.key] || root.key}`; }
+function buildStorageForm(roots) { return Object.fromEntries((roots || []).map((root) => [root.key, suggestedStorageRoot(root)])); }
+function shellEscape(value) { return `'${String(value ?? '').replace(/'/g, `'\"'\"'`)}'`; }
+function buildStorageCommand() { const path = storageMigration.value.migrate_bin || '/usr/sbin/strata-storage-migrate'; const mapping = storageMigration.value.current_roots || []; const envLines = mapping.map((root) => `${root.env_key}=${shellEscape(storageForm.value[root.key] || root.current_root || root.runtime_path)}`); return `${envLines.join(' \\\n')}${envLines.length ? ' \\\n' : ''}${path}`; }
+async function copyText(value) { try { await navigator.clipboard.writeText(value); panelMessage.value = { status: 'saved', message: 'Command copied to clipboard.' }; } catch { panelMessage.value = { status: 'error', message: 'Failed to copy command to clipboard.' }; } }
 function useLatestRelease() { if (props.panel?.latest_release?.tag_name) panelForm.value.version = props.panel.latest_release.tag_name; }
 function resolvedPanelPayload() { const version = panelForm.value.version?.trim(); const branch = panelForm.value.branch?.trim(); if (version) return { source_type: 'version', source_value: version }; if (branch) return { source_type: 'branch', source_value: branch }; return { source_type: 'version', source_value: '' }; }
 function currentLogUrl(name) { if (!currentActivity.value?.key) return null; return route(name, { key: currentActivity.value.key }); }
