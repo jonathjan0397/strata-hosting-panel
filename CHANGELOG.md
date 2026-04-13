@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.28] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.28`.
+
+### Changed - Per-domain traffic and log visibility
+
+- Added per-domain traffic history, live access summaries, and per-domain access/error log viewers to the user domain detail page
+- Added the same per-domain traffic and log tools to the admin domain detail page for direct account/domain troubleshooting
+- Restored Apache access logs to the admin node service log viewer alongside the existing Apache error log entry
+
 ## [1.0.0-BETA-3.27] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.27`.
