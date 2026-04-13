@@ -6,6 +6,8 @@ warn() { printf '[warn] %s\n' "$*" >&2; }
 die() { printf '[fail] %s\n' "$*" >&2; exit 1; }
 
 SERVICES_STOPPED=0
+DETACH=0
+LOG_PATH=""
 
 require_root() {
     [[ ${EUID:-0} -eq 0 ]] || die "Run as root."
@@ -61,6 +63,33 @@ cleanup_on_exit() {
         restart_services
     fi
     exit $exit_code
+}
+
+shell_escape() {
+    printf '%q' "$1"
+}
+
+relaunch_detached() {
+    local unit_name="strata-storage-migrate-$(date +%Y%m%d-%H%M%S)"
+    local inner_cmd
+
+    inner_cmd="$(
+        printf 'STRATA_STORAGE_MIGRATION_INNER=1 %s --item %s --hosting-target %s --backups-target %s --mail-target %s --mysql-target %s --postgresql-target %s' \
+            "$(shell_escape "$0")" \
+            "$(shell_escape "$MIGRATION_ITEM")" \
+            "$(shell_escape "$HOSTING_TARGET")" \
+            "$(shell_escape "$BACKUP_TARGET")" \
+            "$(shell_escape "$MAIL_TARGET")" \
+            "$(shell_escape "$MYSQL_TARGET")" \
+            "$(shell_escape "$POSTGRES_TARGET")"
+    )"
+
+    if [[ -n "$LOG_PATH" ]]; then
+        inner_cmd="${inner_cmd} >> $(shell_escape "$LOG_PATH") 2>&1"
+    fi
+
+    systemd-run --unit "$unit_name" --collect /bin/bash -lc "$inner_cmd" >/dev/null
+    info "Detached migration into systemd unit ${unit_name}"
 }
 
 update_panel_storage_config() {
@@ -155,6 +184,8 @@ require_cmd findmnt
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --detach) DETACH=1; shift ;;
+        --log-path) LOG_PATH="$2"; shift 2 ;;
         --item) MIGRATION_ITEM="$2"; shift 2 ;;
         --hosting-target) HOSTING_TARGET="$2"; shift 2 ;;
         --backups-target) BACKUP_TARGET="$2"; shift 2 ;;
@@ -187,6 +218,18 @@ case "$MIGRATION_ITEM" in
     *) die "Unsupported MIGRATION_ITEM: ${MIGRATION_ITEM}" ;;
 esac
 
+HOSTING_BACKUP=""
+BACKUP_BACKUP=""
+MAIL_BACKUP=""
+MYSQL_BACKUP=""
+POSTGRES_BACKUP=""
+
+if [[ $DETACH -eq 1 && "${STRATA_STORAGE_MIGRATION_INNER:-0}" != "1" ]]; then
+    require_cmd systemd-run
+    relaunch_detached
+    exit 0
+fi
+
 [[ -d "$HOSTING_SOURCE" ]] || die "Hosting source path not found: $HOSTING_SOURCE"
 mkdir -p "$BACKUP_SOURCE" "$MAIL_SOURCE" "$MYSQL_SOURCE" "$POSTGRES_SOURCE"
 mkdir -p "$HOSTING_TARGET" "$BACKUP_TARGET" "$MAIL_TARGET" "$MYSQL_TARGET" "$POSTGRES_TARGET"
@@ -209,11 +252,21 @@ chmod 600 "$ROLLBACK_LOG"
 info "Rollback metadata saved to ${ROLLBACK_LOG}"
 info "Starting storage migration for item: ${MIGRATION_ITEM}"
 info "Initial sync to target storage..."
-is_selected_item hosting && sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
-is_selected_item backups && sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
-is_selected_item mail && sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
-is_selected_item mysql && sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
-is_selected_item postgresql && sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
+if is_selected_item hosting; then
+    sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
+fi
+if is_selected_item backups; then
+    sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
+fi
+if is_selected_item mail; then
+    sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
+fi
+if is_selected_item mysql; then
+    sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
+fi
+if is_selected_item postgresql; then
+    sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
+fi
 
 SERVICES=(
     strata-queue.service
@@ -242,17 +295,37 @@ done
 SERVICES_STOPPED=1
 
 info "Final sync with services stopped..."
-is_selected_item hosting && final_sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
-is_selected_item backups && final_sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
-is_selected_item mail && final_sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
-is_selected_item mysql && final_sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
-is_selected_item postgresql && final_sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
+if is_selected_item hosting; then
+    final_sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
+fi
+if is_selected_item backups; then
+    final_sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
+fi
+if is_selected_item mail; then
+    final_sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
+fi
+if is_selected_item mysql; then
+    final_sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
+fi
+if is_selected_item postgresql; then
+    final_sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
+fi
 
-is_selected_item hosting && cut_over_path "$HOSTING_SOURCE" "$HOSTING_TARGET" "hosting data" HOSTING_BACKUP "strata-hosting-storage"
-is_selected_item backups && cut_over_path "$BACKUP_SOURCE" "$BACKUP_TARGET" "backup data" BACKUP_BACKUP "strata-backup-storage"
-is_selected_item mail && cut_over_path "$MAIL_SOURCE" "$MAIL_TARGET" "mail data" MAIL_BACKUP "strata-mail-storage"
-is_selected_item mysql && cut_over_path "$MYSQL_SOURCE" "$MYSQL_TARGET" "MariaDB data" MYSQL_BACKUP "strata-mysql-storage"
-is_selected_item postgresql && cut_over_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET" "PostgreSQL data" POSTGRES_BACKUP "strata-postgresql-storage"
+if is_selected_item hosting; then
+    cut_over_path "$HOSTING_SOURCE" "$HOSTING_TARGET" "hosting data" HOSTING_BACKUP "strata-hosting-storage"
+fi
+if is_selected_item backups; then
+    cut_over_path "$BACKUP_SOURCE" "$BACKUP_TARGET" "backup data" BACKUP_BACKUP "strata-backup-storage"
+fi
+if is_selected_item mail; then
+    cut_over_path "$MAIL_SOURCE" "$MAIL_TARGET" "mail data" MAIL_BACKUP "strata-mail-storage"
+fi
+if is_selected_item mysql; then
+    cut_over_path "$MYSQL_SOURCE" "$MYSQL_TARGET" "MariaDB data" MYSQL_BACKUP "strata-mysql-storage"
+fi
+if is_selected_item postgresql; then
+    cut_over_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET" "PostgreSQL data" POSTGRES_BACKUP "strata-postgresql-storage"
+fi
 
 cat >> "$ROLLBACK_LOG" <<EOF
 HOSTING_BACKUP='${HOSTING_BACKUP}'
@@ -268,14 +341,34 @@ restart_services
 SERVICES_STOPPED=0
 
 info "Migration complete for item: ${MIGRATION_ITEM}"
-is_selected_item hosting && printf 'findmnt %s -> %s\n' "$HOSTING_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$HOSTING_SOURCE" 2>/dev/null || true)"
-is_selected_item backups && printf 'findmnt %s -> %s\n' "$BACKUP_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$BACKUP_SOURCE" 2>/dev/null || true)"
-is_selected_item mail && printf 'findmnt %s -> %s\n' "$MAIL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MAIL_SOURCE" 2>/dev/null || true)"
-is_selected_item mysql && printf 'findmnt %s -> %s\n' "$MYSQL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MYSQL_SOURCE" 2>/dev/null || true)"
-is_selected_item postgresql && printf 'findmnt %s -> %s\n' "$POSTGRES_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$POSTGRES_SOURCE" 2>/dev/null || true)"
+if is_selected_item hosting; then
+    printf 'findmnt %s -> %s\n' "$HOSTING_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$HOSTING_SOURCE" 2>/dev/null || true)"
+fi
+if is_selected_item backups; then
+    printf 'findmnt %s -> %s\n' "$BACKUP_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$BACKUP_SOURCE" 2>/dev/null || true)"
+fi
+if is_selected_item mail; then
+    printf 'findmnt %s -> %s\n' "$MAIL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MAIL_SOURCE" 2>/dev/null || true)"
+fi
+if is_selected_item mysql; then
+    printf 'findmnt %s -> %s\n' "$MYSQL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MYSQL_SOURCE" 2>/dev/null || true)"
+fi
+if is_selected_item postgresql; then
+    printf 'findmnt %s -> %s\n' "$POSTGRES_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$POSTGRES_SOURCE" 2>/dev/null || true)"
+fi
 printf 'Original directories kept at:\n'
-is_selected_item hosting && printf '  %s\n' "$HOSTING_BACKUP"
-is_selected_item backups && printf '  %s\n' "$BACKUP_BACKUP"
-is_selected_item mail && printf '  %s\n' "$MAIL_BACKUP"
-is_selected_item mysql && printf '  %s\n' "$MYSQL_BACKUP"
-is_selected_item postgresql && printf '  %s\n' "$POSTGRES_BACKUP"
+if is_selected_item hosting; then
+    printf '  %s\n' "$HOSTING_BACKUP"
+fi
+if is_selected_item backups; then
+    printf '  %s\n' "$BACKUP_BACKUP"
+fi
+if is_selected_item mail; then
+    printf '  %s\n' "$MAIL_BACKUP"
+fi
+if is_selected_item mysql; then
+    printf '  %s\n' "$MYSQL_BACKUP"
+fi
+if is_selected_item postgresql; then
+    printf '  %s\n' "$POSTGRES_BACKUP"
+fi

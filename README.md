@@ -1,19 +1,19 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-1.0.1-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.1)
+[![Release](https://img.shields.io/badge/Release-1.0.4-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.4)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.1 release line
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.4 release line
 
 ---
 
 > **Release Line**
 >
-> 1.0.1 is the current main release line.
+> 1.0.4 is the current main release line.
 > Production use should still follow normal server hardening, staged upgrades, and post-upgrade verification.
 >
 > Please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.

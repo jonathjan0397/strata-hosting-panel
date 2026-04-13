@@ -374,6 +374,9 @@ class UpdateController extends Controller
         );
 
         $arguments = [
+            '--detach',
+            '--log-path',
+            $logPath,
             '--item',
             $item,
             '--hosting-target',
@@ -392,10 +395,9 @@ class UpdateController extends Controller
             ->implode(' ');
 
         $command = sprintf(
-            'nohup sudo -n %s %s >> %s 2>&1 < /dev/null &',
+            'nohup sudo -n %s %s < /dev/null > /dev/null 2>&1 &',
             escapeshellarg(self::STORAGE_MIGRATE_BIN),
-            $argumentString,
-            escapeshellarg($logPath)
+            $argumentString
         );
 
         Process::fromShellCommandline('/bin/bash -lc ' . escapeshellarg($command))->run();

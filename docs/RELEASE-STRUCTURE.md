@@ -42,7 +42,7 @@ Rules:
 Current frozen release baseline:
 
 - branch: `main`
-- tag: `1.0.0`
+- tag: `1.0.4`
 
 During this freeze:
 

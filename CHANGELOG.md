@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.4] - 2026-04-13
+
+Release target: `1.0.4`.
+
+### Fixed - Detached storage migration execution
+
+- Moved admin-triggered storage migration execution into a detached `systemd` unit so the job survives stopping `php-fpm` and web services during cutover
+- Replaced the remaining selected-item `&&` gates in the migration utility with explicit `if` blocks so `set -e` does not abort valid single-item migrations
+- Initialized per-item backup variables so selected-item migrations complete and log cleanly
+- This is the finalized safe release for live storage migration from the admin Updates screen
+
 ## [1.0.3] - 2026-04-13
 
 Release target: `1.0.3`.
