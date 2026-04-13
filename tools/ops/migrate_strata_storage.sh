@@ -17,6 +17,19 @@ escape_fstab() {
     printf '%s' "$1" | sed 's/[.[\*^$(){}?+|/]/\\&/g'
 }
 
+ensure_fstab_bind() {
+    local source_path="$1"
+    local target_path="$2"
+    local label="$3"
+    local escaped_source escaped_target
+
+    escaped_source="$(escape_fstab "$source_path")"
+    escaped_target="$(escape_fstab "$target_path")"
+
+    grep -qE "^[[:space:]]*${escaped_source}[[:space:]]+${escaped_target}[[:space:]]+none[[:space:]]+bind" /etc/fstab 2>/dev/null \
+        || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$label" >> /etc/fstab
+}
+
 stop_if_present() {
     local service="$1"
     if systemctl list-unit-files "$service" >/dev/null 2>&1; then
@@ -33,50 +46,130 @@ start_if_present() {
     fi
 }
 
-ensure_fstab_bind() {
+update_panel_storage_config() {
+    local config_path="/etc/strata-panel/storage.conf"
+    [[ -d /etc/strata-panel ]] || return 0
+
+    cat > "$config_path" <<EOF
+HOSTING_STORAGE_ROOT='${HOSTING_TARGET}'
+HOSTING_BIND_TARGET='${HOSTING_SOURCE}'
+BACKUP_STORAGE_ROOT='${BACKUP_TARGET}'
+BACKUP_BIND_TARGET='${BACKUP_SOURCE}'
+MAIL_STORAGE_ROOT='${MAIL_TARGET}'
+MAIL_BIND_TARGET='${MAIL_SOURCE}'
+MYSQL_STORAGE_ROOT='${MYSQL_TARGET}'
+MYSQL_BIND_TARGET='${MYSQL_SOURCE}'
+POSTGRES_STORAGE_ROOT='${POSTGRES_TARGET}'
+POSTGRES_BIND_TARGET='${POSTGRES_SOURCE}'
+EOF
+    chmod 600 "$config_path"
+    info "Updated ${config_path}"
+}
+
+upsert_install_env_value() {
+    local key="$1"
+    local value="$2"
+
+    if grep -q "^${key}=" "$INSTALL_ENV_PATH" 2>/dev/null; then
+        sed -i "s|^${key}=.*|${key}='${value}'|" "$INSTALL_ENV_PATH"
+    else
+        printf "%s='%s'\n" "$key" "$value" >> "$INSTALL_ENV_PATH"
+    fi
+}
+
+update_agent_install_env() {
+    INSTALL_ENV_PATH="/etc/strata-agent/install.env"
+    mkdir -p /etc/strata-agent
+    touch "$INSTALL_ENV_PATH"
+    chmod 600 "$INSTALL_ENV_PATH"
+
+    upsert_install_env_value STRATA_HOSTING_STORAGE_ROOT "$HOSTING_TARGET"
+    upsert_install_env_value STRATA_BACKUP_STORAGE_ROOT "$BACKUP_TARGET"
+    upsert_install_env_value STRATA_MAIL_STORAGE_ROOT "$MAIL_TARGET"
+    upsert_install_env_value STRATA_MYSQL_STORAGE_ROOT "$MYSQL_TARGET"
+    upsert_install_env_value STRATA_POSTGRES_STORAGE_ROOT "$POSTGRES_TARGET"
+    info "Updated ${INSTALL_ENV_PATH}"
+}
+
+sync_path() {
+    local source_path="$1"
+    local target_path="$2"
+    rsync -aHAX --numeric-ids "${source_path}/" "${target_path}/"
+}
+
+final_sync_path() {
+    local source_path="$1"
+    local target_path="$2"
+    rsync -aHAX --delete --numeric-ids "${source_path}/" "${target_path}/"
+}
+
+cut_over_path() {
     local source_path="$1"
     local target_path="$2"
     local label="$3"
-    local escaped_source escaped_target
+    local backup_var_name="$4"
+    local fstab_label="$5"
+    local backup_path="${source_path}.pre-strata-storage-migration.${TIMESTAMP}"
 
-    escaped_source="$(escape_fstab "$source_path")"
-    escaped_target="$(escape_fstab "$target_path")"
+    printf -v "$backup_var_name" '%s' "$backup_path"
 
-    grep -qE "^[[:space:]]*${escaped_source}[[:space:]]+${escaped_target}[[:space:]]+none[[:space:]]+bind" /etc/fstab 2>/dev/null \
-        || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$label" >> /etc/fstab
+    if mountpoint -q "$source_path"; then
+        umount "$source_path"
+    fi
+
+    mv "$source_path" "$backup_path"
+    mkdir -p "$source_path"
+
+    info "Applying bind mount for ${label}..."
+    mount --bind "$target_path" "$source_path"
+    ensure_fstab_bind "$target_path" "$source_path" "$fstab_label"
 }
 
 require_root
 require_cmd rsync
 require_cmd mount
+require_cmd umount
 require_cmd findmnt
 
 HOSTING_SOURCE="${HOSTING_SOURCE:-/var/www}"
 HOSTING_TARGET="${HOSTING_TARGET:-/srv/strata/www}"
 BACKUP_SOURCE="${BACKUP_SOURCE:-/var/backups/strata}"
 BACKUP_TARGET="${BACKUP_TARGET:-/srv/strata/backups}"
+MAIL_SOURCE="${MAIL_SOURCE:-/var/mail}"
+MAIL_TARGET="${MAIL_TARGET:-/srv/strata/mail}"
+MYSQL_SOURCE="${MYSQL_SOURCE:-/var/lib/mysql}"
+MYSQL_TARGET="${MYSQL_TARGET:-/srv/strata/mysql}"
+POSTGRES_SOURCE="${POSTGRES_SOURCE:-/var/lib/postgresql}"
+POSTGRES_TARGET="${POSTGRES_TARGET:-/srv/strata/postgresql}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 ROLLBACK_LOG="${ROLLBACK_LOG:-/root/strata-storage-migration-${TIMESTAMP}.env}"
 
 [[ -d "$HOSTING_SOURCE" ]] || die "Hosting source path not found: $HOSTING_SOURCE"
-mkdir -p "$BACKUP_SOURCE"
-mkdir -p "$HOSTING_TARGET" "$BACKUP_TARGET"
+mkdir -p "$BACKUP_SOURCE" "$MAIL_SOURCE" "$MYSQL_SOURCE" "$POSTGRES_SOURCE"
+mkdir -p "$HOSTING_TARGET" "$BACKUP_TARGET" "$MAIL_TARGET" "$MYSQL_TARGET" "$POSTGRES_TARGET"
 
 cat > "$ROLLBACK_LOG" <<EOF
 HOSTING_SOURCE='${HOSTING_SOURCE}'
 HOSTING_TARGET='${HOSTING_TARGET}'
 BACKUP_SOURCE='${BACKUP_SOURCE}'
 BACKUP_TARGET='${BACKUP_TARGET}'
-HOSTING_BACKUP='${HOSTING_SOURCE}.pre-strata-storage-migration.${TIMESTAMP}'
-BACKUP_BACKUP='${BACKUP_SOURCE}.pre-strata-storage-migration.${TIMESTAMP}'
+MAIL_SOURCE='${MAIL_SOURCE}'
+MAIL_TARGET='${MAIL_TARGET}'
+MYSQL_SOURCE='${MYSQL_SOURCE}'
+MYSQL_TARGET='${MYSQL_TARGET}'
+POSTGRES_SOURCE='${POSTGRES_SOURCE}'
+POSTGRES_TARGET='${POSTGRES_TARGET}'
 TIMESTAMP='${TIMESTAMP}'
 EOF
 chmod 600 "$ROLLBACK_LOG"
 
 info "Rollback metadata saved to ${ROLLBACK_LOG}"
 info "Initial sync to target storage..."
-rsync -aHAX --numeric-ids "${HOSTING_SOURCE}/" "${HOSTING_TARGET}/"
-rsync -aHAX --numeric-ids "${BACKUP_SOURCE}/" "${BACKUP_TARGET}/"
+sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
+sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
+sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
+sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
+sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
 
 SERVICES=(
     strata-queue.service
@@ -89,6 +182,13 @@ SERVICES=(
     php8.3-fpm.service
     php8.4-fpm.service
     php8.5-fpm.service
+    mariadb.service
+    mysql.service
+    postgresql.service
+    postfix.service
+    dovecot.service
+    rspamd.service
+    opendkim.service
     pure-ftpd.service
 )
 
@@ -97,28 +197,28 @@ for service in "${SERVICES[@]}"; do
 done
 
 info "Final sync with services stopped..."
-rsync -aHAX --delete --numeric-ids "${HOSTING_SOURCE}/" "${HOSTING_TARGET}/"
-rsync -aHAX --delete --numeric-ids "${BACKUP_SOURCE}/" "${BACKUP_TARGET}/"
+final_sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
+final_sync_path "$BACKUP_SOURCE" "$BACKUP_TARGET"
+final_sync_path "$MAIL_SOURCE" "$MAIL_TARGET"
+final_sync_path "$MYSQL_SOURCE" "$MYSQL_TARGET"
+final_sync_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET"
 
-HOSTING_BACKUP="${HOSTING_SOURCE}.pre-strata-storage-migration.${TIMESTAMP}"
-BACKUP_BACKUP="${BACKUP_SOURCE}.pre-strata-storage-migration.${TIMESTAMP}"
+cut_over_path "$HOSTING_SOURCE" "$HOSTING_TARGET" "hosting data" HOSTING_BACKUP "strata-hosting-storage"
+cut_over_path "$BACKUP_SOURCE" "$BACKUP_TARGET" "backup data" BACKUP_BACKUP "strata-backup-storage"
+cut_over_path "$MAIL_SOURCE" "$MAIL_TARGET" "mail data" MAIL_BACKUP "strata-mail-storage"
+cut_over_path "$MYSQL_SOURCE" "$MYSQL_TARGET" "MariaDB data" MYSQL_BACKUP "strata-mysql-storage"
+cut_over_path "$POSTGRES_SOURCE" "$POSTGRES_TARGET" "PostgreSQL data" POSTGRES_BACKUP "strata-postgresql-storage"
 
-if mountpoint -q "$HOSTING_SOURCE"; then
-    umount "$HOSTING_SOURCE"
-fi
-if mountpoint -q "$BACKUP_SOURCE"; then
-    umount "$BACKUP_SOURCE"
-fi
+cat >> "$ROLLBACK_LOG" <<EOF
+HOSTING_BACKUP='${HOSTING_BACKUP}'
+BACKUP_BACKUP='${BACKUP_BACKUP}'
+MAIL_BACKUP='${MAIL_BACKUP}'
+MYSQL_BACKUP='${MYSQL_BACKUP}'
+POSTGRES_BACKUP='${POSTGRES_BACKUP}'
+EOF
 
-mv "$HOSTING_SOURCE" "$HOSTING_BACKUP"
-mv "$BACKUP_SOURCE" "$BACKUP_BACKUP"
-mkdir -p "$HOSTING_SOURCE" "$BACKUP_SOURCE"
-
-info "Applying bind mounts..."
-mount --bind "$HOSTING_TARGET" "$HOSTING_SOURCE"
-mount --bind "$BACKUP_TARGET" "$BACKUP_SOURCE"
-ensure_fstab_bind "$HOSTING_TARGET" "$HOSTING_SOURCE" "strata-hosting-storage"
-ensure_fstab_bind "$BACKUP_TARGET" "$BACKUP_SOURCE" "strata-backup-storage"
+update_panel_storage_config
+update_agent_install_env
 
 for service in "${SERVICES[@]}"; do
     start_if_present "$service"
@@ -127,5 +227,12 @@ done
 info "Migration complete."
 printf 'findmnt %s -> %s\n' "$HOSTING_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$HOSTING_SOURCE" 2>/dev/null || true)"
 printf 'findmnt %s -> %s\n' "$BACKUP_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$BACKUP_SOURCE" 2>/dev/null || true)"
-printf 'Original directories kept at:\n  %s\n  %s\n' "$HOSTING_BACKUP" "$BACKUP_BACKUP"
-
+printf 'findmnt %s -> %s\n' "$MAIL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MAIL_SOURCE" 2>/dev/null || true)"
+printf 'findmnt %s -> %s\n' "$MYSQL_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$MYSQL_SOURCE" 2>/dev/null || true)"
+printf 'findmnt %s -> %s\n' "$POSTGRES_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$POSTGRES_SOURCE" 2>/dev/null || true)"
+printf 'Original directories kept at:\n  %s\n  %s\n  %s\n  %s\n  %s\n' \
+    "$HOSTING_BACKUP" \
+    "$BACKUP_BACKUP" \
+    "$MAIL_BACKUP" \
+    "$MYSQL_BACKUP" \
+    "$POSTGRES_BACKUP"

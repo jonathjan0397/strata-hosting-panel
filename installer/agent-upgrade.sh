@@ -210,6 +210,42 @@ validate_binary() {
     }
 }
 
+ensure_bind_mount() {
+    local source_path="$1"
+    local target_path="$2"
+    local fstab_label="$3"
+
+    [[ -n "$source_path" && -n "$target_path" ]] || return
+    mkdir -p "$source_path" "$target_path"
+
+    if [[ "$source_path" == "$target_path" ]]; then
+        return
+    fi
+
+    if ! mountpoint -q "$target_path"; then
+        mount --bind "$source_path" "$target_path"
+    fi
+
+    local escaped_source escaped_target
+    escaped_source=$(printf '%s' "$source_path" | sed 's/[.[\*^$(){}?+|/]/\\&/g')
+    escaped_target=$(printf '%s' "$target_path" | sed 's/[.[\*^$(){}?+|/]/\\&/g')
+    grep -qE "^[[:space:]]*${escaped_source}[[:space:]]+${escaped_target}[[:space:]]+none[[:space:]]+bind" /etc/fstab 2>/dev/null \
+        || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$fstab_label" >> /etc/fstab
+}
+
+reassert_storage_mounts() {
+    if [[ -f /etc/strata-agent/install.env ]]; then
+        # shellcheck disable=SC1091
+        source /etc/strata-agent/install.env
+    fi
+
+    [[ -n "${STRATA_HOSTING_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_HOSTING_STORAGE_ROOT" "/var/www" "strata-hosting-storage"
+    [[ -n "${STRATA_BACKUP_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_BACKUP_STORAGE_ROOT" "/var/backups/strata" "strata-backup-storage"
+    [[ -n "${STRATA_MAIL_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_MAIL_STORAGE_ROOT" "/var/mail" "strata-mail-storage"
+    [[ -n "${STRATA_MYSQL_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_MYSQL_STORAGE_ROOT" "/var/lib/mysql" "strata-mysql-storage"
+    [[ -n "${STRATA_POSTGRES_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$STRATA_POSTGRES_STORAGE_ROOT" "/var/lib/postgresql" "strata-postgresql-storage"
+}
+
 cleanup() {
     rm -rf "$WORKDIR"
 }
@@ -285,13 +321,14 @@ fi
 install -m 755 "$NEW_BINARY" /usr/sbin/strata-agent
 install -m 755 "$NEW_WEBDAV_BINARY" /usr/sbin/strata-webdav
 install_rspamd_if_missing
+reassert_storage_mounts
 repair_fail2ban_defaults
 repair_powerdns_soa_defaults
 repair_mail_tls_defaults
 if id vmail >/dev/null 2>&1; then
-    mkdir -p /var/mail/vhosts
-    chown vmail:vmail /var/mail/vhosts
-    chmod 0750 /var/mail/vhosts
+    mkdir -p /var/mail /var/mail/vmail /var/mail/vhosts
+    chown vmail:vmail /var/mail/vmail /var/mail/vhosts
+    chmod 0750 /var/mail/vmail /var/mail/vhosts
     find /var/mail/vhosts -mindepth 1 -maxdepth 1 -type d -exec chown -R vmail:vmail {} \; -exec chmod 0750 {} \; 2>/dev/null || true
 fi
 mkdir -p /etc/strata-webdav

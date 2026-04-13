@@ -373,7 +373,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting
 
 Remote node installs and upgrades apply the same PowerDNS SOA defaults automatically, so backup DNS nodes answer with the same authoritative `ns1` / `ns2` SOA data as the primary.
 
-Remote node installs now also prompt for hosting and backup storage roots unless `STRATA_HOSTING_STORAGE_ROOT` and `STRATA_BACKUP_STORAGE_ROOT` are provided up front. The selected paths are bind-mounted onto `/var/www` and `/var/backups/strata`.
+Primary panel installs now prompt for hosting, backup, mail, MariaDB, and PostgreSQL storage roots and bind-mount them onto `/var/www`, `/var/backups/strata`, `/var/mail`, `/var/lib/mysql`, and `/var/lib/postgresql`. The installer seeds existing data into the chosen target before enabling a new bind mount so preexisting local mail or database files are preserved.
+
+Remote node installs now also prompt for hosting, backup, mail, MariaDB, and PostgreSQL storage roots unless `STRATA_HOSTING_STORAGE_ROOT`, `STRATA_BACKUP_STORAGE_ROOT`, `STRATA_MAIL_STORAGE_ROOT`, `STRATA_MYSQL_STORAGE_ROOT`, and `STRATA_POSTGRES_STORAGE_ROOT` are provided up front. The selected paths are bind-mounted onto `/var/www`, `/var/backups/strata`, `/var/mail`, `/var/lib/mysql`, and `/var/lib/postgresql`.
 
 ---
 

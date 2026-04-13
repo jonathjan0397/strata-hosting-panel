@@ -52,7 +52,7 @@ The utility replaces application source code but preserves runtime state:
 - backup data exposed under `/var/backups/strata`
 - databases and mail data
 
-On newer installs, `/var/www` and `/var/backups/strata` may be bind-mounted to larger selected storage roots such as `/srv/strata/www` and `/srv/strata/backups`. The upgrade utility preserves the runtime paths and does not attempt to move those storage roots.
+On newer installs, `/var/www`, `/var/backups/strata`, `/var/mail`, `/var/lib/mysql`, and `/var/lib/postgresql` may be bind-mounted to larger selected storage roots such as `/srv/strata/www`, `/srv/strata/backups`, `/srv/strata/mail`, `/srv/strata/mysql`, and `/srv/strata/postgresql`. The upgrade utility preserves those runtime paths and reasserts the configured bind mounts when `/etc/strata-panel/storage.conf` is present; it does not silently migrate mail or database data to a new root during upgrade.
 
 ## What The Upgrade Runs
 

@@ -12,6 +12,7 @@ Rules:
 Current curated tools:
 
 - `migrate_strata_storage.sh`
+  Migrates `/var/www`, `/var/backups/strata`, `/var/mail`, `/var/lib/mysql`, and `/var/lib/postgresql` onto new bind-mounted storage roots and updates persisted Strata storage config where present.
 - `rollback_strata_storage_migration.sh`
+  Restores the original directories from the rollback env file written by the migration script.
 - `prune_rollback_backups.sh`
-

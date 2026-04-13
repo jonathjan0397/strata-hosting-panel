@@ -170,6 +170,29 @@ ensure_bind_mount() {
         || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$fstab_label" >> /etc/fstab
 }
 
+directory_has_entries() {
+    local path="${1:-}"
+    [[ -d "$path" ]] || return 1
+    find "$path" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .
+}
+
+seed_bind_mount_source() {
+    local source_path="$1"
+    local target_path="$2"
+    local label="$3"
+
+    mkdir -p "$source_path" "$target_path"
+
+    if [[ "$source_path" == "$target_path" ]] || mountpoint -q "$target_path"; then
+        return
+    fi
+
+    if directory_has_entries "$target_path" && ! directory_has_entries "$source_path"; then
+        info "Seeding ${label} data into ${source_path} before bind mount..."
+        cp -a "$target_path"/. "$source_path"/
+    fi
+}
+
 remove_bind_mount() {
     local source_path="${1:-}"
     local target_path="${2:-}"
@@ -241,6 +264,9 @@ cleanup() {
 
     remove_bind_mount "${HOSTING_STORAGE_ROOT:-}" "${HOSTING_BIND_TARGET:-/var/www}" "strata-hosting-storage"
     remove_bind_mount "${BACKUP_STORAGE_ROOT:-}" "${BACKUP_BIND_TARGET:-/var/backups/strata}" "strata-backup-storage"
+    remove_bind_mount "${MAIL_STORAGE_ROOT:-}" "${MAIL_BIND_TARGET:-/var/mail}" "strata-mail-storage"
+    remove_bind_mount "${MYSQL_STORAGE_ROOT:-}" "${MYSQL_BIND_TARGET:-/var/lib/mysql}" "strata-mysql-storage"
+    remove_bind_mount "${POSTGRES_STORAGE_ROOT:-}" "${POSTGRES_BIND_TARGET:-/var/lib/postgresql}" "strata-postgresql-storage"
 
     # Drop Strata databases and users (best-effort — MariaDB may not be set up yet)
     if command -v mysql &>/dev/null && [[ -n "${DB_PASSWORD:-}" ]]; then
@@ -360,6 +386,9 @@ esac
 echo -e "  Selected: ${GREEN}$WEB_SERVER${NC}"
 prompt_storage_root "Hosting data" "strata/www" HOSTING_STORAGE_ROOT
 prompt_storage_root "Backup data" "strata/backups" BACKUP_STORAGE_ROOT
+prompt_storage_root "Mail data" "strata/mail" MAIL_STORAGE_ROOT
+prompt_storage_root "MariaDB data" "strata/mysql" MYSQL_STORAGE_ROOT
+prompt_storage_root "PostgreSQL data" "strata/postgresql" POSTGRES_STORAGE_ROOT
 
 # ── 2. Admin account ──────────────────────────────────────────────────────────
 echo ""
@@ -434,6 +463,9 @@ MAIL_TLS_DIR="/etc/strata-panel/mail-tls"
 MAIL_HTTP_ROOT="/var/www/strata-mail"
 HOSTING_BIND_TARGET="/var/www"
 BACKUP_BIND_TARGET="/var/backups/strata"
+MAIL_BIND_TARGET="/var/mail"
+MYSQL_BIND_TARGET="/var/lib/mysql"
+POSTGRES_BIND_TARGET="/var/lib/postgresql"
 
 # ── Pre-flight: repair broken package manager state ───────────────────────────
 # Runs before the confirm prompt so any failure exits cleanly without the rollback trap.
@@ -473,6 +505,9 @@ echo -e "  Admin email:    ${BOLD}${ADMIN_EMAIL}${NC}"
 echo -e "  Admin name:     ${BOLD}${ADMIN_NAME}${NC}"
 echo -e "  Hosting data:   ${BOLD}${HOSTING_STORAGE_ROOT}${NC} -> ${HOSTING_BIND_TARGET}"
 echo -e "  Backup data:    ${BOLD}${BACKUP_STORAGE_ROOT}${NC} -> ${BACKUP_BIND_TARGET}"
+echo -e "  Mail data:      ${BOLD}${MAIL_STORAGE_ROOT}${NC} -> ${MAIL_BIND_TARGET}"
+echo -e "  MariaDB data:   ${BOLD}${MYSQL_STORAGE_ROOT}${NC} -> ${MYSQL_BIND_TARGET}"
+echo -e "  PostgreSQL:     ${BOLD}${POSTGRES_STORAGE_ROOT}${NC} -> ${POSTGRES_BIND_TARGET}"
 echo -e "  Service creds:  will be saved to ${BOLD}/root/strata-credentials.txt${NC}"
 echo ""
 read -rp "$(prompt 'Proceed with installation? [Y/n]: ')" CONFIRM
@@ -489,8 +524,17 @@ echo ""
 info "Preparing storage mounts..."
 ensure_bind_mount "$HOSTING_STORAGE_ROOT" "$HOSTING_BIND_TARGET" "strata-hosting-storage"
 ensure_bind_mount "$BACKUP_STORAGE_ROOT" "$BACKUP_BIND_TARGET" "strata-backup-storage"
+seed_bind_mount_source "$MAIL_STORAGE_ROOT" "$MAIL_BIND_TARGET" "mail"
+ensure_bind_mount "$MAIL_STORAGE_ROOT" "$MAIL_BIND_TARGET" "strata-mail-storage"
+seed_bind_mount_source "$MYSQL_STORAGE_ROOT" "$MYSQL_BIND_TARGET" "MariaDB"
+ensure_bind_mount "$MYSQL_STORAGE_ROOT" "$MYSQL_BIND_TARGET" "strata-mysql-storage"
+seed_bind_mount_source "$POSTGRES_STORAGE_ROOT" "$POSTGRES_BIND_TARGET" "PostgreSQL"
+ensure_bind_mount "$POSTGRES_STORAGE_ROOT" "$POSTGRES_BIND_TARGET" "strata-postgresql-storage"
 success "Hosting data path: ${HOSTING_STORAGE_ROOT} -> ${HOSTING_BIND_TARGET}"
 success "Backup data path: ${BACKUP_STORAGE_ROOT} -> ${BACKUP_BIND_TARGET}"
+success "Mail data path: ${MAIL_STORAGE_ROOT} -> ${MAIL_BIND_TARGET}"
+success "MariaDB data path: ${MYSQL_STORAGE_ROOT} -> ${MYSQL_BIND_TARGET}"
+success "PostgreSQL data path: ${POSTGRES_STORAGE_ROOT} -> ${POSTGRES_BIND_TARGET}"
 
 # ── Step 1. System update ─────────────────────────────────────────────────────
 dpkg --configure -a 2>/dev/null || true
@@ -2117,6 +2161,19 @@ EOF
     chmod 644 "$WEBMAIL_DIR/include.php"
     chown www-data:www-data "$WEBMAIL_DIR/include.php"
     chmod 600 /etc/strata-panel/webmail-sso.php
+cat > /etc/strata-panel/storage.conf <<EOF
+HOSTING_STORAGE_ROOT='${HOSTING_STORAGE_ROOT}'
+HOSTING_BIND_TARGET='${HOSTING_BIND_TARGET}'
+BACKUP_STORAGE_ROOT='${BACKUP_STORAGE_ROOT}'
+BACKUP_BIND_TARGET='${BACKUP_BIND_TARGET}'
+MAIL_STORAGE_ROOT='${MAIL_STORAGE_ROOT}'
+MAIL_BIND_TARGET='${MAIL_BIND_TARGET}'
+MYSQL_STORAGE_ROOT='${MYSQL_STORAGE_ROOT}'
+MYSQL_BIND_TARGET='${MYSQL_BIND_TARGET}'
+POSTGRES_STORAGE_ROOT='${POSTGRES_STORAGE_ROOT}'
+POSTGRES_BIND_TARGET='${POSTGRES_BIND_TARGET}'
+EOF
+chmod 600 /etc/strata-panel/storage.conf
 
 # ── Step 23. Set admin account ────────────────────────────────────────────────
 info "Setting up admin account…"
@@ -2162,6 +2219,9 @@ Panel URL:          https://${PANEL_DOMAIN}
 Webmail URL:        https://${PANEL_DOMAIN}/webmail/
 Hosting data root:  ${HOSTING_STORAGE_ROOT}  (bind-mounted to ${HOSTING_BIND_TARGET})
 Backup data root:   ${BACKUP_STORAGE_ROOT}  (bind-mounted to ${BACKUP_BIND_TARGET})
+Mail data root:     ${MAIL_STORAGE_ROOT}  (bind-mounted to ${MAIL_BIND_TARGET})
+MariaDB data root:  ${MYSQL_STORAGE_ROOT}  (bind-mounted to ${MYSQL_BIND_TARGET})
+PostgreSQL root:    ${POSTGRES_STORAGE_ROOT}  (bind-mounted to ${POSTGRES_BIND_TARGET})
 
 Admin email:        ${ADMIN_EMAIL}
 Admin name:         ${ADMIN_NAME}
@@ -2242,7 +2302,10 @@ rm -f  /usr/sbin/strata-webdav
 rm -f  /root/.my.cnf
 if mountpoint -q '${HOSTING_BIND_TARGET}'; then umount '${HOSTING_BIND_TARGET}' 2>/dev/null || true; fi
 if mountpoint -q '${BACKUP_BIND_TARGET}'; then umount '${BACKUP_BIND_TARGET}' 2>/dev/null || true; fi
-grep -vF '# strata-hosting-storage' /etc/fstab | grep -vF '# strata-backup-storage' > /etc/fstab.strata.tmp 2>/dev/null || true
+if mountpoint -q '${MAIL_BIND_TARGET}'; then umount '${MAIL_BIND_TARGET}' 2>/dev/null || true; fi
+if mountpoint -q '${MYSQL_BIND_TARGET}'; then umount '${MYSQL_BIND_TARGET}' 2>/dev/null || true; fi
+if mountpoint -q '${POSTGRES_BIND_TARGET}'; then umount '${POSTGRES_BIND_TARGET}' 2>/dev/null || true; fi
+grep -vF '# strata-hosting-storage' /etc/fstab | grep -vF '# strata-backup-storage' | grep -vF '# strata-mail-storage' | grep -vF '# strata-mysql-storage' | grep -vF '# strata-postgresql-storage' > /etc/fstab.strata.tmp 2>/dev/null || true
 if [[ -f /etc/fstab.strata.tmp ]]; then mv /etc/fstab.strata.tmp /etc/fstab; fi
 
 echo "[*] Removing system user '${PANEL_USER}'…"
@@ -2285,6 +2348,9 @@ echo -e "  ${BOLD}Admin password:${NC}   (as entered)"
 echo -e "  ${BOLD}Web server:${NC}       ${WEB_SERVER}"
 echo -e "  ${BOLD}Hosting data:${NC}     ${HOSTING_STORAGE_ROOT} -> ${HOSTING_BIND_TARGET}"
 echo -e "  ${BOLD}Backup data:${NC}      ${BACKUP_STORAGE_ROOT} -> ${BACKUP_BIND_TARGET}"
+echo -e "  ${BOLD}Mail data:${NC}        ${MAIL_STORAGE_ROOT} -> ${MAIL_BIND_TARGET}"
+echo -e "  ${BOLD}MariaDB data:${NC}     ${MYSQL_STORAGE_ROOT} -> ${MYSQL_BIND_TARGET}"
+echo -e "  ${BOLD}PostgreSQL:${NC}      ${POSTGRES_STORAGE_ROOT} -> ${POSTGRES_BIND_TARGET}"
 echo ""
 echo -e "  ${BOLD}Webmail admin:${NC}    https://${PANEL_DOMAIN}/webmail/?admin"
 echo -e "  ${BOLD}Webmail admin pw:${NC} ${SNAPPYMAIL_ADMIN_PASS}"

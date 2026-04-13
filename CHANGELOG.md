@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-BETA-3.29] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.29`.
+
+### Changed - Full storage-root coverage and live migration tooling
+
+- Extended primary panel install and upgrade flows so hosting, backups, mail, MariaDB, and PostgreSQL can all be placed on bind-mounted large-storage roots
+- Extended remote node install and agent upgrade flows with matching storage-root support, including persisted root selection for future upgrades
+- Expanded the live storage migration utility and rollback tool so existing servers can move web, backup, mail, MariaDB, and PostgreSQL data onto new storage roots in one controlled procedure
+- Updated runbooks and upgrade documentation to reflect the new storage model and migration workflow
+
 ## [1.0.0-BETA-3.28] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.28`.

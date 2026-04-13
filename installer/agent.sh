@@ -166,6 +166,29 @@ ensure_bind_mount() {
         || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$fstab_label" >> /etc/fstab
 }
 
+directory_has_entries() {
+    local path="${1:-}"
+    [[ -d "$path" ]] || return 1
+    find "$path" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .
+}
+
+seed_bind_mount_source() {
+    local source_path="$1"
+    local target_path="$2"
+    local label="$3"
+
+    mkdir -p "$source_path" "$target_path"
+
+    if [[ "$source_path" == "$target_path" ]] || mountpoint -q "$target_path"; then
+        return
+    fi
+
+    if directory_has_entries "$target_path" && ! directory_has_entries "$source_path"; then
+        info "Seeding ${label} data into ${source_path} before bind mount..."
+        cp -a "$target_path"/. "$source_path"/
+    fi
+}
+
 if [[ $EUID -ne 0 ]]; then
     if command -v sudo &>/dev/null; then
         exec sudo --preserve-env=HOME,USER,LOGNAME,STRATA_HMAC_SECRET,STRATA_NODE_ID,STRATA_NODE_HOSTNAME,STRATA_WEB_SERVER,STRATA_PORT bash "$BASH_SOURCE" "$@"
@@ -194,8 +217,14 @@ MAIL_DOMAIN="mail.${HOSTNAME_PARENT_DOMAIN}"
 MAIL_TLS_DIR="/etc/strata-agent/mail-tls"
 HOSTING_BIND_TARGET="/var/www"
 BACKUP_BIND_TARGET="/var/backups/strata"
+MAIL_BIND_TARGET="/var/mail"
+MYSQL_BIND_TARGET="/var/lib/mysql"
+POSTGRES_BIND_TARGET="/var/lib/postgresql"
 HOSTING_STORAGE_ROOT="${STRATA_HOSTING_STORAGE_ROOT:-}"
 BACKUP_STORAGE_ROOT="${STRATA_BACKUP_STORAGE_ROOT:-}"
+MAIL_STORAGE_ROOT="${STRATA_MAIL_STORAGE_ROOT:-}"
+MYSQL_STORAGE_ROOT="${STRATA_MYSQL_STORAGE_ROOT:-}"
+POSTGRES_STORAGE_ROOT="${STRATA_POSTGRES_STORAGE_ROOT:-}"
 REQUESTED_DB_PASSWORD="${STRATA_DB_ROOT_PASSWORD:-}"
 REQUESTED_PDNS_DB_PASSWORD="${STRATA_PDNS_DB_PASSWORD:-}"
 REQUESTED_PDNS_API_KEY="${STRATA_PDNS_API_KEY:-}"
@@ -234,6 +263,15 @@ fi
 if [[ -z "$BACKUP_STORAGE_ROOT" ]]; then
     prompt_storage_root "Backup data" "strata/backups" "" BACKUP_STORAGE_ROOT
 fi
+if [[ -z "$MAIL_STORAGE_ROOT" ]]; then
+    prompt_storage_root "Mail data" "strata/mail" "" MAIL_STORAGE_ROOT
+fi
+if [[ -z "$MYSQL_STORAGE_ROOT" ]]; then
+    prompt_storage_root "MariaDB data" "strata/mysql" "" MYSQL_STORAGE_ROOT
+fi
+if [[ -z "$POSTGRES_STORAGE_ROOT" ]]; then
+    prompt_storage_root "PostgreSQL data" "strata/postgresql" "" POSTGRES_STORAGE_ROOT
+fi
 
 SERVER_IP=$(curl -4 -fsSL https://icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
 
@@ -244,6 +282,9 @@ STRATA_PDNS_DB_PASSWORD='${PDNS_DB_PASSWORD}'
 STRATA_PDNS_API_KEY='${PDNS_API_KEY}'
 STRATA_HOSTING_STORAGE_ROOT='${HOSTING_STORAGE_ROOT}'
 STRATA_BACKUP_STORAGE_ROOT='${BACKUP_STORAGE_ROOT}'
+STRATA_MAIL_STORAGE_ROOT='${MAIL_STORAGE_ROOT}'
+STRATA_MYSQL_STORAGE_ROOT='${MYSQL_STORAGE_ROOT}'
+STRATA_POSTGRES_STORAGE_ROOT='${POSTGRES_STORAGE_ROOT}'
 EOF
 chmod 600 /etc/strata-agent/install.env
 
@@ -258,8 +299,17 @@ echo "127.0.1.1  ${HOSTNAME_FQDN} ${SHORT}" >> /etc/hosts
 info "Preparing storage mounts..."
 ensure_bind_mount "$HOSTING_STORAGE_ROOT" "$HOSTING_BIND_TARGET" "strata-hosting-storage"
 ensure_bind_mount "$BACKUP_STORAGE_ROOT" "$BACKUP_BIND_TARGET" "strata-backup-storage"
+seed_bind_mount_source "$MAIL_STORAGE_ROOT" "$MAIL_BIND_TARGET" "mail"
+ensure_bind_mount "$MAIL_STORAGE_ROOT" "$MAIL_BIND_TARGET" "strata-mail-storage"
+seed_bind_mount_source "$MYSQL_STORAGE_ROOT" "$MYSQL_BIND_TARGET" "MariaDB"
+ensure_bind_mount "$MYSQL_STORAGE_ROOT" "$MYSQL_BIND_TARGET" "strata-mysql-storage"
+seed_bind_mount_source "$POSTGRES_STORAGE_ROOT" "$POSTGRES_BIND_TARGET" "PostgreSQL"
+ensure_bind_mount "$POSTGRES_STORAGE_ROOT" "$POSTGRES_BIND_TARGET" "strata-postgresql-storage"
 success "Hosting data path: ${HOSTING_STORAGE_ROOT} -> ${HOSTING_BIND_TARGET}"
 success "Backup data path: ${BACKUP_STORAGE_ROOT} -> ${BACKUP_BIND_TARGET}"
+success "Mail data path: ${MAIL_STORAGE_ROOT} -> ${MAIL_BIND_TARGET}"
+success "MariaDB data path: ${MYSQL_STORAGE_ROOT} -> ${MYSQL_BIND_TARGET}"
+success "PostgreSQL data path: ${POSTGRES_STORAGE_ROOT} -> ${POSTGRES_BIND_TARGET}"
 
 info "Installing base packages..."
 apt-get update
@@ -741,6 +791,9 @@ echo "Agent port:         ${AGENT_PORT}"
 echo "Agent version:      ${AGENT_VERSION}"
 echo "Hosting data:       ${HOSTING_STORAGE_ROOT} -> ${HOSTING_BIND_TARGET}"
 echo "Backup data:        ${BACKUP_STORAGE_ROOT} -> ${BACKUP_BIND_TARGET}"
+echo "Mail data:          ${MAIL_STORAGE_ROOT} -> ${MAIL_BIND_TARGET}"
+echo "MariaDB data:       ${MYSQL_STORAGE_ROOT} -> ${MYSQL_BIND_TARGET}"
+echo "PostgreSQL data:    ${POSTGRES_STORAGE_ROOT} -> ${POSTGRES_BIND_TARGET}"
 echo "TLS fingerprint:    ${FINGERPRINT}"
 echo "PowerDNS API key:   ${PDNS_API_KEY}"
 echo "MariaDB root pass:  (stored in /etc/systemd/system/strata-agent.service and /etc/strata-agent/mysql.cnf)"

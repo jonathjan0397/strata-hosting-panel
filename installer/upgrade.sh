@@ -162,6 +162,78 @@ validate_binary() {
     file "$path" | grep -Eq 'ELF .* executable' || die "Binary validation failed: $path is not a native executable."
 }
 
+ensure_bind_mount() {
+    local source_path="$1"
+    local target_path="$2"
+    local fstab_label="$3"
+
+    [[ -n "$source_path" && -n "$target_path" ]] || return
+    mkdir -p "$source_path" "$target_path"
+
+    if [[ "$source_path" == "$target_path" ]]; then
+        return
+    fi
+
+    if ! mountpoint -q "$target_path"; then
+        mount --bind "$source_path" "$target_path"
+    fi
+
+    local escaped_source escaped_target
+    escaped_source=$(printf '%s' "$source_path" | sed 's/[.[\*^$(){}?+|/]/\\&/g')
+    escaped_target=$(printf '%s' "$target_path" | sed 's/[.[\*^$(){}?+|/]/\\&/g')
+    grep -qE "^[[:space:]]*${escaped_source}[[:space:]]+${escaped_target}[[:space:]]+none[[:space:]]+bind" /etc/fstab 2>/dev/null \
+        || printf '%s %s none bind 0 0 # %s\n' "$source_path" "$target_path" "$fstab_label" >> /etc/fstab
+}
+
+storage_root_from_fstab_label() {
+    local fstab_label="$1"
+    awk -v label="$fstab_label" '$0 ~ ("# " label "$") { print $1; exit }' /etc/fstab 2>/dev/null || true
+}
+
+load_storage_config() {
+    HOSTING_BIND_TARGET="/var/www"
+    BACKUP_BIND_TARGET="/var/backups/strata"
+    MAIL_BIND_TARGET="/var/mail"
+    MYSQL_BIND_TARGET="/var/lib/mysql"
+    POSTGRES_BIND_TARGET="/var/lib/postgresql"
+
+    if [[ -f /etc/strata-panel/storage.conf ]]; then
+        # shellcheck disable=SC1091
+        source /etc/strata-panel/storage.conf
+    fi
+
+    HOSTING_STORAGE_ROOT="${HOSTING_STORAGE_ROOT:-$(storage_root_from_fstab_label strata-hosting-storage)}"
+    BACKUP_STORAGE_ROOT="${BACKUP_STORAGE_ROOT:-$(storage_root_from_fstab_label strata-backup-storage)}"
+    MAIL_STORAGE_ROOT="${MAIL_STORAGE_ROOT:-$(storage_root_from_fstab_label strata-mail-storage)}"
+    MYSQL_STORAGE_ROOT="${MYSQL_STORAGE_ROOT:-$(storage_root_from_fstab_label strata-mysql-storage)}"
+    POSTGRES_STORAGE_ROOT="${POSTGRES_STORAGE_ROOT:-$(storage_root_from_fstab_label strata-postgresql-storage)}"
+}
+
+write_storage_config() {
+    mkdir -p /etc/strata-panel
+    cat > /etc/strata-panel/storage.conf <<EOF
+HOSTING_STORAGE_ROOT='${HOSTING_STORAGE_ROOT:-}'
+HOSTING_BIND_TARGET='${HOSTING_BIND_TARGET:-/var/www}'
+BACKUP_STORAGE_ROOT='${BACKUP_STORAGE_ROOT:-}'
+BACKUP_BIND_TARGET='${BACKUP_BIND_TARGET:-/var/backups/strata}'
+MAIL_STORAGE_ROOT='${MAIL_STORAGE_ROOT:-}'
+MAIL_BIND_TARGET='${MAIL_BIND_TARGET:-/var/mail}'
+MYSQL_STORAGE_ROOT='${MYSQL_STORAGE_ROOT:-}'
+MYSQL_BIND_TARGET='${MYSQL_BIND_TARGET:-/var/lib/mysql}'
+POSTGRES_STORAGE_ROOT='${POSTGRES_STORAGE_ROOT:-}'
+POSTGRES_BIND_TARGET='${POSTGRES_BIND_TARGET:-/var/lib/postgresql}'
+EOF
+    chmod 600 /etc/strata-panel/storage.conf
+}
+
+reassert_storage_mounts() {
+    [[ -n "${HOSTING_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$HOSTING_STORAGE_ROOT" "${HOSTING_BIND_TARGET:-/var/www}" "strata-hosting-storage"
+    [[ -n "${BACKUP_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$BACKUP_STORAGE_ROOT" "${BACKUP_BIND_TARGET:-/var/backups/strata}" "strata-backup-storage"
+    [[ -n "${MAIL_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$MAIL_STORAGE_ROOT" "${MAIL_BIND_TARGET:-/var/mail}" "strata-mail-storage"
+    [[ -n "${MYSQL_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$MYSQL_STORAGE_ROOT" "${MYSQL_BIND_TARGET:-/var/lib/mysql}" "strata-mysql-storage"
+    [[ -n "${POSTGRES_STORAGE_ROOT:-}" ]] && ensure_bind_mount "$POSTGRES_STORAGE_ROOT" "${POSTGRES_BIND_TARGET:-/var/lib/postgresql}" "strata-postgresql-storage"
+}
+
 set_permissions() {
     if id "$PANEL_USER" >/dev/null 2>&1; then
         chown -R "$PANEL_USER:$PANEL_GROUP" "$INSTALL_DIR/panel" 2>/dev/null || chown -R "$PANEL_USER:$PANEL_USER" "$INSTALL_DIR/panel"
@@ -177,9 +249,9 @@ set_permissions() {
 
 repair_mail_permissions() {
     if id vmail >/dev/null 2>&1; then
-        mkdir -p /var/mail/vhosts
-        chown vmail:vmail /var/mail/vhosts
-        chmod 0750 /var/mail/vhosts
+        mkdir -p /var/mail /var/mail/vmail /var/mail/vhosts
+        chown vmail:vmail /var/mail/vmail /var/mail/vhosts
+        chmod 0750 /var/mail/vmail /var/mail/vhosts
         find /var/mail/vhosts -mindepth 1 -maxdepth 1 -type d -exec chown -R vmail:vmail {} \; -exec chmod 0750 {} \; 2>/dev/null || true
     fi
 }
@@ -379,6 +451,8 @@ restore_from_backup_dir() {
 www-data ALL=(root) NOPASSWD: /usr/sbin/strata-upgrade
 EOF
     chmod 440 /etc/sudoers.d/strata-upgrade
+    reassert_storage_mounts
+    write_storage_config
     set_permissions
     "$PHP_BIN" "$INSTALL_DIR/panel/artisan" optimize:clear >/dev/null 2>&1
     "$PHP_BIN" "$INSTALL_DIR/panel/artisan" config:cache >/dev/null 2>&1
@@ -532,6 +606,8 @@ fi
 
 info "Using PHP: $PHP_BIN"
 info "Install path: $INSTALL_DIR"
+load_storage_config
+write_storage_config
 
 free_kb=$(df -Pk "$INSTALL_DIR" | awk 'NR==2 {print $4}')
 [[ "$free_kb" -gt 1048576 ]] || die "At least 1 GB free disk space is required."
@@ -768,6 +844,8 @@ WantedBy=multi-user.target
 EOF
 fi
 
+reassert_storage_mounts
+write_storage_config
 set_permissions
 repair_mail_permissions
 repair_fail2ban_defaults
