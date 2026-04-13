@@ -10,6 +10,8 @@ Every deployable Strata change should move through:
 2. a tagged release
 3. the upgrade system
 
+If a release changes installer or upgrader code, it must also pass an explicit upgrader-compatibility gate from the previous public release.
+
 ## Release Model
 
 The release tag is the canonical deployable version.
@@ -75,6 +77,27 @@ The upgrade utility should execute in this order:
 9. run post-upgrade health checks
 10. upgrade remote node agents
 11. verify cluster health
+
+## Upgrader Compatibility Gate
+
+The currently installed `/usr/sbin/strata-upgrade` is part of the supported upgrade path.
+
+This means:
+
+- a candidate release must be upgradeable by the previous public release's upgrader
+- installer and upgrader changes cannot be validated only from the current source tree
+- a release that needs a newer upgrader before the main upgrade starts has a bootstrap compatibility problem
+
+Required release check:
+
+1. start from the previous public tag on a real or production-like server
+2. run the upgrade using the already installed `/usr/sbin/strata-upgrade`
+3. confirm the candidate release applies without manually swapping in a new upgrader first
+4. verify rollback behavior still works
+
+When installer or upgrader files change, use:
+
+- [UPGRADER-COMPATIBILITY-CHECKLIST.md](UPGRADER-COMPATIBILITY-CHECKLIST.md)
 
 ## Why Prebuilt Assets And Binaries Matter
 
@@ -149,7 +172,8 @@ Short-term:
 2. require PRs
 3. deploy only tagged releases through `/usr/sbin/strata-upgrade`
 4. add browser verification of Ziggy routes and sidebar groups to the release gate
-5. stop normal live patching
+5. add previous-public-tag to candidate-tag upgrader compatibility testing for any installer/upgrader change
+6. stop normal live patching
 
 Next:
 

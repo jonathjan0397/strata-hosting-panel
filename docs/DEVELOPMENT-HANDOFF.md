@@ -21,6 +21,12 @@ Current public release line:
 
 - latest published beta at the time of this handoff: `1.0.0-BETA-3.31`
 
+Recent release lesson:
+
+- `1.0.0-BETA-3.30` exposed an upgrader bootstrap compatibility regression
+- `1.0.0-BETA-3.31` is the corrective release
+- the failure mode was not runtime code incompatibility, it was that older live `/usr/sbin/strata-upgrade` binaries could not safely apply the newer release without the fix
+
 Current branch policy:
 
 - `main` = public testing branch
@@ -36,6 +42,7 @@ Do not resume the old pattern of patching live directly from untagged `main`.
 3. Published tags must not be force-moved or reused for different code.
 4. If a fix lands after a release is published, cut a new release tag.
 5. If a live hotfix is unavoidable, commit it back into source immediately and include it in the next formal release.
+6. If installer or upgrader code changes, verify previous-public-tag -> candidate-tag upgrade compatibility before publish.
 
 Related docs:
 
@@ -43,6 +50,7 @@ Related docs:
 - [docs/DEPLOYMENT-POLICY.md](DEPLOYMENT-POLICY.md)
 - [docs/RELEASE-UPGRADE-WORKFLOW.md](RELEASE-UPGRADE-WORKFLOW.md)
 - [docs/UPGRADING.md](UPGRADING.md)
+- [docs/UPGRADER-COMPATIBILITY-CHECKLIST.md](UPGRADER-COMPATIBILITY-CHECKLIST.md)
 - [docs/SECURITY-PRODUCTION-READINESS.md](SECURITY-PRODUCTION-READINESS.md)
 - [docs/STAGING-SECURITY-VALIDATION.md](STAGING-SECURITY-VALIDATION.md)
 - [docs/STAGING-SECURITY-EVIDENCE-TEMPLATE.md](STAGING-SECURITY-EVIDENCE-TEMPLATE.md)

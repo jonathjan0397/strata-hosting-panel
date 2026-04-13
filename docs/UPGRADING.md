@@ -7,6 +7,7 @@ Related policy documents:
 
 - [DEPLOYMENT-POLICY.md](DEPLOYMENT-POLICY.md)
 - [RELEASE-UPGRADE-WORKFLOW.md](RELEASE-UPGRADE-WORKFLOW.md)
+- [UPGRADER-COMPATIBILITY-CHECKLIST.md](UPGRADER-COMPATIBILITY-CHECKLIST.md)
 
 ## Supported Upgrade Sources
 
@@ -17,6 +18,11 @@ curl -fsSL https://raw.githubusercontent.com/jonathjan0397/strata-hosting-panel/
 chmod +x /usr/sbin/strata-upgrade
 /usr/sbin/strata-upgrade --version 1.0.0-BETA-3.28
 ```
+
+Important:
+
+- the command above runs using the currently installed `/usr/sbin/strata-upgrade`
+- if a release changes upgrader behavior, it must still be compatible with the previously installed upgrader unless a separate bootstrap upgrader refresh step is explicitly documented
 
 Upgrade from a supported update channel:
 
@@ -72,6 +78,18 @@ The upgrade process:
 - runs health checks
 - should be followed immediately by a browser verification pass against the live panel
 - queues matching agent upgrades for online remote nodes when upgrading from `--version` or `--branch`
+
+## Upgrader Compatibility Standard
+
+Treat the installed upgrader as part of the release interface.
+
+That means:
+
+- a server on the previous public release must be able to apply the next public release using its existing `/usr/sbin/strata-upgrade`
+- installer or upgrade script changes must be tested from the previous public tag, not only from current source
+- if a new release requires new upgrader logic before the rest of the upgrade can apply, document and ship that as a separate bootstrap step
+
+Do not assume that publishing a fixed `installer/upgrade.sh` inside a new release is enough by itself. The old release still controls the first part of the upgrade.
 
 ## Required Post-Upgrade UI Verification
 
@@ -130,6 +148,7 @@ Adjust the backup timestamp and PHP service name if your install differs.
 - Keep at least 1 GB of free disk space before upgrading.
 - Do not manually overwrite `/opt/strata-panel/panel` with an archive unless you also preserve `.env`, `storage`, permissions, and services.
 - Public testers can use `--channel main`; stable users should prefer tagged releases.
+- If a release notes page says to skip an earlier tag due to upgrader compatibility, follow that guidance and do not retry the broken tag.
 - Remote node cascade upgrades require the node to have `/usr/sbin/strata-agent-upgrade`, which is installed by the current remote node installer (`installer/agent.sh`) and by the full installer. Older nodes without that helper should be upgraded once manually by rerunning the remote node installer.
 - Local `--file` upgrades cannot be cascaded automatically unless the same build is also available from a trusted GitHub tag or branch URL.
 - The panel and agent version are derived from the release tag, branch name, or the repository `VERSION` file. Node health checks update each node's `agent_version`.

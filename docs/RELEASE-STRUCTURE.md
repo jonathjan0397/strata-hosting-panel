@@ -103,6 +103,7 @@ Rules:
 - tags must point to one specific tested commit
 - do not retag an already published release to different code
 - if you need to add fixes after publication, create a new tag
+- if installer or upgrader code changed, the new tag must be proven upgradeable from the previous public tag using the old installed upgrader
 
 Examples:
 
@@ -165,13 +166,24 @@ The intended sequence is:
 1. develop on a feature or fix branch
 2. merge to `main`
 3. validate locally
-4. validate browser behavior
-5. bump version references
-6. commit release prep
-7. create tag
-8. push tag
-9. publish GitHub release
-10. upgrade live systems through `/usr/sbin/strata-upgrade --version <tag>`
+4. validate previous-public-tag -> candidate-tag upgrade behavior when installer/upgrader files changed
+5. validate browser behavior
+6. bump version references
+7. commit release prep
+8. create tag
+9. push tag
+10. publish GitHub release
+11. upgrade live systems through `/usr/sbin/strata-upgrade --version <tag>`
+
+## Bootstrap Compatibility Rule
+
+Installer and upgrader scripts are not just release contents. They are also part of the currently running system that applies the next release.
+
+Because of that:
+
+- changing upgrader logic can break upgrades from older live installs even when the new source tree is correct
+- a release is incomplete if its upgrader changes have only been validated from current source or from a manually refreshed upgrader
+- bootstrap upgrader fixes must either be backwards-compatible with the old upgrader or be shipped as an explicit supported pre-upgrade step
 
 ## Upgrade Semantics
 
