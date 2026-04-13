@@ -465,12 +465,18 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
 
     private function readShellAssignments(string $path): array
     {
-        if (! File::exists($path)) {
+        if (! File::exists($path) || ! is_readable($path)) {
             return [];
         }
 
         $values = [];
-        foreach (preg_split("/\r\n|\n|\r/", File::get($path)) ?: [] as $line) {
+        try {
+            $contents = File::get($path);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        foreach (preg_split("/\r\n|\n|\r/", $contents) ?: [] as $line) {
             if (! preg_match('/^([A-Z0-9_]+)=([\'"]?)(.*)\2$/', trim($line), $matches)) {
                 continue;
             }

@@ -1,19 +1,19 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.31-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.31)
+[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.32-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.32)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.0-BETA-3.31 public testing
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.0-BETA-3.32 public testing
 
 ---
 
 > **Pre-release Beta Software**
 >
-> 1.0.0-BETA-3.31 is available for public testing and should not be treated as production-ready.
+> 1.0.0-BETA-3.32 is available for public testing and should not be treated as production-ready.
 > **Do not use in production without reviewing the code and hardening the server yourself.**
 >
 > Public testers: please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.

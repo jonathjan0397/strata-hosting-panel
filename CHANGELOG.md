@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.32] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.32`.
+
+### Fixed - Admin updates screen storage config read failure
+
+- Fixed the admin updates screen so it no longer throws a `500` when `/etc/strata-panel/storage.conf` exists but is unreadable by the web application
+- The storage migration payload now degrades safely and falls back to default runtime paths when shell assignment files cannot be read
+- This formalizes the live fix applied after upgrading mercury to `1.0.0-BETA-3.31`
+
 ## [1.0.0-BETA-3.31] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.31`.
