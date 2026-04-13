@@ -7,12 +7,18 @@
                 description="Review disk space, databases, email usage, hosted domains, and recent web/PHP log activity."
             />
 
-            <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard label="Domains" :value="summary.domains" color="indigo" />
-                <StatCard label="Databases" :value="summary.databases" color="emerald" />
-                <StatCard label="Mailboxes" :value="summary.mailboxes" color="amber" />
-                <StatCard label="FTP Accounts" :value="summary.ftp_accounts" color="gray" />
-            </div>
+            <CollapsiblePanel
+                title="Quick Totals"
+                description="High-level counts for the account."
+                :content-class="'p-4'"
+            >
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <StatCard label="Domains" :value="summary.domains" color="indigo" />
+                    <StatCard label="Databases" :value="summary.databases" color="emerald" />
+                    <StatCard label="Mailboxes" :value="summary.mailboxes" color="amber" />
+                    <StatCard label="FTP Accounts" :value="summary.ftp_accounts" color="gray" />
+                </div>
+            </CollapsiblePanel>
 
             <AccountUsageSummary
                 :usage-metrics="usageMetrics"
@@ -20,14 +26,13 @@
                 description="Find disk space, email storage, database inventory, and per-domain activity in one place."
             />
 
-            <div class="grid gap-5 xl:grid-cols-2">
-                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                    <h3 class="mb-4 text-sm font-semibold text-gray-300">Resource Usage</h3>
+            <div class="grid gap-4 xl:grid-cols-2">
+                <CollapsiblePanel title="Resource Usage" description="Account limits and current consumption." :content-class="'p-4'">
                     <div class="space-y-4">
                         <ResourceBar label="Disk" :used="account.disk_used_mb" :limit="account.disk_limit_mb" unit="MB" />
                         <ResourceBar label="Bandwidth" :used="account.bandwidth_used_mb" :limit="account.bandwidth_limit_mb" unit="MB" />
                     </div>
-                    <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+                    <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
                         <div>
                             <p class="text-xs uppercase tracking-wide text-gray-500">Account</p>
                             <p class="mt-1 font-mono text-gray-200">{{ account.username }}</p>
@@ -37,13 +42,13 @@
                             <p class="mt-1 text-gray-200">{{ account.hosting_package?.name ?? 'Custom' }}</p>
                         </div>
                     </div>
-                </div>
+                </CollapsiblePanel>
 
-                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <CollapsiblePanel title="Recent Traffic" description="Latest access-log summary for the selected domain." :content-class="'p-4'">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-300">Recent Traffic</h3>
-                            <p class="mt-1 text-xs text-gray-500">Summarized from the latest access-log lines for the selected domain.</p>
+                            <p class="text-xs uppercase tracking-wide text-gray-500">Domain</p>
+                            <p class="mt-1 font-mono text-sm text-gray-200">{{ domains.find((domain) => domain.id === selectedDomainId)?.domain ?? 'Select a domain' }}</p>
                         </div>
                         <button type="button" class="btn-primary" :disabled="trafficLoading || !selectedDomainId" @click="loadTraffic">
                             <span v-if="trafficLoading">Loading...</span>
@@ -103,14 +108,15 @@
                     <div v-else-if="!trafficLoading" class="mt-5 rounded-lg border border-dashed border-gray-700 px-4 py-6 text-sm text-gray-500">
                         Select a domain and refresh traffic to summarize recent requests.
                     </div>
-                </div>
+                </CollapsiblePanel>
 
-                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5 xl:col-span-2">
+                <CollapsiblePanel
+                    title="30-Day Traffic History"
+                    description="Stored daily snapshots aggregated from domain access logs."
+                    :default-open="false"
+                    :content-class="'p-4'"
+                >
                     <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <h3 class="text-sm font-semibold text-gray-300">30-Day Traffic History</h3>
-                            <p class="mt-1 text-xs text-gray-500">Stored daily snapshots aggregated from domain access logs.</p>
-                        </div>
                         <div class="flex flex-wrap items-start gap-4 text-right">
                             <button type="button" class="rounded-lg border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 transition-colors hover:bg-gray-800" @click="downloadTrafficCsv">
                                 Export CSV
@@ -141,10 +147,9 @@
                     <div v-if="trafficHistory.totals.requests === 0" class="mt-4 rounded-lg border border-dashed border-gray-700 px-4 py-5 text-sm text-gray-500">
                         No stored traffic snapshots yet. The scheduled aggregator runs daily; admins can also run <code>php artisan metrics:aggregate-traffic</code>.
                     </div>
-                </div>
+                </CollapsiblePanel>
 
-                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                    <h3 class="mb-4 text-sm font-semibold text-gray-300">Log Viewer</h3>
+                <CollapsiblePanel title="Log Viewer" description="Access and PHP log tails for the account." :default-open="false" :content-class="'p-4'">
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
                             <label class="mb-1 block text-xs font-medium text-gray-400">Log Type</label>
@@ -176,36 +181,33 @@
                     </div>
 
                     <pre class="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-gray-800 bg-gray-950 p-4 text-xs leading-5 text-gray-300">{{ logContent || 'No log content yet.' }}</pre>
-                </div>
+                </CollapsiblePanel>
             </div>
 
-            <div class="rounded-xl border border-gray-800 bg-gray-900">
-                <div class="border-b border-gray-800 px-5 py-4">
-                    <h3 class="text-sm font-semibold text-gray-200">Hosted Domains</h3>
-                </div>
+            <CollapsiblePanel title="Hosted Domains" description="Configured domains on this account." :default-open="false" :content-class="'p-0'">
                 <table class="min-w-full divide-y divide-gray-800">
                     <thead>
                         <tr>
-                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Domain</th>
-                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Type</th>
-                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">SSL</th>
+                            <th class="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-[0.18em] text-gray-500">Domain</th>
+                            <th class="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-[0.18em] text-gray-500">Type</th>
+                            <th class="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-[0.18em] text-gray-500">SSL</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-800">
                         <tr v-if="domains.length === 0">
-                            <td colspan="3" class="px-5 py-8 text-center text-sm text-gray-500">No hosted domains yet.</td>
+                            <td colspan="3" class="px-4 py-7 text-center text-sm text-gray-500">No hosted domains yet.</td>
                         </tr>
                         <tr v-for="domain in domains" :key="domain.id" class="transition-colors hover:bg-gray-800/40">
-                            <td class="px-5 py-3.5 font-mono text-sm text-gray-100">{{ domain.domain }}</td>
-                            <td class="px-5 py-3.5 text-sm text-gray-400">{{ domain.type }}</td>
-                            <td class="px-5 py-3.5 text-sm">
+                            <td class="px-4 py-3 font-mono text-sm text-gray-100">{{ domain.domain }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-400">{{ domain.type }}</td>
+                            <td class="px-4 py-3 text-sm">
                                 <span v-if="domain.ssl_enabled" class="text-emerald-400">Active</span>
                                 <span v-else class="text-gray-500">None</span>
                             </td>
                         </tr>
                     </tbody>
                 </table>
-            </div>
+            </CollapsiblePanel>
         </div>
     </AppLayout>
 </template>
@@ -213,6 +215,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AccountUsageSummary from '@/Components/AccountUsageSummary.vue';
+import CollapsiblePanel from '@/Components/CollapsiblePanel.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import ResourceBar from '@/Components/ResourceBar.vue';
 import StatCard from '@/Components/StatCard.vue';
