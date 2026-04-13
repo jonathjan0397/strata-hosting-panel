@@ -126,6 +126,14 @@
                 </template>
             </div>
         </div>
+
+        <DomainTrafficLogsPanel
+            class="mt-6"
+            :traffic-history="trafficHistory"
+            :traffic-route="route('admin.domains.traffic', domain.id)"
+            :logs-route="route('admin.domains.logs', domain.id)"
+            :download-route="route('admin.domains.logs.download', domain.id)"
+        />
     </AppLayout>
 </template>
 
@@ -134,8 +142,9 @@ import { computed, ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
+import DomainTrafficLogsPanel from '@/Components/DomainTrafficLogsPanel.vue';
 
-const props = defineProps({ domain: Object, canIssueWildcardSsl: Boolean });
+const props = defineProps({ domain: Object, canIssueWildcardSsl: Boolean, trafficHistory: Object });
 
 const issuingSSL = ref(false);
 const wildcard = ref(false);

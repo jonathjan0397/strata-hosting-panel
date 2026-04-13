@@ -4,17 +4,26 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\AccountTrafficMetric;
 use App\Models\AuditLog;
 use App\Models\Domain;
+use App\Services\AgentClient;
+use App\Services\DomainTrafficInsightsService;
 use App\Services\DomainProvisioner;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class DomainController extends Controller
 {
+    public function __construct(private readonly DomainTrafficInsightsService $trafficInsights)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $domains = Domain::with(['account.user', 'node'])
@@ -98,6 +107,109 @@ class DomainController extends Controller
         return Inertia::render('Admin/Domains/Show', [
             'domain' => $domain,
             'canIssueWildcardSsl' => app(DomainProvisioner::class)->supportsWildcardSsl($domain),
+            'trafficHistory' => $this->trafficInsights->history($domain),
+        ]);
+    }
+
+    public function traffic(Request $request, Domain $domain): JsonResponse
+    {
+        $lines = $request->validate([
+            'lines' => ['nullable', 'integer', 'min:50', 'max:300'],
+        ])['lines'] ?? 300;
+
+        $path = $this->resolveLogPath($domain, 'access');
+        $response = AgentClient::for($domain->node)->fileTail($domain->account->username, $path, $lines);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'error' => $response->body(),
+            ], $response->status());
+        }
+
+        return response()->json([
+            'path' => $path,
+            'lines' => $lines,
+            ...$this->trafficInsights->summarizeAccessLog($response->json('content') ?? ''),
+        ]);
+    }
+
+    public function trafficExport(Domain $domain): SymfonyResponse
+    {
+        $filename = "{$domain->account->username}-{$domain->domain}-traffic-" . now()->subDays(29)->toDateString() . '-to-' . now()->toDateString() . '.csv';
+
+        return response()->streamDownload(function () use ($domain) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['date', 'domain', 'requests', 'bandwidth_bytes', 'status_2xx', 'status_3xx', 'status_4xx', 'status_5xx']);
+
+            AccountTrafficMetric::query()
+                ->where('account_id', $domain->account_id)
+                ->where('domain_id', $domain->id)
+                ->where('date', '>=', now()->subDays(29)->toDateString())
+                ->orderBy('date')
+                ->chunk(500, function ($rows) use ($out, $domain) {
+                    foreach ($rows as $row) {
+                        fputcsv($out, [
+                            $row->date?->toDateString(),
+                            $domain->domain,
+                            $row->requests,
+                            $row->bandwidth_bytes,
+                            $row->status_2xx,
+                            $row->status_3xx,
+                            $row->status_4xx,
+                            $row->status_5xx,
+                        ]);
+                    }
+                });
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function logs(Request $request, Domain $domain): JsonResponse
+    {
+        $data = $request->validate([
+            'type' => ['required', 'in:access,error'],
+            'lines' => ['nullable', 'integer', 'min:10', 'max:300'],
+        ]);
+
+        $lines = $data['lines'] ?? 120;
+        $path = $this->resolveLogPath($domain, $data['type']);
+        $response = AgentClient::for($domain->node)->fileTail($domain->account->username, $path, $lines);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'error' => $response->body(),
+            ], $response->status());
+        }
+
+        return response()->json([
+            'path' => $path,
+            'content' => $response->json('content') ?? '',
+            'lines' => $lines,
+            'type' => $data['type'],
+        ]);
+    }
+
+    public function downloadLog(Request $request, Domain $domain): SymfonyResponse
+    {
+        $data = $request->validate([
+            'type' => ['required', 'in:access,error'],
+            'lines' => ['nullable', 'integer', 'min:10', 'max:500'],
+        ]);
+
+        $lines = $data['lines'] ?? 300;
+        $path = $this->resolveLogPath($domain, $data['type']);
+        $response = AgentClient::for($domain->node)->fileTail($domain->account->username, $path, $lines);
+
+        if (! $response->successful()) {
+            abort($response->status(), $response->body());
+        }
+
+        return response($response->json('content') ?? '', 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="recent-' . str_replace(['/', '\\'], '-', $path) . '"',
         ]);
     }
 
@@ -202,5 +314,10 @@ class DomainController extends Controller
         Domain::onlyTrashed()
             ->where('domain', strtolower(trim($domain)))
             ->forceDelete();
+    }
+
+    private function resolveLogPath(Domain $domain, string $type): string
+    {
+        return $domain->domain . '.' . ($type === 'error' ? 'error' : 'access') . '.log';
     }
 }

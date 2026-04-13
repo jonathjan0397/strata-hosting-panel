@@ -278,7 +278,7 @@ const logLoading    = ref(false);
 const logContainer  = ref(null);
 
 const availableLogs = [
-    'nginx', 'nginx-access', 'php8.1-fpm', 'php8.2-fpm', 'php8.3-fpm',
+    'nginx', 'nginx-access', 'apache2', 'apache2-access', 'php8.1-fpm', 'php8.2-fpm', 'php8.3-fpm',
     'postfix', 'dovecot', 'rspamd', 'mysql', 'postgresql', 'syslog', 'auth', 'fail2ban', 'clamav-daemon', 'clamav-freshclam',
 ];
 

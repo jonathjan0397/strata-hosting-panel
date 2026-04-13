@@ -92,6 +92,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('domains/create', [User\DomainController::class, 'create'])->name('domains.create');
             Route::post('domains', [User\DomainController::class, 'store'])->name('domains.store');
             Route::get('domains/{domain}', [User\DomainController::class, 'show'])->name('domains.show');
+            Route::get('domains/{domain}/traffic', [User\DomainController::class, 'traffic'])->middleware('account.feature:metrics')->name('domains.traffic');
+            Route::get('domains/{domain}/traffic/export', [User\DomainController::class, 'trafficExport'])->middleware('account.feature:metrics')->name('domains.traffic.export');
+            Route::get('domains/{domain}/logs', [User\DomainController::class, 'logs'])->middleware('account.feature:metrics')->name('domains.logs');
+            Route::get('domains/{domain}/logs/download', [User\DomainController::class, 'downloadLog'])->middleware('account.feature:metrics')->name('domains.logs.download');
             Route::delete('domains/{domain}', [User\DomainController::class, 'destroy'])->name('domains.destroy');
             Route::post('domains/{domain}/ssl', [User\DomainController::class, 'issueSSL'])->name('domains.ssl');
             Route::post('domains/{domain}/ssl/custom', [User\DomainController::class, 'uploadCert'])->name('domains.ssl.custom');
@@ -336,6 +340,10 @@ Route::middleware(['auth'])->group(function () {
         // Domains
         Route::delete('domains/bulk-delete', [DomainController::class, 'bulkDestroy'])->name('domains.bulk-destroy');
         Route::resource('domains', DomainController::class)->except(['edit', 'update']);
+        Route::get('domains/{domain}/traffic', [DomainController::class, 'traffic'])->name('domains.traffic');
+        Route::get('domains/{domain}/traffic/export', [DomainController::class, 'trafficExport'])->name('domains.traffic.export');
+        Route::get('domains/{domain}/logs', [DomainController::class, 'logs'])->name('domains.logs');
+        Route::get('domains/{domain}/logs/download', [DomainController::class, 'downloadLog'])->name('domains.logs.download');
         Route::post('domains/{domain}/ssl', [DomainController::class, 'issueSSL'])->name('domains.ssl');
 
         // DNS

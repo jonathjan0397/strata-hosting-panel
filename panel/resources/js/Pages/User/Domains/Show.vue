@@ -166,6 +166,15 @@
             </Link>
         </div>
 
+        <DomainTrafficLogsPanel
+            v-if="canViewMetrics"
+            class="mt-6"
+            :traffic-history="trafficHistory"
+            :traffic-route="route('my.domains.traffic', domain.id)"
+            :logs-route="route('my.domains.logs', domain.id)"
+            :download-route="route('my.domains.logs.download', domain.id)"
+        />
+
         <!-- Redirects -->
         <div class="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <h3 class="text-sm font-semibold text-gray-300 mb-4">Redirects (301/302)</h3>
@@ -445,6 +454,7 @@ import { ref } from 'vue';
 import { Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
+import DomainTrafficLogsPanel from '@/Components/DomainTrafficLogsPanel.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({
@@ -455,6 +465,8 @@ const props = defineProps({
     canManageHotlinkProtection: Boolean,
     canManageModSecurity: Boolean,
     canManageLeechProtection: Boolean,
+    canViewMetrics: Boolean,
+    trafficHistory: Object,
 });
 
 const showCertUpload = ref(false);
