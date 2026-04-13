@@ -29,8 +29,8 @@ Recent release lesson:
 
 Current branch policy:
 
-- `main` = public testing branch
-- `latest-untested` = riskier pre-release validation branch
+- `main` = frozen release branch at `1.0.0-BETA-3.32` except for release blockers
+- `latest-untested` = active pre-release validation branch for new work after the freeze point
 - `experimental` = high-risk branch for unfinished work
 
 Do not resume the old pattern of patching live directly from untagged `main`.
@@ -43,6 +43,7 @@ Do not resume the old pattern of patching live directly from untagged `main`.
 4. If a fix lands after a release is published, cut a new release tag.
 5. If a live hotfix is unavoidable, commit it back into source immediately and include it in the next formal release.
 6. If installer or upgrader code changes, verify previous-public-tag -> candidate-tag upgrade compatibility before publish.
+7. While `main` is frozen, all non-blocker development should go to feature branches and stage through `latest-untested`.
 
 Related docs:
 

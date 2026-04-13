@@ -12,6 +12,12 @@ Every deployable Strata change should move through:
 
 If a release changes installer or upgrader code, it must also pass an explicit upgrader-compatibility gate from the previous public release.
 
+Current operational mode after `1.0.0-BETA-3.32`:
+
+- `main` is frozen as the release branch
+- new development should stage in `latest-untested`
+- only release blockers should land on `main`
+
 ## Release Model
 
 The release tag is the canonical deployable version.

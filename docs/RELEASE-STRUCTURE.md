@@ -18,24 +18,37 @@ Strata uses three named update branches plus normal short-lived feature branches
 
 ### `main`
 
-`main` is the public testing branch.
+`main` is the frozen release branch until the next release cycle is intentionally opened.
 
 Rules:
 
-- keep it stable enough for testers to upgrade to
+- only take release blockers, documented hotfixes, or deliberate release-prep changes
 - do not use it as a scratch branch
 - do not patch live servers from untagged `main`
-- every change merged here should be a real candidate for the next tagged release
+- if the branch is frozen at a known release point, do not merge normal feature work here
 
 ### `latest-untested`
 
-`latest-untested` is the staging branch for newer work that is not yet ready to be treated like the normal public testing line.
+`latest-untested` is the staging branch for newer work that is not yet ready to be merged into the frozen release line.
 
 Rules:
 
-- branch from a known-good `main` baseline
+- branch from the current frozen `main` baseline when opening the next cycle
 - use it for riskier validation before promoting changes back into the normal release path
 - expose it in the updater only as an advanced source
+
+## Current Freeze Point
+
+Current frozen release baseline:
+
+- branch: `main`
+- tag: `1.0.0-BETA-3.32`
+
+During this freeze:
+
+- `main` should remain stable and release-oriented
+- `latest-untested` should carry new work and integration testing
+- only release blockers should be merged back into `main`
 
 ### `experimental`
 
