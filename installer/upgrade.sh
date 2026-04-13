@@ -171,7 +171,7 @@ set_permissions() {
 
     find "$INSTALL_DIR/panel" -type f -exec chmod 644 {} \;
     find "$INSTALL_DIR/panel" -type d -exec chmod 755 {} \;
-    chmod 600 "$INSTALL_DIR/panel/.env"
+    chmod 640 "$INSTALL_DIR/panel/.env"
     chmod -R ug+rwX "$INSTALL_DIR/panel/storage" "$INSTALL_DIR/panel/bootstrap/cache"
 }
 

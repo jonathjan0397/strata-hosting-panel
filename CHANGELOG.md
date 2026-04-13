@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.26] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.26`.
+
+### Fixed - Installer and upgrade permission regression
+
+- Updated the fresh-install and in-place upgrade scripts so the panel `.env` file is installed with `640` permissions instead of becoming unreadable to the web group during cache rebuilds
+- Re-applied the `.env` permission lock after the fresh-install blanket file permission pass so the application key and panel secrets are not left world-readable
+- Carries forward the `1.0.0-BETA-3.25` metrics hotfix as the first safe release line after the live `500` remediation
+
 ## [1.0.0-BETA-3.25] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.25`.

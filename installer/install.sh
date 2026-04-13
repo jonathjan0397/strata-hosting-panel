@@ -1100,7 +1100,7 @@ STRATA_WEBMAIL_SSO_SECRET=${WEBMAIL_SSO_SECRET}
 STRATA_WEBMAIL_URL=/webmail/
 STRATA_WEBMAIL_DATA_PATH=${WEBMAIL_DATA}
 EOF
-chmod 600 "$INSTALL_DIR/panel/.env"
+chmod 640 "$INSTALL_DIR/panel/.env"
 
 # ── Step 13. Composer install + migrate ───────────────────────────────────────
 info "Installing PHP dependencies…"
@@ -1127,6 +1127,7 @@ php artisan view:cache
 chown -R "$PANEL_USER":www-data "$INSTALL_DIR/panel"
 find "$INSTALL_DIR/panel" -type f -exec chmod 644 {} \;
 find "$INSTALL_DIR/panel" -type d -exec chmod 755 {} \;
+chmod 640 "$INSTALL_DIR/panel/.env"
 chmod -R 775 "$INSTALL_DIR/panel/storage" "$INSTALL_DIR/panel/bootstrap/cache"
 success "Panel configured."
 
