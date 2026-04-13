@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.25] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.25`.
+
+### Fixed - Metrics release regression
+
+- Fixed the `AccountUsageMetricsService` closure capture regression introduced in `1.0.0-BETA-3.24` that caused `500` errors on metrics pages after upgrade
+- The account/domain metrics service now correctly uses the renamed database-domain collection and the live database size map when building per-domain metrics
+- This release is the formal follow-up tag for the live hotfix applied after the initial `1.0.0-BETA-3.24` rollout
+
 ## [1.0.0-BETA-3.24] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.24`.

@@ -23,7 +23,7 @@ class AccountUsageMetricsService
             ->groupBy('domain_id');
 
         $domainMetrics = $domains
-            ->map(function ($domain) use ($emailByDomain, $trafficByDomain, $appDatabasesByDomain) {
+            ->map(function ($domain) use ($emailByDomain, $trafficByDomain, $databasesByDomain, $databaseSizes) {
                 /** @var Collection<int, EmailAccount> $mailboxes */
                 $mailboxes = $emailByDomain->get($domain->id, collect());
                 $traffic = $trafficByDomain->get($domain->id, [
