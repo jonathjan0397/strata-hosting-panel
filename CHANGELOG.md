@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-BETA-3.27] - 2026-04-13
+
+Public beta target: `1.0.0-BETA-3.27`.
+
+### Changed - Metrics page layout and collapsible sections
+
+- Reorganized the user metrics page so the top-level usage information is denser and wastes less vertical space
+- Added reusable collapsible panels and applied them across the user metrics view so quick totals, per-domain usage, traffic history, logs, and hosted domains can be expanded only when needed
+- Tightened card and table spacing in the shared account usage summary to keep the metrics surface easier to scan on typical desktop screens
+
 ## [1.0.0-BETA-3.26] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.26`.
