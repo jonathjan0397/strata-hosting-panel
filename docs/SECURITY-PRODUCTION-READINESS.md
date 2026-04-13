@@ -1,9 +1,9 @@
 # Security Production Readiness
 
 Last updated: 2026-04-10
-Current release line: `1.0.0-BETA-3.28`
+Current release line: `1.0.0`
 
-This document is the production security gate for Strata Hosting Panel. Public beta is acceptable with known risk. Production release is blocked until the mandatory items below are satisfied or explicitly accepted as residual risk.
+This document is the production security gate for Strata Hosting Panel. The `1.0.0` release line should still be treated as subject to the mandatory items below until they are satisfied or explicitly accepted as residual risk.
 
 Execution runbook:
 

@@ -19,7 +19,7 @@ Project:
 
 Current public release line:
 
-- latest published beta at the time of this handoff: `1.0.0-BETA-3.32`
+- latest published release at the time of this handoff: `1.0.0`
 
 Recent release lesson:
 
@@ -29,7 +29,7 @@ Recent release lesson:
 
 Current branch policy:
 
-- `main` = frozen release branch at `1.0.0-BETA-3.32` except for release blockers
+- `main` = frozen release branch at `1.0.0` except for release blockers
 - `latest-untested` = active pre-release validation branch for new work after the freeze point
 - `experimental` = high-risk branch for unfinished work
 

@@ -1,22 +1,22 @@
 # Strata Hosting Panel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-1.0.0--BETA--3.32-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0-BETA-3.32)
+[![Release](https://img.shields.io/badge/Release-1.0.0-indigo?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/releases/tag/1.0.0)
 [![Issues](https://img.shields.io/github/issues/jonathjan0397/strata-hosting-panel?style=flat-square)](https://github.com/jonathjan0397/strata-hosting-panel/issues)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
 
 Open-source hosting control panel for Debian servers: Nginx/Apache, PHP multi-version, email, DNS, FTP, SSL, backups, and more.
 
-**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.0-BETA-3.32 public testing
+**License:** MIT | **Target OS:** Debian 11 / 12 / 13 | **Status:** 1.0.0 release line
 
 ---
 
-> **Pre-release Beta Software**
+> **Release Line**
 >
-> 1.0.0-BETA-3.32 is available for public testing and should not be treated as production-ready.
-> **Do not use in production without reviewing the code and hardening the server yourself.**
+> 1.0.0 is the current main release line.
+> Production use should still follow normal server hardening, staged upgrades, and post-upgrade verification.
 >
-> Public testers: please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
+> Please report bugs, broken workflows, installer issues, and UI problems in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
 
 ---
 
@@ -26,7 +26,7 @@ There is no public demo environment available right now.
 
 When a shared smoke-test instance is brought back, its URL and access policy will be documented in [docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md).
 
-Please report public testing issues in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
+Please report release issues in **[GitHub Issues](https://github.com/jonathjan0397/strata-hosting-panel/issues)**.
 
 ---
 

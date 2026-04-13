@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0] - 2026-04-13
+
+Release target: `1.0.0`.
+
+### Changed - Promote the main release line from beta to 1.0.0
+
+- Promoted the current frozen main release line from `1.0.0-BETA-3.32` to `1.0.0`
+- Kept the existing release history intact while moving current-facing version markers to the stable `1.0.0` line
+- Realigned `latest-untested` from the same `1.0.0` baseline so new work can continue off the frozen release point
+
 ## [1.0.0-BETA-3.32] - 2026-04-13
 
 Public beta target: `1.0.0-BETA-3.32`.

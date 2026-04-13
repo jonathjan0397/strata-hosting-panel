@@ -1,7 +1,7 @@
 # Strata Hosting Panel — Project Plan
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow?style=flat-square)](https://buymeacoffee.com/jonathan0397)
-Created: 2026-03-31 | Last Updated: 2026-04-13 | 1.0.0-BETA-3.28 public testing
+Created: 2026-03-31 | Last Updated: 2026-04-13 | 1.0.0 release line
 
 ## Overview
 Strata Hosting Panel is a true open-source hosting control panel built for modern infrastructure. Admin → Reseller → End User hierarchy. API-first design with first-class billing integration (Strata Billing, WHMCS, and others).
