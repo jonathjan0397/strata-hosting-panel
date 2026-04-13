@@ -5,6 +5,8 @@ info() { printf '[info] %s\n' "$*"; }
 warn() { printf '[warn] %s\n' "$*" >&2; }
 die() { printf '[fail] %s\n' "$*" >&2; exit 1; }
 
+SERVICES_STOPPED=0
+
 require_root() {
     [[ ${EUID:-0} -eq 0 ]] || die "Run as root."
 }
@@ -44,6 +46,21 @@ start_if_present() {
         info "Starting ${service}..."
         systemctl start "$service" >/dev/null 2>&1 || true
     fi
+}
+
+restart_services() {
+    for service in "${SERVICES[@]}"; do
+        start_if_present "$service"
+    done
+}
+
+cleanup_on_exit() {
+    local exit_code=$?
+    if [[ $exit_code -ne 0 && ${SERVICES_STOPPED:-0} -eq 1 ]]; then
+        warn "Migration failed after services were stopped; attempting service recovery..."
+        restart_services
+    fi
+    exit $exit_code
 }
 
 update_panel_storage_config() {
@@ -136,6 +153,20 @@ require_cmd mount
 require_cmd umount
 require_cmd findmnt
 
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --item) MIGRATION_ITEM="$2"; shift 2 ;;
+        --hosting-target) HOSTING_TARGET="$2"; shift 2 ;;
+        --backups-target) BACKUP_TARGET="$2"; shift 2 ;;
+        --mail-target) MAIL_TARGET="$2"; shift 2 ;;
+        --mysql-target) MYSQL_TARGET="$2"; shift 2 ;;
+        --postgresql-target) POSTGRES_TARGET="$2"; shift 2 ;;
+        *)
+            die "Unknown argument: $1"
+            ;;
+    esac
+done
+
 HOSTING_SOURCE="${HOSTING_SOURCE:-/var/www}"
 HOSTING_TARGET="${HOSTING_TARGET:-/srv/strata/www}"
 BACKUP_SOURCE="${BACKUP_SOURCE:-/var/backups/strata}"
@@ -149,6 +180,7 @@ POSTGRES_TARGET="${POSTGRES_TARGET:-/srv/strata/postgresql}"
 MIGRATION_ITEM="${MIGRATION_ITEM:-all}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 ROLLBACK_LOG="${ROLLBACK_LOG:-/root/strata-storage-migration-${TIMESTAMP}.env}"
+trap cleanup_on_exit EXIT
 
 case "$MIGRATION_ITEM" in
     all|hosting|backups|mail|mysql|postgresql) ;;
@@ -207,6 +239,7 @@ SERVICES=(
 for service in "${SERVICES[@]}"; do
     stop_if_present "$service"
 done
+SERVICES_STOPPED=1
 
 info "Final sync with services stopped..."
 is_selected_item hosting && final_sync_path "$HOSTING_SOURCE" "$HOSTING_TARGET"
@@ -231,10 +264,8 @@ EOF
 
 update_panel_storage_config
 update_agent_install_env
-
-for service in "${SERVICES[@]}"; do
-    start_if_present "$service"
-done
+restart_services
+SERVICES_STOPPED=0
 
 info "Migration complete for item: ${MIGRATION_ITEM}"
 is_selected_item hosting && printf 'findmnt %s -> %s\n' "$HOSTING_SOURCE" "$(findmnt -n -o SOURCE,TARGET "$HOSTING_SOURCE" 2>/dev/null || true)"

@@ -373,22 +373,28 @@ class UpdateController extends Controller
             )
         );
 
-        $envAssignments = [
-            'HOSTING_TARGET' => $roots['hosting'],
-            'BACKUP_TARGET' => $roots['backups'],
-            'MAIL_TARGET' => $roots['mail'],
-            'MYSQL_TARGET' => $roots['mysql'],
-            'POSTGRES_TARGET' => $roots['postgresql'],
+        $arguments = [
+            '--item',
+            $item,
+            '--hosting-target',
+            $roots['hosting'],
+            '--backups-target',
+            $roots['backups'],
+            '--mail-target',
+            $roots['mail'],
+            '--mysql-target',
+            $roots['mysql'],
+            '--postgresql-target',
+            $roots['postgresql'],
         ];
-        $envPrefix = collect($envAssignments)
-            ->map(fn (string $value, string $key) => $key . '=' . escapeshellarg($value))
+        $argumentString = collect($arguments)
+            ->map(fn (string $value) => escapeshellarg($value))
             ->implode(' ');
 
         $command = sprintf(
-            'nohup env MIGRATION_ITEM=%s %s sudo -n %s >> %s 2>&1 < /dev/null &',
-            escapeshellarg($item),
-            $envPrefix,
+            'nohup sudo -n %s %s >> %s 2>&1 < /dev/null &',
             escapeshellarg(self::STORAGE_MIGRATE_BIN),
+            $argumentString,
             escapeshellarg($logPath)
         );
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.3] - 2026-04-13
+
+Release target: `1.0.3`.
+
+### Fixed - Safe storage migration invocation and recovery
+
+- Changed the admin storage migration launcher to pass the selected item and target paths as explicit command arguments instead of environment variables stripped by `sudo`
+- Updated the generated admin migration command to use the same explicit argument form for manual runs
+- Added a failure trap to the storage migration utility so stopped services are brought back up if migration exits mid-run
+- Fixes the `1.0.2` regression where a selected-item migration could fall back to `all`, stop services, and exit before restart
+
 ## [1.0.2] - 2026-04-13
 
 Release target: `1.0.2`.
