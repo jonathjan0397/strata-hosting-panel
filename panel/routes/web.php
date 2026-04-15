@@ -206,6 +206,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('files/write', [User\FileManagerController::class, 'write'])->name('files.write');
             Route::post('files/mkdir', [User\FileManagerController::class, 'mkdir'])->name('files.mkdir');
             Route::post('files/rename', [User\FileManagerController::class, 'rename'])->name('files.rename');
+            Route::post('files/copy', [User\FileManagerController::class, 'copy'])->name('files.copy');
             Route::delete('files/delete', [User\FileManagerController::class, 'delete'])->name('files.delete');
             Route::post('files/chmod', [User\FileManagerController::class, 'chmod'])->name('files.chmod');
             Route::post('files/compress', [User\FileManagerController::class, 'compress'])->name('files.compress');

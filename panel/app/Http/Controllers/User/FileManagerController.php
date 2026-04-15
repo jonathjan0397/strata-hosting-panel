@@ -97,6 +97,21 @@ class FileManagerController extends Controller
             : response()->json(['error' => $response->body()], $response->status());
     }
 
+    public function copy(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from' => ['required', 'string'],
+            'to'   => ['required', 'string'],
+        ]);
+
+        [$client, $username] = $this->clientAndUsername($request);
+        $response = $client->fileCopy($username, $request->from, $request->to);
+
+        return $response->successful()
+            ? response()->json(['status' => 'ok'])
+            : response()->json(['error' => $response->body()], $response->status());
+    }
+
     public function delete(Request $request): JsonResponse
     {
         $request->validate(['path' => ['required', 'string']]);

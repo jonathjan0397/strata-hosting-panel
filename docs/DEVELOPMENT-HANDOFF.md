@@ -19,8 +19,8 @@ Project:
 
 Current public release line:
 
-- latest published release at the time of this handoff: `1.0.4`
-- `main` and tag `1.0.4` should be treated as the current stable release baseline
+- latest published release at the time of this handoff: `1.0.5`
+- `main` and tag `1.0.5` should be treated as the current stable release baseline
 - `latest-untested` may move forward after this release and should not be assumed to match `main`
 
 Current operational state:
@@ -39,11 +39,12 @@ Recent release lesson:
 - `1.0.2` ensures `sudo` is installed automatically during panel and node install/upgrade flows before sudoers-dependent features are configured
 - `1.0.3` fixes storage migration launch semantics so the selected item survives `sudo`, and adds service recovery if migration fails after services are stopped
 - `1.0.4` finalizes live storage migration safety by detaching cutover into a transient `systemd` unit and removing remaining `set -e` item-gating hazards from the migration utility
+- `1.0.5` fixes per-domain PHP version changes so the web server socket is reprovisioned with the new PHP-FPM version and expands the user file manager with copy, cut, paste, and better permissions handling
 - the failure mode was not runtime code incompatibility, it was that older live `/usr/sbin/strata-upgrade` binaries could not safely apply the newer release without the fix
 
 Current branch policy:
 
-- `main` = frozen release branch at `1.0.4` except for release blockers
+- `main` = frozen release branch at `1.0.5` except for release blockers
 - `latest-untested` = active pre-release validation branch for new work after the freeze point
 - `experimental` = high-risk branch for unfinished work
 

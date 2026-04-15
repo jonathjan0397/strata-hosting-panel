@@ -154,6 +154,26 @@ func handleFileRename(w http.ResponseWriter, r *http.Request) {
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 
+func handleFileCopy(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+
+	var req struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	if err := files.Copy(username, req.From, req.To); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	files.ChownToUser(username, req.To)
+	respond(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func handleFileDelete(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	path := r.URL.Query().Get("path")
@@ -215,6 +235,7 @@ func handleFileCompress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	files.ChownToUser(username, req.Dest)
 	respond(w, http.StatusOK, map[string]string{"status": "ok", "dest": req.Dest})
 }
 
@@ -239,6 +260,7 @@ func handleFileExtract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	files.ChownToUser(username, req.Dest)
 	respond(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

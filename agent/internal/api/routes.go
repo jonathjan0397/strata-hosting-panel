@@ -155,6 +155,7 @@ func Routes() chi.Router {
 	r.Post("/files/{username}/write", handleFileWrite)
 	r.Post("/files/{username}/mkdir", handleFileMkdir)
 	r.Post("/files/{username}/rename", handleFileRename)
+	r.Post("/files/{username}/copy", handleFileCopy)
 	r.Delete("/files/{username}", handleFileDelete)
 	r.Post("/files/{username}/chmod", handleFileChmod)
 	r.Post("/files/{username}/compress", handleFileCompress)

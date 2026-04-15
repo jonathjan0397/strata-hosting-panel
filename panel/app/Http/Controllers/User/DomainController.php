@@ -324,8 +324,6 @@ class DomainController extends Controller
             return back()->with('error', "PHP version change failed: {$error}");
         }
 
-        $domain->update(['php_version' => $data['php_version']]);
-
         return back()->with('success', "PHP version set to {$data['php_version']}.");
     }
 

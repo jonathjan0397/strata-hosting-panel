@@ -377,7 +377,32 @@ func Rename(username, relFrom, relTo string) error {
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(absTo), 0755); err != nil {
+		return err
+	}
 	return os.Rename(absFrom, absTo)
+}
+
+// Copy recursively copies a file or directory within the jail.
+func Copy(username, relFrom, relTo string) error {
+	absFrom, err := Resolve(username, relFrom)
+	if err != nil {
+		return err
+	}
+	absTo, err := Resolve(username, relTo)
+	if err != nil {
+		return err
+	}
+
+	if absFrom == absTo {
+		return fmt.Errorf("source and destination are the same")
+	}
+
+	if err := os.MkdirAll(filepath.Dir(absTo), 0755); err != nil {
+		return err
+	}
+
+	return copyPath(absFrom, absTo)
 }
 
 // Delete removes a file or directory (recursive for dirs).
@@ -400,6 +425,58 @@ func Chmod(username, relPath string, mode os.FileMode) error {
 		return err
 	}
 	return os.Chmod(abs, mode)
+}
+
+func copyPath(src, dest string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("copying symbolic links is not supported")
+	}
+
+	if info.IsDir() {
+		if err := os.MkdirAll(dest, info.Mode().Perm()); err != nil {
+			return err
+		}
+
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range entries {
+			if err := copyPath(filepath.Join(src, entry.Name()), filepath.Join(dest, entry.Name())); err != nil {
+				return err
+			}
+		}
+
+		return os.Chmod(dest, info.Mode().Perm())
+	}
+
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+
+	if err := out.Close(); err != nil {
+		return err
+	}
+
+	return os.Chmod(dest, info.Mode().Perm())
 }
 
 // Compress creates a zip or tar.gz archive from the given relative paths.

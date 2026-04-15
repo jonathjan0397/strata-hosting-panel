@@ -168,8 +168,13 @@ class DomainProvisioner
     public function changePhpVersion(Domain $domain, string $newVersion): array
     {
         try {
-            $account    = $domain->account;
+            $domain->loadMissing(['account', 'node']);
+            $account = $domain->account;
             $oldVersion = $domain->php_version ?? $account->php_version;
+
+            if ($newVersion === $oldVersion) {
+                return [true, null];
+            }
 
             $response = AgentClient::for($domain->node)->setPhpVersion(
                 $account->username,
@@ -177,7 +182,29 @@ class DomainProvisioner
                 $newVersion
             );
 
-            return $response->successful() ? [true, null] : [false, $response->body()];
+            if (! $response->successful()) {
+                return [false, $response->body()];
+            }
+
+            $originalDomainVersion = $domain->php_version;
+            $domain->php_version = $newVersion;
+
+            [$reprovisioned, $reprovisionError] = $this->reprovision($domain);
+
+            if (! $reprovisioned) {
+                AgentClient::for($domain->node)->setPhpVersion(
+                    $account->username,
+                    $newVersion,
+                    $oldVersion
+                );
+                $domain->php_version = $originalDomainVersion;
+
+                return [false, 'Vhost reprovision failed after PHP pool update: ' . $reprovisionError];
+            }
+
+            $domain->update(['php_version' => $newVersion]);
+
+            return [true, null];
         } catch (\Throwable $e) {
             return [false, $e->getMessage()];
         }

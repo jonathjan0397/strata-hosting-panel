@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.5] - 2026-04-15
+
+Release target: `1.0.5`.
+
+### Fixed - PHP version socket reprovisioning and file manager parity
+
+- Fixed per-domain PHP version changes so the vhost is reprovisioned immediately after the PHP-FPM pool changes, preventing Apache and Nginx from continuing to point at stale sockets
+- Added rollback handling so a failed reprovision restores the previous PHP-FPM version instead of leaving the domain in a mismatched state
+- Expanded the user file manager with real clipboard-style `copy`, `cut`, and `paste` actions backed by a new agent-side recursive copy operation
+- Improved the file manager permissions workflow with owner, group, and public checkboxes plus common octal presets, while keeping rename, compress, extract, upload, edit, and delete actions in one place
+
 ## [1.0.4] - 2026-04-13
 
 Release target: `1.0.4`.

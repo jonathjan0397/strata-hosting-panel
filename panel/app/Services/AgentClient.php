@@ -372,6 +372,11 @@ class AgentClient
         return $this->post("/files/{$username}/rename", ['from' => $from, 'to' => $to]);
     }
 
+    public function fileCopy(string $username, string $from, string $to): Response
+    {
+        return $this->post("/files/{$username}/copy", ['from' => $from, 'to' => $to]);
+    }
+
     public function fileDelete(string $username, string $path): Response
     {
         return $this->delete("/files/{$username}?path=" . urlencode($path));
