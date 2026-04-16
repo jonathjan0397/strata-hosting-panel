@@ -12,6 +12,7 @@ class CronJob extends Model
         'name',
         'expression',
         'command',
+        'working_dir',
         'is_enabled',
     ];
 

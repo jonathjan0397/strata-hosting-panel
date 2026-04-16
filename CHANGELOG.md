@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.11] - 2026-04-16
+
+Release target: `1.0.11`.
+
+- Updated cron jobs to run from a configurable working directory that defaults to the hosting account home directory.
+- Added working-directory input and explanations to the cron UI so users can keep commands relative to their account home instead of relying on absolute paths.
+- Updated managed cron rendering on the agent to execute jobs as `cd <working_dir> && <command>`.
+
 ## [1.0.10] - 2026-04-16
 
 Release target: `1.0.10`.

@@ -25,7 +25,7 @@
                     <h3 class="text-sm font-semibold text-gray-200">How cron scheduling works</h3>
                     <p class="mt-1 text-sm text-gray-400">
                         Jobs run as <span class="font-mono text-gray-200">{{ account.username }}</span> on the assigned node{{ account.node?.name ? ` (${account.node.name})` : '' }}.
-                        The first five fields control when the command runs. The command field is the actual shell command that executes.
+                        The first five fields control when the command runs. Commands execute from a working directory that defaults to the hosting account home.
                     </p>
                 </div>
                 <div class="rounded-lg border border-gray-800 bg-gray-950/60 px-3 py-2 text-xs text-gray-400">
@@ -67,6 +67,7 @@
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Label</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Schedule</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Working Dir</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Command</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
                             <th class="px-5 py-3"></th>
@@ -81,6 +82,7 @@
                                 </div>
                             </td>
                             <td class="px-5 py-3.5 text-xs font-mono text-gray-400">{{ job.expression }}</td>
+                            <td class="px-5 py-3.5 text-xs font-mono text-gray-400">{{ job.working_dir }}</td>
                             <td class="max-w-xl px-5 py-3.5 text-xs font-mono text-gray-400">
                                 <span class="break-all">{{ job.command }}</span>
                             </td>
@@ -121,7 +123,7 @@
                     <div>
                         <h3 class="text-base font-semibold text-gray-100">{{ editingJob ? 'Edit Cron Job' : 'Add Cron Job' }}</h3>
                         <p class="mt-1 text-sm text-gray-500">
-                            Use either the raw cron line input or the individual schedule fields below. The preview line is what gets written for this account.
+                            Use either the raw cron line input or the individual schedule fields below. The preview line shows the exact managed command after the working directory is applied.
                         </p>
                     </div>
                     <button @click="closeModal" class="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-800">
@@ -141,7 +143,7 @@
                                     v-model="form.cron_line"
                                     type="text"
                                     class="field w-full font-mono"
-                                    placeholder="*/5 * * * * php /var/www/account/public_html/artisan schedule:run"
+                                    placeholder="*/5 * * * * php public_html/artisan schedule:run"
                                     @blur="ingestCronLine()"
                                 />
                                 <p class="mt-2 text-xs leading-relaxed text-gray-500">
@@ -149,10 +151,17 @@
                                 </p>
                             </FormField>
 
-                            <FormField label="Command" :error="form.errors.command">
-                                <textarea v-model="form.command" rows="4" class="field w-full font-mono text-sm" placeholder="php /var/www/account/public_html/artisan schedule:run"></textarea>
+                            <FormField label="Working directory" :error="form.errors.working_dir">
+                                <input v-model="form.working_dir" type="text" class="field w-full font-mono" placeholder="." />
                                 <p class="mt-2 text-xs leading-relaxed text-gray-500">
-                                    This is the command line cron runs as the hosting account user. Keep it to a single line. Use absolute paths wherever possible.
+                                    Relative values are resolved from <span class="font-mono text-gray-300">{{ homeDir }}</span>. Use <span class="font-mono text-gray-300">.</span> for the account home, <span class="font-mono text-gray-300">public_html</span> for a home subdirectory, or an absolute path if needed.
+                                </p>
+                            </FormField>
+
+                            <FormField label="Command" :error="form.errors.command">
+                                <textarea v-model="form.command" rows="4" class="field w-full font-mono text-sm" placeholder="php public_html/artisan schedule:run"></textarea>
+                                <p class="mt-2 text-xs leading-relaxed text-gray-500">
+                                    This is the shell command cron runs after changing into the working directory. Relative file references are therefore resolved from that directory.
                                 </p>
                             </FormField>
                         </div>
@@ -244,6 +253,7 @@ const fieldHelp = [
 
 const enabledJobs = computed(() => props.jobs.filter((job) => job.is_enabled).length);
 const disabledJobs = computed(() => props.jobs.filter((job) => !job.is_enabled).length);
+const homeDir = computed(() => `/home/${props.account.username}`);
 
 const showModal = ref(false);
 const editingJob = ref(null);
@@ -258,6 +268,7 @@ const form = useForm({
     month: '*',
     day_of_week: '*',
     command: '',
+    working_dir: '.',
     is_enabled: true,
 });
 
@@ -271,13 +282,26 @@ const expression = computed(() => {
     ].join(' ');
 });
 
+const resolvedWorkingDir = computed(() => {
+    const value = String(form.working_dir || '.').trim();
+    if (!value || value === '.') {
+        return homeDir.value;
+    }
+
+    if (value.startsWith('/')) {
+        return value;
+    }
+
+    return `${homeDir.value}/${value.replace(/^\.?\//, '')}`.replace(/\/+/g, '/');
+});
+
 const previewLine = computed(() => {
     const command = form.command?.trim();
     if (!command) {
         return '';
     }
 
-    return `${expression.value} ${command}`;
+    return `${expression.value} cd ${resolvedWorkingDir.value} && ${command}`;
 });
 
 function resetForm() {
@@ -291,6 +315,7 @@ function resetForm() {
     form.month = '*';
     form.day_of_week = '*';
     form.command = '';
+    form.working_dir = '.';
     form.is_enabled = true;
     form.clearErrors();
 }
@@ -308,6 +333,7 @@ function openEdit(job) {
     form.name = job.name ?? '';
     form.cron_line = job.cron_line ?? '';
     form.command = job.command ?? '';
+    form.working_dir = job.working_dir ?? '.';
     form.is_enabled = Boolean(job.is_enabled);
     applyCronExpression(job.expression ?? '* * * * *');
     showModal.value = true;
@@ -362,6 +388,7 @@ function submit() {
         cron_line: previewLine.value,
         expression: expression.value,
         command: form.command,
+        working_dir: form.working_dir,
         is_enabled: form.is_enabled,
     };
 

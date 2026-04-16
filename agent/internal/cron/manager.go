@@ -20,6 +20,7 @@ type Job struct {
 	Name       string `json:"name"`
 	Expression string `json:"expression"`
 	Command    string `json:"command"`
+	WorkingDir string `json:"working_dir"`
 	Enabled    bool   `json:"is_enabled"`
 }
 
@@ -95,6 +96,7 @@ func renderManagedBlock(jobs []Job) string {
 
 		expression := strings.TrimSpace(job.Expression)
 		command := strings.TrimSpace(job.Command)
+		workingDir := strings.TrimSpace(job.WorkingDir)
 		if expression == "" || command == "" {
 			continue
 		}
@@ -103,7 +105,7 @@ func renderManagedBlock(jobs []Job) string {
 			lines = append(lines, "# "+strings.TrimSpace(job.Name))
 		}
 
-		lines = append(lines, expression+" "+command)
+		lines = append(lines, expression+" "+renderCommand(workingDir, command))
 		count++
 	}
 
@@ -114,6 +116,19 @@ func renderManagedBlock(jobs []Job) string {
 	lines = append(lines, endMarker)
 
 	return strings.Join(lines, "\n")
+}
+
+func renderCommand(workingDir, command string) string {
+	workingDir = strings.TrimSpace(workingDir)
+	if workingDir == "" {
+		return command
+	}
+
+	return "cd " + shellQuote(workingDir) + " && " + command
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
 func mergeCrontab(existing, managed string) string {

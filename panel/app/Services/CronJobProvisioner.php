@@ -10,7 +10,7 @@ use InvalidArgumentException;
 
 class CronJobProvisioner
 {
-    public function normalizePayload(array $data): array
+    public function normalizePayload(Account $account, array $data): array
     {
         $cronLine = trim((string) ($data['cron_line'] ?? ''));
 
@@ -38,11 +38,13 @@ class CronJobProvisioner
         }
 
         $name = trim((string) ($data['name'] ?? ''));
+        $workingDir = $this->normalizeWorkingDir($account, (string) ($data['working_dir'] ?? '.'));
 
         return [
             'name' => $name !== '' ? $name : null,
             'expression' => preg_replace('/\s+/', ' ', $expression),
             'command' => $command,
+            'working_dir' => $workingDir,
             'is_enabled' => filter_var($data['is_enabled'] ?? true, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
         ];
     }
@@ -54,7 +56,7 @@ class CronJobProvisioner
 
     public function create(Account $account, array $data): array
     {
-        $normalized = $this->normalizePayload($data);
+        $normalized = $this->normalizePayload($account, $data);
         $existing = $account->cronJobs()->orderBy('id')->get();
         $preview = $existing->map(fn (CronJob $job) => $this->serializeJob($job))
             ->push($normalized)
@@ -72,8 +74,8 @@ class CronJobProvisioner
 
     public function update(CronJob $job, array $data): array
     {
-        $normalized = $this->normalizePayload($data);
         $account = $job->account()->with('node')->firstOrFail();
+        $normalized = $this->normalizePayload($account, $data);
         $existing = $account->cronJobs()->orderBy('id')->get();
 
         $preview = $existing->map(function (CronJob $existingJob) use ($job, $normalized) {
@@ -142,6 +144,7 @@ class CronJobProvisioner
             'name' => $job->name,
             'expression' => $job->expression,
             'command' => $job->command,
+            'working_dir' => $job->working_dir,
             'is_enabled' => (bool) $job->is_enabled,
         ];
     }
@@ -155,5 +158,32 @@ class CronJobProvisioner
         }
 
         return [implode(' ', array_slice($parts, 0, 5)), trim($parts[5])];
+    }
+
+    private function normalizeWorkingDir(Account $account, string $workingDir): string
+    {
+        $workingDir = trim($workingDir);
+
+        if ($workingDir === '') {
+            $workingDir = '.';
+        }
+
+        if (str_contains($workingDir, "\n") || str_contains($workingDir, "\r")) {
+            throw new InvalidArgumentException('Working directory must stay on a single line.');
+        }
+
+        if (! str_starts_with($workingDir, '/')) {
+            $relativePath = $workingDir;
+            if ($relativePath === '.' || $relativePath === './') {
+                $relativePath = '';
+            } elseif (str_starts_with($relativePath, './')) {
+                $relativePath = substr($relativePath, 2);
+            }
+
+            $workingDir = '/home/' . $account->username . '/' . ltrim($relativePath, '/');
+            $workingDir = preg_replace('#/+#', '/', $workingDir) ?: $workingDir;
+        }
+
+        return rtrim($workingDir, '/') ?: '/';
     }
 }

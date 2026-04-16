@@ -113,6 +113,7 @@ class CronJobController extends Controller
             'cron_line' => ['nullable', 'string', 'max:1024'],
             'expression' => ['nullable', 'string', 'max:255'],
             'command' => ['nullable', 'string', 'max:2000'],
+            'working_dir' => ['nullable', 'string', 'max:500'],
             'is_enabled' => ['nullable', 'boolean'],
         ]);
     }
@@ -137,8 +138,10 @@ class CronJobController extends Controller
             'name' => $job->name,
             'expression' => $job->expression,
             'command' => $job->command,
+            'working_dir' => $job->working_dir,
             'is_enabled' => (bool) $job->is_enabled,
             'cron_line' => trim($job->expression . ' ' . $job->command),
+            'rendered_command' => 'cd ' . $job->working_dir . ' && ' . $job->command,
             'created_at' => optional($job->created_at)?->toDateTimeString(),
             'updated_at' => optional($job->updated_at)?->toDateTimeString(),
         ];
