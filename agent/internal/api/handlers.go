@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -209,7 +210,7 @@ func handlePHPPoolCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := waitForPHPSocket(cfg, 10*time.Second); err != nil {
+	if err := waitForPHPSocket(cfg, 20*time.Second); err != nil {
 		http.Error(w, "pool written but php socket did not become ready: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -265,7 +266,11 @@ func waitForPHPSocket(cfg php.PoolConfig, timeout time.Duration) error {
 
 	for time.Now().Before(deadline) {
 		if info, err := os.Stat(socketPath); err == nil && info.Mode()&os.ModeSocket != 0 {
-			return nil
+			conn, dialErr := net.DialTimeout("unix", socketPath, 250*time.Millisecond)
+			if dialErr == nil {
+				conn.Close()
+				return nil
+			}
 		}
 
 		time.Sleep(250 * time.Millisecond)

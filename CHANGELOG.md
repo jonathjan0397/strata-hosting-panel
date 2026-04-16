@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.9] - 2026-04-16
+
+Release target: `1.0.9`.
+
+- Fixed the final PHP `8.2 -> 8.4` cutover race by making the agent wait for the target PHP-FPM socket to accept a real connection, not just exist on disk.
+- Increased PHP socket readiness wait time during pool creation from `10s` to `20s` to reduce transient `503 Service Unavailable` responses during version upgrades.
+
 ## [1.0.8] - 2026-04-16
 
 Release target: `1.0.8`.
