@@ -19,8 +19,8 @@ Project:
 
 Current public release line:
 
-- latest published release at the time of this handoff: `1.0.9`
-- `main` and tag `1.0.9` should be treated as the current stable release baseline
+- latest published release at the time of this handoff: `1.0.10`
+- `main` and tag `1.0.10` should be treated as the current stable release baseline
 - `latest-untested` may move forward after this release and should not be assumed to match `main`
 
 Current operational state:
@@ -44,11 +44,12 @@ Recent release lesson:
 - `1.0.7` fixes the remaining PHP downgrade cutover race by waiting for the per-account PHP-FPM socket to exist before the agent reports pool creation success
 - `1.0.8` keeps the previous per-account PHP-FPM pool in place during switches so rapid `8.4 <-> 8.2` transitions do not drop in-flight PHP requests during cutover
 - `1.0.9` fixes the remaining PHP upgrade cutover race by waiting for the target socket to accept a real Unix connection before the agent reports pool creation success, and extends the readiness window to `20s`
+- `1.0.10` adds panel-managed cron jobs for users and admins, including a raw cron-line input mode, per-field guidance, and agent-side managed crontab rendering for each hosting account
 - the failure mode was not runtime code incompatibility, it was that older live `/usr/sbin/strata-upgrade` binaries could not safely apply the newer release without the fix
 
 Current branch policy:
 
-- `main` = frozen release branch at `1.0.9` except for release blockers
+- `main` = frozen release branch at `1.0.10` except for release blockers
 - `latest-untested` = active pre-release validation branch for new work after the freeze point
 - `experimental` = high-risk branch for unfinished work
 

@@ -36,6 +36,7 @@ func Routes() chi.Router {
 	// Account provisioning
 	r.Post("/accounts", handleAccountProvision)
 	r.Delete("/accounts/{username}", handleAccountDeprovision)
+	r.Put("/cron/{username}", handleCronApply)
 
 	// SSH Keys
 	r.Get("/accounts/{username}/ssh-keys", handleSshKeyList)

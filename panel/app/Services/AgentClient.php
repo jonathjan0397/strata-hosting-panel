@@ -406,6 +406,13 @@ class AgentClient
         return $this->post("/files/{$username}/extract", ['path' => $path, 'dest' => $dest]);
     }
 
+    public function syncCronJobs(string $username, array $jobs): Response
+    {
+        return $this->put("/cron/{$username}", [
+            'jobs' => $jobs,
+        ]);
+    }
+
     public function fileDownloadUrl(string $username, string $path): string
     {
         return $this->node->apiUrl("/files/{$username}/download?path=" . urlencode($path));

@@ -9,6 +9,7 @@ use App\Http\Controllers\EmailAccountController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AccountController;
+use App\Http\Controllers\Admin\CronJobController as AdminCronJobController;
 use App\Http\Controllers\Admin\AccountMigrationController;
 use App\Http\Controllers\Admin\DatabaseController;
 use App\Http\Controllers\Admin\DnsController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\Admin\AdminWebsiteController;
 use App\Http\Controllers\Admin\ShellController;
 use App\Http\Controllers\User\AutoresponderController;
 use App\Http\Controllers\User\AppInstallerController;
+use App\Http\Controllers\User\CronJobController as UserCronJobController;
 use App\Http\Controllers\User\EmailFilterController;
 use App\Http\Controllers\User\DeliveryController;
 use App\Http\Controllers\User\DiskUsageController;
@@ -227,6 +229,14 @@ Route::middleware(['auth'])->group(function () {
             Route::post('git/pull', [GitController::class, 'pull'])->name('git.pull');
         });
 
+        Route::middleware('account.feature:cron_jobs')->group(function () {
+            Route::get('cron', [UserCronJobController::class, 'index'])->name('cron.index');
+            Route::post('cron', [UserCronJobController::class, 'store'])->name('cron.store');
+            Route::put('cron/{cronJob}', [UserCronJobController::class, 'update'])->name('cron.update');
+            Route::delete('cron/{cronJob}', [UserCronJobController::class, 'destroy'])->name('cron.destroy');
+            Route::post('cron/sync', [UserCronJobController::class, 'sync'])->name('cron.sync');
+        });
+
         // Email deliverability troubleshooter
         Route::middleware('account.feature:deliverability')->group(function () {
             Route::get('deliverability', [DeliverabilityController::class, 'userIndex'])->name('deliverability.index');
@@ -310,6 +320,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('accounts/{account}/impersonate', [ImpersonationController::class, 'startFromAdmin'])->name('accounts.impersonate');
         Route::post('accounts/{account}/suspend', [AccountController::class, 'suspend'])->name('accounts.suspend');
         Route::post('accounts/{account}/unsuspend', [AccountController::class, 'unsuspend'])->name('accounts.unsuspend');
+        Route::get('accounts/{account}/cron', [AdminCronJobController::class, 'index'])->name('accounts.cron');
+        Route::post('accounts/{account}/cron', [AdminCronJobController::class, 'store'])->name('accounts.cron.store');
+        Route::post('accounts/{account}/cron/sync', [AdminCronJobController::class, 'sync'])->name('accounts.cron.sync');
+        Route::put('cron/{cronJob}', [AdminCronJobController::class, 'update'])->name('cron.update');
+        Route::delete('cron/{cronJob}', [AdminCronJobController::class, 'destroy'])->name('cron.destroy');
         Route::get('migrations', [AccountMigrationController::class, 'index'])->name('migrations.index');
         Route::post('migrations', [AccountMigrationController::class, 'store'])->name('migrations.store');
         Route::post('migrations/{migration}/transfer', [AccountMigrationController::class, 'transfer'])->name('migrations.transfer');

@@ -80,6 +80,11 @@ class Account extends Model
         return $this->hasMany(WebDavAccount::class);
     }
 
+    public function cronJobs(): HasMany
+    {
+        return $this->hasMany(CronJob::class);
+    }
+
     public function malwareScanJobs(): HasMany
     {
         return $this->hasMany(MalwareScanJob::class);

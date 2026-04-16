@@ -32,6 +32,7 @@ class FeatureList extends Model
             'web_disk' => 'Web Disk',
             'file_manager' => 'File Manager',
             'git' => 'Git Version Control',
+            'cron_jobs' => 'Cron Jobs',
             'directory_privacy' => 'Directory Privacy',
             'hotlink_protection' => 'Hotlink Protection',
             'modsecurity' => 'ModSecurity WAF',

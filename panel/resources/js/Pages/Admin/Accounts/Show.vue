@@ -142,6 +142,15 @@
                         </svg>
                         FTP Accounts
                     </Link>
+                    <Link
+                        :href="route('admin.accounts.cron', account.id)"
+                        class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors"
+                    >
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3.75 2.25M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        Cron Jobs
+                    </Link>
                 </div>
             </div>
         </div>

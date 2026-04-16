@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.10] - 2026-04-16
+
+Release target: `1.0.10`.
+
+- Added panel-managed cron jobs for users and admins with account-scoped storage and agent-side managed crontab sync.
+- Added both a field-by-field cron schedule builder and a raw command-line cron entry input, with inline explanations for every schedule field and a preview of the final cron line.
+- Added admin per-account cron management, user self-service cron management, and feature-list backfill so existing hosting packages expose the new cron tools after upgrade.
+
 ## [1.0.9] - 2026-04-16
 
 Release target: `1.0.9`.
