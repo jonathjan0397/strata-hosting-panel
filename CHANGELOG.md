@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.7] - 2026-04-16
+
+Release target: `1.0.7`.
+
+### Fixed - Wait for PHP-FPM account socket before cutover completes
+
+- Updated agent-side PHP pool creation to wait for the per-account FPM socket to appear before reporting success
+- Fixes the downgrade race where switching from `8.4` down to `8.1` or `8.2` could briefly leave Apache pointed at a socket that was not ready yet
+- Validated live on mercury with a full `8.4 -> 8.2` switch cycle and immediate PHP execution checks
+
 ## [1.0.6] - 2026-04-16
 
 Release target: `1.0.6`.

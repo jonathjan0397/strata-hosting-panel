@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -208,6 +209,10 @@ func handlePHPPoolCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if err := waitForPHPSocket(cfg, 10*time.Second); err != nil {
+		http.Error(w, "pool written but php socket did not become ready: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	respond(w, http.StatusCreated, map[string]string{"status": "created"})
 }
 
@@ -252,6 +257,21 @@ func handlePHPPoolVersionSet(w http.ResponseWriter, r *http.Request) {
 	system.ServiceAction("php"+req.NewVersion+"-fpm", "reload") //nolint:errcheck
 
 	respond(w, http.StatusOK, map[string]string{"status": "updated", "version": req.NewVersion})
+}
+
+func waitForPHPSocket(cfg php.PoolConfig, timeout time.Duration) error {
+	socketPath := "/run/php/php" + cfg.PHPVersion + "-fpm-" + cfg.Username + ".sock"
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		if info, err := os.Stat(socketPath); err == nil && info.Mode()&os.ModeSocket != 0 {
+			return nil
+		}
+
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	return os.ErrNotExist
 }
 
 // ── SSL ───────────────────────────────────────────────────────────────────────
