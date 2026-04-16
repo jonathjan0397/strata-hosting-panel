@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Account;
 use App\Models\Domain;
 use App\Models\DnsZone;
+use Illuminate\Support\Facades\DB;
 
 class DomainProvisioner
 {
@@ -170,44 +172,31 @@ class DomainProvisioner
         try {
             $domain->loadMissing(['account', 'node']);
             $account = $domain->account;
+            if (! $account || ! $domain->node) {
+                return [false, 'Domain is missing its account or node assignment.'];
+            }
+
             $oldVersion = $domain->php_version ?? $account->php_version;
 
             if ($newVersion === $oldVersion) {
                 return [true, null];
             }
 
-            $response = AgentClient::for($domain->node)->setPhpVersion(
-                $account->username,
-                $oldVersion,
-                $newVersion
-            );
-
-            if (! $response->successful()) {
-                return [false, $response->body()];
-            }
-
-            $originalDomainVersion = $domain->php_version;
-            $domain->php_version = $newVersion;
-
-            [$reprovisioned, $reprovisionError] = $this->reprovision($domain);
-
-            if (! $reprovisioned) {
-                AgentClient::for($domain->node)->setPhpVersion(
-                    $account->username,
-                    $newVersion,
-                    $oldVersion
-                );
-                $domain->php_version = $originalDomainVersion;
-
-                return [false, 'Vhost reprovision failed after PHP pool update: ' . $reprovisionError];
-            }
-
-            $domain->update(['php_version' => $newVersion]);
-
-            return [true, null];
+            return $this->switchAccountPhpVersion($account, $newVersion, $oldVersion);
         } catch (\Throwable $e) {
             return [false, $e->getMessage()];
         }
+    }
+
+    public function repairPhpSockets(Account $account): array
+    {
+        $account->loadMissing(['node', 'domains.node']);
+
+        if (! $account->node) {
+            return [false, 'Account is missing its node assignment.'];
+        }
+
+        return $this->reprovisionAccountDomains($account, $account->php_version ?: '8.4', deleteOldPoolVersion: null);
     }
 
     /**
@@ -216,6 +205,11 @@ class DomainProvisioner
     public function issueSSL(Domain $domain, bool $wildcard = false): array
     {
         try {
+            $domain->loadMissing(['account', 'node']);
+            if (! $domain->node) {
+                return [false, 'Domain is missing its node assignment.'];
+            }
+
             if ($wildcard && ! $this->supportsWildcardSsl($domain)) {
                 return [false, 'Wildcard SSL requires a managed DNS zone for this domain.'];
             }
@@ -224,7 +218,7 @@ class DomainProvisioner
                 'wildcard' => $wildcard,
                 'web_server' => $domain->node->web_server ?? $domain->web_server ?? 'nginx',
                 'webroot' => $domain->document_root,
-                'alt_names' => $wildcard ? [] : ["www.{$domain->domain}"],
+                'alt_names' => $wildcard ? [] : $this->defaultAltNames($domain),
             ]);
 
             if (! $response->successful()) {
@@ -308,12 +302,17 @@ class DomainProvisioner
 
     private function buildPayload(Domain $domain, array $override = []): array
     {
-        $account    = $domain->account;
+        $domain->loadMissing(['account', 'node']);
+        $account = $domain->account;
+        if (! $account) {
+            throw new \RuntimeException('Domain is missing its account association.');
+        }
+
         $phpVersion = $domain->php_version ?? $account->php_version;
         $phpSocket  = "/run/php/php{$phpVersion}-fpm-{$account->username}.sock";
 
         $base = [
-            'web_server'       => $domain->node->web_server ?? 'nginx',
+            'web_server'       => $domain->node->web_server ?? $domain->web_server ?? 'nginx',
             'domain'           => $domain->domain,
             'username'         => $account->username,
             'document_root'    => $domain->document_root,
@@ -323,6 +322,164 @@ class DomainProvisioner
         ];
 
         return array_merge($base, $override);
+    }
+
+    private function defaultAltNames(Domain $domain): array
+    {
+        if ($domain->type === 'subdomain') {
+            return [];
+        }
+
+        return ["www.{$domain->domain}"];
+    }
+
+    private function poolConfigFor($account, string $phpVersion): array
+    {
+        return [
+            'Username' => $account->username,
+            'PHPVersion' => $phpVersion,
+            'MaxChildren' => 5,
+            'UploadMax' => $account->php_upload_max ?: '64M',
+            'PostMax' => $account->php_post_max ?: '64M',
+            'MemoryLimit' => $account->php_memory_limit ?: '256M',
+            'MaxExecTime' => (int) ($account->php_max_exec_time ?: 30),
+        ];
+    }
+
+    private function switchAccountPhpVersion(Account $account, string $newVersion, string $oldVersion): array
+    {
+        $account->loadMissing(['node', 'domains.node']);
+
+        $supportedVersions = $this->supportedPhpVersions($account);
+        if (! in_array($newVersion, $supportedVersions, true)) {
+            return [false, "PHP {$newVersion} is not available on node {$account->node->name}."];
+        }
+
+        $client = AgentClient::for($account->node);
+        $response = $client->createPhpPool($this->poolConfigFor($account, $newVersion));
+
+        if (! $response->successful()) {
+            return [false, $response->body()];
+        }
+
+        [$reprovisioned, $reprovisionError, $reprovisionedDomains] = $this->reprovisionAccountDomains($account, $newVersion, null);
+
+        if (! $reprovisioned) {
+            $client->deletePhpPool($account->username, $newVersion);
+
+            return [false, $reprovisionError];
+        }
+
+        try {
+            DB::transaction(function () use ($account, $newVersion) {
+                $account->update(['php_version' => $newVersion]);
+                $account->domains()->update(['php_version' => $newVersion]);
+            });
+        } catch (\Throwable $e) {
+            $this->rollbackReprovisionedDomains($reprovisionedDomains, $account);
+            $client->deletePhpPool($account->username, $newVersion);
+
+            return [false, 'PHP version state sync failed after vhost reprovision: ' . $e->getMessage()];
+        }
+
+        if ($oldVersion !== $newVersion) {
+            $client->deletePhpPool($account->username, $oldVersion);
+        }
+
+        return [true, null];
+    }
+
+    private function reprovisionAccountDomains(Account $account, string $targetVersion, ?string $deleteOldPoolVersion): array
+    {
+        $domains = $account->domains
+            ->filter(fn (Domain $domain) => $domain->node_id === $account->node_id)
+            ->values();
+
+        $reprovisioned = [];
+
+        foreach ($domains as $domain) {
+            $domain->setRelation('account', $account);
+            $domain->setRelation('node', $domain->node ?: $account->node);
+
+            $workingDomain = $domain->replicate();
+            $workingDomain->exists = true;
+            $workingDomain->setRelation('account', $account);
+            $workingDomain->setRelation('node', $domain->node ?: $account->node);
+            $workingDomain->php_version = $targetVersion;
+
+            [$ok, $error] = $this->reprovision($workingDomain);
+            if (! $ok) {
+                $this->rollbackReprovisionedDomains($reprovisioned, $account);
+
+                return [false, "Vhost reprovision failed for {$domain->domain}: {$error}", $reprovisioned];
+            }
+
+            $reprovisioned[] = $domain;
+        }
+
+        if ($deleteOldPoolVersion) {
+            AgentClient::for($account->node)->deletePhpPool($account->username, $deleteOldPoolVersion);
+        }
+
+        return [true, null, $reprovisioned];
+    }
+
+    private function rollbackReprovisionedDomains(array $domains, Account $account): void
+    {
+        foreach ($domains as $domain) {
+            $domain->refresh();
+            $domain->setRelation('account', $account->fresh());
+            $domain->setRelation('node', $domain->node ?: $account->node);
+            $this->reprovision($domain);
+        }
+    }
+
+    private function supportedPhpVersions(Account $account): array
+    {
+        $fallback = array_values(array_unique(array_filter([
+            $account->php_version ?: null,
+            '8.4',
+        ])));
+
+        if (! $account->node) {
+            return $fallback;
+        }
+
+        try {
+            $response = AgentClient::for($account->node)->services();
+            if (! $response->successful()) {
+                return $fallback;
+            }
+
+            $versions = collect($response->json() ?? [])
+                ->filter(fn ($service) => str_starts_with((string) ($service['name'] ?? ''), 'php8.') && str_ends_with((string) ($service['name'] ?? ''), '-fpm'))
+                ->filter(fn ($service) => (bool) ($service['active'] ?? false) || (bool) ($service['enabled'] ?? false))
+                ->map(function ($service) {
+                    if (preg_match('/php(8\.\d+)-fpm/', (string) $service['name'], $matches)) {
+                        return $matches[1];
+                    }
+
+                    return null;
+                })
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($versions === []) {
+                return $fallback;
+            }
+
+            if ($account->php_version && ! in_array($account->php_version, $versions, true)) {
+                $versions[] = $account->php_version;
+            }
+
+            sort($versions);
+
+            return array_values($versions);
+        } catch (\Throwable) {
+            return $fallback;
+        }
     }
 
     private function resolvedSslOverride(Domain $domain): array

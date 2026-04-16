@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.6] - 2026-04-16
+
+Release target: `1.0.6`.
+
+### Fixed - Account-wide PHP switching stability and subdomain SSL issuance
+
+- Converted PHP version switching to an account-wide create-new-pool then reprovision flow that only offers versions actually available on the node
+- Added rollback protection so a failed PHP version state sync reverts reprovisioned vhosts and removes the new pool instead of leaving Apache and panel state split across different versions
+- Added a repair command to reprovision account domains and recover stale PHP-FPM socket mappings after earlier failed switches
+- Updated the agent Apache writer to handle real files in `sites-enabled`, which fixed reprovision failures on mercury
+- Updated PHP pool creation to start the target FPM service if reload alone is insufficient
+- Stopped non-wildcard SSL issuance for subdomains from incorrectly forcing `www.<subdomain>` as an alternate name
+
 ## [1.0.5] - 2026-04-15
 
 Release target: `1.0.5`.

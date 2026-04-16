@@ -40,8 +40,10 @@ class DomainController extends Controller
 
     public function create(): Response
     {
+        $account = $this->account();
+
         return Inertia::render('User/Domains/Create', [
-            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
+            'phpVersions' => $this->phpVersionsFor($account),
         ]);
     }
 
@@ -64,7 +66,7 @@ class DomainController extends Controller
         $data = $request->validate([
             'domain'      => ['required', 'string', 'regex:/^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/', Rule::unique('domains', 'domain')->whereNull('deleted_at')],
             'type'        => ['required', 'in:addon,subdomain,parked'],
-            'php_version' => ['nullable', 'in:8.1,8.2,8.3,8.4'],
+            'php_version' => ['nullable', Rule::in($this->phpVersionsFor($account))],
         ]);
 
         $slug    = str_replace(['.', '-'], '_', $data['domain']);
@@ -102,7 +104,7 @@ class DomainController extends Controller
 
         return Inertia::render('User/Domains/Show', [
             'domain'      => $domain,
-            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
+            'phpVersions' => $this->phpVersionsFor($account),
             'canIssueWildcardSsl' => app(DomainProvisioner::class)->supportsWildcardSsl($domain),
             'canManagePrivacy' => $account->hasFeature('directory_privacy'),
             'canManageHotlinkProtection' => $account->hasFeature('hotlink_protection'),
@@ -315,7 +317,7 @@ class DomainController extends Controller
         abort_unless($domain->account_id === $account->id, 403);
 
         $data = $request->validate([
-            'php_version' => ['required', 'in:8.1,8.2,8.3,8.4'],
+            'php_version' => ['required', Rule::in($this->phpVersionsFor($account))],
         ]);
 
         [$success, $error] = app(DomainProvisioner::class)->changePhpVersion($domain, $data['php_version']);
@@ -324,7 +326,7 @@ class DomainController extends Controller
             return back()->with('error', "PHP version change failed: {$error}");
         }
 
-        return back()->with('success', "PHP version set to {$data['php_version']}.");
+        return back()->with('success', "PHP version set to {$data['php_version']} for all domains on this account.");
     }
 
     public function updateDirectives(Request $request, Domain $domain): RedirectResponse
@@ -643,5 +645,53 @@ class DomainController extends Controller
     private function resolveLogPath(Domain $domain, string $type): string
     {
         return $domain->domain . '.' . ($type === 'error' ? 'error' : 'access') . '.log';
+    }
+
+    private function phpVersionsFor($account): array
+    {
+        $fallback = array_values(array_unique(array_filter([
+            $account->php_version ?: null,
+            '8.4',
+        ])));
+
+        if (! $account->node) {
+            return $fallback;
+        }
+
+        try {
+            $response = AgentClient::for($account->node)->services();
+            if (! $response->successful()) {
+                return $fallback;
+            }
+
+            $versions = collect($response->json() ?? [])
+                ->filter(fn ($service) => str_starts_with((string) ($service['name'] ?? ''), 'php8.') && str_ends_with((string) ($service['name'] ?? ''), '-fpm'))
+                ->filter(fn ($service) => (bool) ($service['active'] ?? false) || (bool) ($service['enabled'] ?? false))
+                ->map(function ($service) {
+                    if (preg_match('/php(8\.\d+)-fpm/', (string) $service['name'], $matches)) {
+                        return $matches[1];
+                    }
+
+                    return null;
+                })
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($versions === []) {
+                return $fallback;
+            }
+
+            if ($account->php_version && ! in_array($account->php_version, $versions, true)) {
+                $versions[] = $account->php_version;
+            }
+
+            sort($versions);
+
+            return array_values($versions);
+        } catch (\Throwable) {
+            return $fallback;
+        }
     }
 }

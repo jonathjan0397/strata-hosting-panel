@@ -8,6 +8,7 @@ use App\Console\Commands\LicenseSync;
 use App\Console\Commands\MetricsAggregateTraffic;
 use App\Console\Commands\MalwareRunScheduled;
 use App\Console\Commands\NodeHealthCheck;
+use App\Console\Commands\RepairPhpSockets;
 use App\Console\Commands\SslRenew;
 use App\Console\Commands\SyncBackupDnsZones;
 use App\Console\Commands\UpgradeRemoteAgents;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
         BackfillMailDns::class,
         ConfigureSnappyMail::class,
+        RepairPhpSockets::class,
         UpgradeRemoteAgents::class,
     ])
     ->withSchedule(function (Schedule $schedule): void {

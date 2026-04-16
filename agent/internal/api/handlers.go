@@ -201,9 +201,12 @@ func handlePHPPoolCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
-	if err := system.ServiceAction("php"+cfg.PHPVersion+"-fpm", "reload"); err != nil {
-		http.Error(w, "pool written but fpm reload failed: "+err.Error(), http.StatusInternalServerError)
-		return
+	service := "php" + cfg.PHPVersion + "-fpm"
+	if err := system.ServiceAction(service, "reload"); err != nil {
+		if startErr := system.ServiceAction(service, "start"); startErr != nil {
+			http.Error(w, "pool written but fpm reload failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	respond(w, http.StatusCreated, map[string]string{"status": "created"})
 }

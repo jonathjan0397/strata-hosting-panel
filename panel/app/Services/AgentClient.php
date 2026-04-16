@@ -146,9 +146,14 @@ class AgentClient
         return $this->post('/php/pool', $config);
     }
 
-    public function deletePhpPool(string $user): Response
+    public function deletePhpPool(string $user, ?string $version = null): Response
     {
-        return $this->delete("/php/pool/{$user}");
+        $path = "/php/pool/{$user}";
+        if ($version) {
+            $path .= '?version=' . urlencode($version);
+        }
+
+        return $this->delete($path);
     }
 
     public function setPhpVersion(string $user, string $oldVersion, string $newVersion): Response

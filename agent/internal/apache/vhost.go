@@ -94,19 +94,23 @@ func WriteVhost(cfg VhostConfig) error {
 	}
 
 	availPath := filepath.Join(sitesAvailable, cfg.Domain+".conf")
-	f, err := os.OpenFile(availPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return fmt.Errorf("write vhost: %w", err)
-	}
-	defer f.Close()
-
-	if err := vhostTemplate.Execute(f, cfg); err != nil {
-		return fmt.Errorf("render vhost: %w", err)
+	if err := writeTemplate(availPath, cfg); err != nil {
+		return err
 	}
 
-	// Enable site via a2ensite
-	if out, err := exec.Command("a2ensite", cfg.Domain+".conf").CombinedOutput(); err != nil {
-		return fmt.Errorf("a2ensite: %w: %s", err, string(out))
+	enabledPath := filepath.Join(sitesEnabled, cfg.Domain+".conf")
+	if enabledInfo, err := os.Lstat(enabledPath); err == nil {
+		if enabledInfo.Mode()&os.ModeSymlink == 0 {
+			if err := writeTemplate(enabledPath, cfg); err != nil {
+				return err
+			}
+		}
+	} else if os.IsNotExist(err) {
+		if out, err := exec.Command("a2ensite", cfg.Domain+".conf").CombinedOutput(); err != nil {
+			return fmt.Errorf("a2ensite: %w: %s", err, string(out))
+		}
+	} else {
+		return fmt.Errorf("inspect enabled vhost: %w", err)
 	}
 
 	return TestAndReload()
@@ -126,4 +130,18 @@ func TestAndReload() error {
 		return fmt.Errorf("apache2 config test failed: %s", string(out))
 	}
 	return exec.Command("systemctl", "reload", "apache2").Run()
+}
+
+func writeTemplate(path string, cfg VhostConfig) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("write vhost %s: %w", path, err)
+	}
+	defer f.Close()
+
+	if err := vhostTemplate.Execute(f, cfg); err != nil {
+		return fmt.Errorf("render vhost %s: %w", path, err)
+	}
+
+	return nil
 }
