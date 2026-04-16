@@ -382,10 +382,6 @@ class DomainProvisioner
             return [false, 'PHP version state sync failed after vhost reprovision: ' . $e->getMessage()];
         }
 
-        if ($oldVersion !== $newVersion) {
-            $client->deletePhpPool($account->username, $oldVersion);
-        }
-
         return [true, null];
     }
 

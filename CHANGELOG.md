@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.8] - 2026-04-16
+
+Release target: `1.0.8`.
+
+### Fixed - Keep previous account PHP pool during version cutover
+
+- Stopped deleting the previous per-account PHP-FPM pool as part of the immediate version switch flow
+- Prevents in-flight requests from losing their backend during rapid `8.4 <-> 8.2` transitions
+- Validated live on mercury with a full `8.4 -> 8.2 -> 8.4` cycle and immediate PHP execution checks after each transition
+
 ## [1.0.7] - 2026-04-16
 
 Release target: `1.0.7`.

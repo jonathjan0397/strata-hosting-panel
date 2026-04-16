@@ -19,8 +19,8 @@ Project:
 
 Current public release line:
 
-- latest published release at the time of this handoff: `1.0.7`
-- `main` and tag `1.0.7` should be treated as the current stable release baseline
+- latest published release at the time of this handoff: `1.0.8`
+- `main` and tag `1.0.8` should be treated as the current stable release baseline
 - `latest-untested` may move forward after this release and should not be assumed to match `main`
 
 Current operational state:
@@ -42,11 +42,12 @@ Recent release lesson:
 - `1.0.5` fixes per-domain PHP version changes so the web server socket is reprovisioned with the new PHP-FPM version and expands the user file manager with copy, cut, paste, and better permissions handling
 - `1.0.6` fixes account-wide PHP version switching so supported versions come from the live node, failed persistence cannot leave Apache and panel state split across different PHP versions, stale socket mappings can be repaired, Apache reprovision works on mercury's real-file `sites-enabled` layout, and subdomain SSL issuance no longer forces `www.<subdomain>`
 - `1.0.7` fixes the remaining PHP downgrade cutover race by waiting for the per-account PHP-FPM socket to exist before the agent reports pool creation success
+- `1.0.8` keeps the previous per-account PHP-FPM pool in place during switches so rapid `8.4 <-> 8.2` transitions do not drop in-flight PHP requests during cutover
 - the failure mode was not runtime code incompatibility, it was that older live `/usr/sbin/strata-upgrade` binaries could not safely apply the newer release without the fix
 
 Current branch policy:
 
-- `main` = frozen release branch at `1.0.7` except for release blockers
+- `main` = frozen release branch at `1.0.8` except for release blockers
 - `latest-untested` = active pre-release validation branch for new work after the freeze point
 - `experimental` = high-risk branch for unfinished work
 
