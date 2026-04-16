@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.12] - 2026-04-16
+
+Release target: `1.0.12`.
+
+- Fixed file-manager uploads to stream multipart payloads from the panel to the agent instead of rebuilding the entire upload body in PHP memory, eliminating the live `500` caused by memory exhaustion on larger uploads.
+- Added a file-upload progress bar in the user file manager so uploads show live progress, file count, and transferred bytes instead of appearing hung.
+- Increased file-manager upload handling consistency across the panel installer, upgrader, controller, and agent by setting a `512 MB` per-file limit with `1 GB` request headroom and clearer `413` limit responses.
+- Kept the pending domain details layout cleanup so long document root paths stay contained inside the user and admin domain detail panels.
+
 ## [1.0.11] - 2026-04-16
 
 Release target: `1.0.11`.

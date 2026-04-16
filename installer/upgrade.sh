@@ -35,6 +35,10 @@ success() { echo "${GREEN}[OK]${NC} $*"; }
 warn() { echo "${YELLOW}[WARN]${NC} $*"; }
 die() { echo "${RED}[ERR]${NC} $*" >&2; exit 1; }
 
+PANEL_FILE_UPLOAD_LIMIT_MB=512
+PANEL_REQUEST_BODY_LIMIT_MB=1024
+PANEL_REQUEST_BODY_LIMIT_BYTES=1073741824
+
 ensure_sudo_installed() {
     if command -v sudo >/dev/null 2>&1; then
         return
@@ -247,6 +251,30 @@ POSTGRES_STORAGE_ROOT='${POSTGRES_STORAGE_ROOT:-}'
 POSTGRES_BIND_TARGET='${POSTGRES_BIND_TARGET:-/var/lib/postgresql}'
 EOF
     chmod 600 /etc/strata-panel/storage.conf
+}
+
+repair_panel_upload_limits() {
+    local panel_php_ver panel_ini
+    panel_php_ver="$("$PHP_BIN" -r "echo PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;")"
+    panel_ini="/etc/php/${panel_php_ver}/fpm/conf.d/99-strata-panel-upload.ini"
+
+    if [[ -d "/etc/php/${panel_php_ver}/fpm/conf.d" ]]; then
+        mkdir -p "/etc/php/${panel_php_ver}/fpm/conf.d"
+        cat > "$panel_ini" <<EOF
+; Strata Hosting Panel upload limits
+upload_max_filesize=${PANEL_FILE_UPLOAD_LIMIT_MB}M
+post_max_size=${PANEL_REQUEST_BODY_LIMIT_MB}M
+max_file_uploads=20
+EOF
+    fi
+
+    if [[ -f /etc/apache2/sites-available/strata-panel.conf ]] && grep -q 'LimitRequestBody' /etc/apache2/sites-available/strata-panel.conf; then
+        sed -i "s/^[[:space:]]*LimitRequestBody .*/    LimitRequestBody ${PANEL_REQUEST_BODY_LIMIT_BYTES}/" /etc/apache2/sites-available/strata-panel.conf
+    fi
+
+    if [[ -f /etc/nginx/sites-available/strata-panel ]] && grep -q 'client_max_body_size' /etc/nginx/sites-available/strata-panel; then
+        sed -i "s/^[[:space:]]*client_max_body_size .*/    client_max_body_size ${PANEL_REQUEST_BODY_LIMIT_MB}M;/" /etc/nginx/sites-available/strata-panel
+    fi
 }
 
 reassert_storage_mounts() {
@@ -894,6 +922,7 @@ repair_mail_permissions
 repair_fail2ban_defaults
 repair_powerdns_soa_defaults
 repair_mail_tls_defaults
+repair_panel_upload_limits
 
 info "Restarting services..."
 systemctl daemon-reload

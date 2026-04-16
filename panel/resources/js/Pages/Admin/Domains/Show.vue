@@ -44,9 +44,9 @@
             <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
                 <h3 class="text-sm font-semibold text-gray-300 mb-4">Configuration</h3>
                 <dl class="space-y-3 text-sm">
-                    <div class="flex justify-between">
+                    <div>
                         <dt class="text-gray-500">Document Root</dt>
-                        <dd class="text-gray-200 font-mono text-xs">{{ domain.document_root }}</dd>
+                        <dd class="mt-1 break-all text-gray-200 font-mono text-xs">{{ domain.document_root }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-gray-500">Web Server</dt>

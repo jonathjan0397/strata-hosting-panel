@@ -38,6 +38,17 @@
                 </div>
             </div>
 
+            <div v-if="uploading" class="rounded-xl border border-indigo-800 bg-indigo-950/30 px-4 py-3">
+                <div class="flex items-center justify-between gap-3 text-sm text-indigo-200">
+                    <span>Uploading {{ uploadState.fileCount }} file<span v-if="uploadState.fileCount !== 1">s</span> to <span class="font-mono">{{ currentPath }}</span></span>
+                    <span class="font-mono text-xs">{{ uploadState.progress }}%</span>
+                </div>
+                <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-800">
+                    <div class="h-full rounded-full bg-indigo-500 transition-all duration-150" :style="{ width: `${uploadState.progress}%` }"></div>
+                </div>
+                <p v-if="uploadState.totalBytes" class="mt-2 text-xs text-gray-400">{{ formatBytes(uploadState.loadedBytes) }} / {{ formatBytes(uploadState.totalBytes) }}</p>
+            </div>
+
             <div v-if="error" class="rounded-xl border border-red-700 bg-red-900/20 px-4 py-2.5 text-sm text-red-300">{{ error }}</div>
 
             <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
@@ -170,6 +181,7 @@ import PageHeader from '@/Components/PageHeader.vue';
 const clipboardStorageKey = 'strata-file-manager-clipboard';
 const currentPath = ref('/'); const entries = ref([]); const loading = ref(false); const error = ref(null);
 const selected = ref(new Set()); const uploading = ref(false); const pasting = ref(false);
+const uploadState = ref({ progress: 0, fileCount: 0, loadedBytes: 0, totalBytes: 0 });
 const clipboard = ref({ mode: null, paths: [], sourcePath: '/' });
 const editor = ref({ open: false, path: '', content: '', saving: false });
 const renameModal = ref({ open: false, entry: null, value: '' });
@@ -239,7 +251,37 @@ async function doCompress() { const { dest, format } = compressModal.value; comp
 function promptExtract(entry = null) { const paths = entry ? [entry.path] : selectedArchives.value.map((item) => item.path); if (!paths.length) return; extractModal.value = { open: true, paths, dest: currentPath.value }; }
 async function doExtract() { const { paths, dest } = extractModal.value; extractModal.value.open = false; try { await Promise.all(paths.map((path) => axios.post(route('my.files.extract'), { path, dest }))); selected.value = new Set(); reload(); } catch (e) { error.value = e.response?.data?.error ?? e.message; } }
 
-async function uploadFiles(event) { const fileList = event.target.files; if (!fileList.length) return; uploading.value = true; const formData = new FormData(); formData.append('path', currentPath.value); for (const file of fileList) formData.append('files[]', file); try { await axios.post(route('my.files.upload'), formData, { headers: { 'Content-Type': 'multipart/form-data' } }); reload(); } catch (e) { error.value = e.response?.data?.error ?? e.message; } finally { uploading.value = false; event.target.value = ''; } }
+async function uploadFiles(event) {
+    const fileList = event.target.files;
+    if (!fileList.length) return;
+    uploading.value = true;
+    uploadState.value = {
+        progress: 0,
+        fileCount: fileList.length,
+        loadedBytes: 0,
+        totalBytes: Array.from(fileList).reduce((sum, file) => sum + file.size, 0),
+    };
+    const formData = new FormData();
+    formData.append('path', currentPath.value);
+    for (const file of fileList) formData.append('files[]', file);
+    try {
+        await axios.post(route('my.files.upload'), formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress(progressEvent) {
+                const total = progressEvent.total ?? uploadState.value.totalBytes ?? 0;
+                const loaded = progressEvent.loaded ?? 0;
+                uploadState.value = {
+                    ...uploadState.value,
+                    loadedBytes: loaded,
+                    totalBytes: total,
+                    progress: total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0,
+                };
+            },
+        });
+        uploadState.value = { ...uploadState.value, progress: 100, loadedBytes: uploadState.value.totalBytes };
+        reload();
+    } catch (e) { error.value = e.response?.data?.error ?? e.message; } finally { uploading.value = false; event.target.value = ''; }
+}
 
 function hydrateClipboard() { try { const raw = window.localStorage.getItem(clipboardStorageKey); if (!raw) return; const parsed = JSON.parse(raw); if (Array.isArray(parsed.paths) && typeof parsed.mode === 'string') clipboard.value = { mode: parsed.mode, paths: parsed.paths, sourcePath: typeof parsed.sourcePath === 'string' ? parsed.sourcePath : '/' }; } catch { clearClipboard(); } }
 function persistClipboard() { window.localStorage.setItem(clipboardStorageKey, JSON.stringify(clipboard.value)); }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Services\AgentClient;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,6 +15,8 @@ use Inertia\Inertia;
 
 class FileManagerController extends Controller
 {
+    private const MAX_UPLOAD_KB = 524288; // 512 MB per file
+
     // ── Page render ────────────────────────────────────────────────────────────
 
     public function index(Request $request): \Inertia\Response|RedirectResponse
@@ -206,7 +209,7 @@ class FileManagerController extends Controller
         $request->validate([
             'path'    => ['required', 'string'],
             'files'   => ['required', 'array'],
-            'files.*' => ['file', 'max:262144'], // 256 MB each
+            'files.*' => ['file', 'max:' . self::MAX_UPLOAD_KB],
         ]);
 
         [$client, $username] = $this->clientAndUsername($request);
@@ -214,13 +217,25 @@ class FileManagerController extends Controller
 
         $agentUrl  = $client->node->apiUrl("/files/{$username}/upload?path=" . urlencode($path));
         $timestamp = (string) time();
-        [$body, $contentType] = $this->buildMultipartUploadPayload($request->file('files'));
-        $signature = hash_hmac('sha256', $timestamp . "\n" . $body, $client->node->hmac_secret);
+        $signature = hash_hmac('sha256', $timestamp . "\n", $client->node->hmac_secret);
 
-        $response = Http::withHeaders([
+        $http = Http::withHeaders([
             'X-Strata-Signature' => $signature,
             'X-Strata-Timestamp' => $timestamp,
-        ])->withBody($body, $contentType)->post($agentUrl);
+            'X-Strata-Unsigned-Body' => '1',
+        ])->timeout(600);
+
+        foreach ($request->file('files') as $file) {
+            /** @var UploadedFile $file */
+            $http = $http->attach(
+                'files[]',
+                fopen($file->getRealPath(), 'rb'),
+                $file->getClientOriginalName(),
+                ['Content-Type' => $file->getMimeType() ?: 'application/octet-stream'],
+            );
+        }
+
+        $response = $http->post($agentUrl);
 
         return $response->successful()
             ? response()->json(['status' => 'ok'])
@@ -244,22 +259,4 @@ class FileManagerController extends Controller
         return [AgentClient::for($account->node), $account->username];
     }
 
-    private function buildMultipartUploadPayload(array $files): array
-    {
-        $boundary = 'strata-' . bin2hex(random_bytes(16));
-        $eol = "\r\n";
-        $body = '';
-
-        foreach ($files as $file) {
-            $body .= "--{$boundary}{$eol}";
-            $body .= 'Content-Disposition: form-data; name="files[]"; filename="' . addslashes($file->getClientOriginalName()) . "\"{$eol}";
-            $body .= 'Content-Type: ' . ($file->getMimeType() ?: 'application/octet-stream') . "{$eol}{$eol}";
-            $body .= file_get_contents($file->getRealPath());
-            $body .= $eol;
-        }
-
-        $body .= "--{$boundary}--{$eol}";
-
-        return [$body, "multipart/form-data; boundary={$boundary}"];
-    }
 }

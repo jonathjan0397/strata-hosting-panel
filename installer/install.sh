@@ -24,6 +24,10 @@ warn()    { echo -e "${YELLOW}[warn]${NC} $*"; }
 die()     { echo -e "${RED}[fail]${NC} $*" >&2; exit 1; }
 prompt()  { echo -e "${CYAN}$*${NC}"; }
 
+PANEL_FILE_UPLOAD_LIMIT_MB=512
+PANEL_REQUEST_BODY_LIMIT_MB=1024
+PANEL_REQUEST_BODY_LIMIT_BYTES=1073741824
+
 ensure_sudo_installed() {
     if command -v sudo >/dev/null 2>&1; then
         return
@@ -1324,6 +1328,16 @@ info "Adding Laravel scheduler cron job…"
     | crontab -u "$PANEL_USER" -
 success "Scheduler cron added."
 
+info "Configuring panel upload limits…"
+mkdir -p "/etc/php/${PANEL_PHP_VER}/fpm/conf.d"
+cat > "/etc/php/${PANEL_PHP_VER}/fpm/conf.d/99-strata-panel-upload.ini" <<EOF
+; Strata Hosting Panel upload limits
+upload_max_filesize=${PANEL_FILE_UPLOAD_LIMIT_MB}M
+post_max_size=${PANEL_REQUEST_BODY_LIMIT_MB}M
+max_file_uploads=20
+EOF
+success "Panel upload limits configured."
+
 # ── Step 18. Nginx/Apache vhost for panel ─────────────────────────────────────
 mkdir -p /etc/strata-panel/tls
 mkdir -p "${MAIL_HTTP_ROOT}/.well-known/acme-challenge"
@@ -1392,7 +1406,7 @@ EOF
         Require all denied
     </FilesMatch>
 
-    LimitRequestBody 67108864
+    LimitRequestBody ${PANEL_REQUEST_BODY_LIMIT_BYTES}
 
     Alias /webmail /var/www/webmail
     <Directory /var/www/webmail>
@@ -1543,7 +1557,7 @@ server {
     location ~ /\.ht { deny all; }
     location ~* \.(env|git|log|sql)\$ { deny all; }
 
-    client_max_body_size 64M;
+    client_max_body_size ${PANEL_REQUEST_BODY_LIMIT_MB}M;
 
     location /webmail {
         root /var/www;

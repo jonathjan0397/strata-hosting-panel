@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"mime"
 	"mime/multipart"
@@ -11,6 +12,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/files"
+)
+
+const (
+	fileUploadMaxBytes        int64 = 512 << 20
+	fileUploadRequestMaxBytes int64 = 1 << 30
 )
 
 // ── List directory ─────────────────────────────────────────────────────────────
@@ -298,10 +304,16 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 		destDir = "/"
 	}
 
-	// Limit upload size to 256 MB
-	r.Body = http.MaxBytesReader(w, r.Body, 256<<20)
+	// Allow enough headroom for multiple uploads in one multipart request while
+	// still enforcing the per-file limit below.
+	r.Body = http.MaxBytesReader(w, r.Body, fileUploadRequestMaxBytes)
 
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			http.Error(w, fmt.Sprintf("upload exceeds the %d MB file-manager limit", fileUploadMaxBytes>>20), http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "failed to parse multipart form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -309,6 +321,10 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	var uploaded []string
 	for _, headers := range r.MultipartForm.File {
 		for _, fh := range headers {
+			if fh.Size > fileUploadMaxBytes {
+				http.Error(w, fmt.Sprintf("%q exceeds the %d MB file-manager limit", fh.Filename, fileUploadMaxBytes>>20), http.StatusRequestEntityTooLarge)
+				return
+			}
 			if err := saveUploadedFile(username, destDir, fh); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return

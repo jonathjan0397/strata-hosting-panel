@@ -19,8 +19,8 @@ Project:
 
 Current public release line:
 
-- latest published release at the time of this handoff: `1.0.11`
-- `main` and tag `1.0.11` should be treated as the current stable release baseline
+- latest published release at the time of this handoff: `1.0.12`
+- `main` and tag `1.0.12` should be treated as the current stable release baseline
 - `latest-untested` may move forward after this release and should not be assumed to match `main`
 
 Current operational state:
@@ -46,11 +46,12 @@ Recent release lesson:
 - `1.0.9` fixes the remaining PHP upgrade cutover race by waiting for the target socket to accept a real Unix connection before the agent reports pool creation success, and extends the readiness window to `20s`
 - `1.0.10` adds panel-managed cron jobs for users and admins, including a raw cron-line input mode, per-field guidance, and agent-side managed crontab rendering for each hosting account
 - `1.0.11` updates cron jobs to execute from a configurable working directory that defaults to the hosting account home, allowing user commands to stay relative to that home context
+- `1.0.12` fixes file-manager uploads by streaming multipart bodies from the panel to the agent instead of buffering whole uploads in PHP memory, adds upload progress UI, aligns upload limits at `512 MB` per file with `1 GB` request headroom, and includes the pending domain details document-root overflow cleanup
 - the failure mode was not runtime code incompatibility, it was that older live `/usr/sbin/strata-upgrade` binaries could not safely apply the newer release without the fix
 
 Current branch policy:
 
-- `main` = frozen release branch at `1.0.11` except for release blockers
+- `main` = frozen release branch at `1.0.12` except for release blockers
 - `latest-untested` = active pre-release validation branch for new work after the freeze point
 - `experimental` = high-risk branch for unfinished work
 

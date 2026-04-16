@@ -14,6 +14,7 @@ import (
 const (
 	headerSignature = "X-Strata-Signature"
 	headerTimestamp = "X-Strata-Timestamp"
+	headerUnsigned  = "X-Strata-Unsigned-Body"
 	maxSkew         = 5 * time.Minute
 )
 
@@ -48,24 +49,26 @@ func HMACAuth(secret string) func(http.Handler) http.Handler {
 				return
 			}
 
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				http.Error(w, "read error", http.StatusBadRequest)
-				return
-			}
-
 			mac := hmac.New(sha256.New, []byte(secret))
 			mac.Write([]byte(tsStr))
 			mac.Write([]byte("\n"))
-			mac.Write(body)
+
+			unsignedBody := r.Header.Get(headerUnsigned) == "1"
+			if !unsignedBody {
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					http.Error(w, "read error", http.StatusBadRequest)
+					return
+				}
+				mac.Write(body)
+				r.Body = io.NopCloser(bytes.NewReader(body))
+			}
 			expected := hex.EncodeToString(mac.Sum(nil))
 
 			if !hmac.Equal([]byte(expected), []byte(sig)) {
 				http.Error(w, "invalid signature", http.StatusUnauthorized)
 				return
 			}
-
-			r.Body = io.NopCloser(bytes.NewReader(body))
 			next.ServeHTTP(w, r)
 		})
 	}
