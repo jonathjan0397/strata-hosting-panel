@@ -78,9 +78,12 @@ class HandleInertiaRequests extends Middleware
                 'features'  => StrataLicense::features(),
                 'managed'   => StrataLicense::isManaged(),
                 'synced_at' => StrataLicense::cached()['synced_at'] ?? null,
+                'messages'  => $request->user()?->isAdmin() ? StrataLicense::messages() : [],
+                'first_run' => $request->user()?->isAdmin() ? StrataLicense::isFreshInstall() : false,
+                'stale'     => $request->user()?->isAdmin() ? StrataLicense::isStale() : false,
             ],
             'app' => [
-                'version' => config('strata.version', 'dev'),
+                'version' => config('app.version', config('strata.version', 'dev')),
                 'demo_mode' => (bool) config('strata.demo_mode'),
                 'browser_shell_enabled' => (bool) config('strata.browser_shell_enabled'),
                 'browser_shell_available' => (bool) (

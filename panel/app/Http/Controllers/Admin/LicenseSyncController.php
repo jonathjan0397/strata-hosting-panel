@@ -12,6 +12,6 @@ class LicenseSyncController extends Controller
     {
         StrataLicense::sync();
 
-        return back();
+        return back()->with('success', 'License state refreshed.');
     }
 }

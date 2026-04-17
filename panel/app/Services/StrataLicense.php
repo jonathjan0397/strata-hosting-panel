@@ -2,62 +2,57 @@
 
 namespace App\Services;
 
-use App\Models\Node;
+use App\Licensing\Features;
+use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * StrataLicense communicates with the Strata license server.
- *
- * Usage:
- *   StrataLicense::hasFeature('premium_reseller')
- *   StrataLicense::status()
- *   StrataLicense::sync()
- *
- * Graceful degradation: any failure returns status=active, features=[].
- * Customer installs never break due to a license server outage.
+ * StrataLicense communicates with the Strata license server and caches
+ * the latest known license state for local feature/message checks.
  */
 class StrataLicense
 {
     private const CACHE_KEY = 'strata_license_response';
-    private const CACHE_TTL = 90000; // 25 hours; survives a daily-sync miss.
+    private const CACHE_TTL = 172800; // 48 hours; survives missed background syncs.
+    private const APPLICATION_NAME = 'strata-hosting-panel';
+    private const PING_TIMEOUT = 15;
 
     /**
      * Ping the license server and cache the response.
-     * Returns the response array, or the fallback on any failure.
+     * Returns the cached payload or a safe fallback on failure.
      */
     public static function sync(): array
     {
         $url = config('strata.license_server_url');
-        $token = config('strata.install_token');
-        $installId = config('strata.install_secret');
 
-        // No license server configured; run as open Community edition.
-        if (! $url || ! $token) {
+        // No managed license server configured; run as open community mode.
+        if (! $url) {
             $fallback = self::fallback();
             Cache::put(self::CACHE_KEY, $fallback, self::CACHE_TTL);
+
             return $fallback;
         }
 
         try {
-            $response = Http::timeout(10)
+            $response = Http::timeout(self::PING_TIMEOUT)
                 ->acceptJson()
                 ->post(rtrim($url, '/') . '/api/ping', [
-                    'install_token' => $token,
-                    'install_secret' => $installId,
-                    'software' => 'strata-hosting-panel',
-                    'version' => config('strata.version', 'dev'),
+                    'application_name' => self::APPLICATION_NAME,
+                    'admin_email' => self::resolveAdminEmail(),
+                    'version' => self::version(),
+                    'features' => Features::enabledKeys(),
                     'app_url' => config('app.url'),
-                    'install_path' => self::installPath(),
-                    'server_ip' => self::serverIp(),
-                    'nodes' => self::nodePayload(),
-                    'demo_mode' => (bool) config('strata.demo_mode'),
+                    'app_info' => self::buildAppInfo(),
                 ]);
 
             if (! $response->successful()) {
                 Log::warning('StrataLicense: ping returned HTTP ' . $response->status());
+
                 return self::useCachedOrFallback();
             }
 
@@ -65,13 +60,17 @@ class StrataLicense
 
             if (! is_array($data) || ! isset($data['status'])) {
                 Log::warning('StrataLicense: unexpected response format');
+
                 return self::useCachedOrFallback();
             }
 
             $cached = [
-                'status' => $data['status'] ?? 'active',
-                'features' => array_values(array_filter((array) ($data['features'] ?? []), 'is_string')),
-                'synced_at' => now()->toISOString(),
+                'status' => in_array($data['status'] ?? null, ['active', 'inactive'], true)
+                    ? $data['status']
+                    : 'inactive',
+                'features' => self::normalizeFeatures($data['features'] ?? []),
+                'messages' => self::normalizeMessages($data['messages'] ?? []),
+                'synced_at' => now()->toIso8601String(),
             ];
 
             Cache::put(self::CACHE_KEY, $cached, self::CACHE_TTL);
@@ -84,27 +83,65 @@ class StrataLicense
     }
 
     /**
-     * Return the installation's license status: active, suspended, or unknown.
+     * Return the installation's cached license status.
      */
     public static function status(): string
     {
-        return self::cached()['status'] ?? 'active';
+        return self::cached()['status'] ?? 'inactive';
     }
 
     /**
-     * Check if this installation has a specific feature enabled.
+     * Check if the server has approved a specific feature for this install.
      */
     public static function hasFeature(string $key): bool
     {
-        return in_array($key, self::features(), true);
+        foreach (self::approvedFeatures() as $feature) {
+            if (($feature['key'] ?? null) !== $key) {
+                continue;
+            }
+
+            $expiresAt = $feature['expires_at'] ?? null;
+
+            return ! $expiresAt || now()->toDateString() <= $expiresAt;
+        }
+
+        return false;
     }
 
     /**
-     * Return all enabled feature keys for this installation.
+     * Return approved feature keys for display.
      */
     public static function features(): array
     {
+        return array_values(array_map(
+            static fn (array $feature): string => $feature['key'],
+            self::approvedFeatures(),
+        ));
+    }
+
+    /**
+     * Return approved feature objects from the cached response.
+     */
+    public static function approvedFeatures(): array
+    {
         return self::cached()['features'] ?? [];
+    }
+
+    /**
+     * Return cached MOTD messages, optionally filtered by type.
+     */
+    public static function messages(?string $type = null): array
+    {
+        $messages = self::cached()['messages'] ?? [];
+
+        if ($type === null) {
+            return $messages;
+        }
+
+        return array_values(array_filter(
+            $messages,
+            static fn (array $message): bool => ($message['type'] ?? null) === $type
+        ));
     }
 
     /**
@@ -123,6 +160,26 @@ class StrataLicense
         return (bool) config('strata.license_server_url');
     }
 
+    public static function isFreshInstall(): bool
+    {
+        return self::isManaged() && (self::cached()['synced_at'] ?? null) === null;
+    }
+
+    public static function isStale(int $hours = 48): bool
+    {
+        $syncedAt = self::cached()['synced_at'] ?? null;
+
+        if (! $syncedAt) {
+            return false;
+        }
+
+        try {
+            return now()->diffInHours($syncedAt) >= $hours;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     private static function useCachedOrFallback(): array
     {
         if (Cache::has(self::CACHE_KEY)) {
@@ -135,10 +192,114 @@ class StrataLicense
     private static function fallback(): array
     {
         return [
-            'status' => 'active',
+            'status' => self::isManaged() ? 'inactive' : 'active',
             'features' => [],
+            'messages' => [],
             'synced_at' => null,
         ];
+    }
+
+    private static function resolveAdminEmail(): string
+    {
+        return (string) (User::role('admin')
+            ->orderBy('id')
+            ->value('email') ?? '');
+    }
+
+    private static function buildAppInfo(): string
+    {
+        $parts = array_filter([
+            self::cpuSummary(),
+            self::memorySummary(),
+            self::diskSummary(),
+        ]);
+
+        return implode(' | ', $parts);
+    }
+
+    private static function cpuSummary(): string
+    {
+        $coreCount = self::cpuCoreCount();
+        $model = self::cpuModel();
+
+        if ($coreCount === null && $model === null) {
+            return 'Processors: unavailable';
+        }
+
+        if ($model !== null && $coreCount !== null) {
+            return sprintf('Processors: %d x %s', $coreCount, $model);
+        }
+
+        return sprintf(
+            'Processors: %s',
+            $model ?? (string) $coreCount,
+        );
+    }
+
+    private static function memorySummary(): string
+    {
+        $memInfo = @file('/proc/meminfo', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $values = [];
+
+        foreach ($memInfo as $line) {
+            if (preg_match('/^(MemTotal|MemAvailable):\s+(\d+)\s+kB$/', $line, $matches)) {
+                $values[$matches[1]] = (int) $matches[2] * 1024;
+            }
+        }
+
+        if (! isset($values['MemTotal'])) {
+            return 'RAM: unavailable';
+        }
+
+        $summary = 'RAM: ' . self::formatBytes($values['MemTotal']) . ' total';
+
+        if (isset($values['MemAvailable'])) {
+            $summary .= ', ' . self::formatBytes($values['MemAvailable']) . ' free';
+        }
+
+        return $summary;
+    }
+
+    private static function diskSummary(): string
+    {
+        $mounts = self::diskMounts();
+
+        if ($mounts === []) {
+            $path = self::installPath();
+            $free = @disk_free_space($path);
+            $total = @disk_total_space($path);
+
+            if ($free === false || $total === false) {
+                return 'Disks: unavailable';
+            }
+
+            return sprintf(
+                'Disks: %s free / %s total at %s',
+                self::formatBytes((float) $free),
+                self::formatBytes((float) $total),
+                $path,
+            );
+        }
+
+        $parts = [];
+
+        foreach ($mounts as $mount) {
+            $free = @disk_free_space($mount);
+            $total = @disk_total_space($mount);
+
+            if ($free === false || $total === false) {
+                continue;
+            }
+
+            $parts[] = sprintf(
+                '%s %s free / %s total',
+                $mount,
+                self::formatBytes((float) $free),
+                self::formatBytes((float) $total),
+            );
+        }
+
+        return $parts === [] ? 'Disks: unavailable' : 'Disks: ' . implode('; ', $parts);
     }
 
     private static function installPath(): string
@@ -150,60 +311,189 @@ class StrataLicense
             : $basePath;
     }
 
-    private static function serverIp(): ?string
+    private static function version(): string
     {
-        $primary = Node::query()
-            ->orderByDesc('is_primary')
-            ->orderBy('id')
-            ->first();
-
-        return $primary ? self::publicNodeIp($primary) : null;
+        return (string) config('app.version', config('strata.version', 'dev'));
     }
 
-    private static function nodePayload(): array
+    private static function normalizeFeatures(mixed $features): array
     {
-        return Node::query()
-            ->orderByDesc('is_primary')
-            ->orderBy('name')
-            ->get()
-            ->map(function (Node $node): array {
-                return [
-                    'name' => $node->name,
-                    'hostname' => $node->hostname,
-                    'ip_address' => self::publicNodeIp($node),
-                    'role' => $node->is_primary ? 'primary' : 'child',
-                    'status' => $node->status,
-                    'web_server' => $node->web_server,
-                    'agent_version' => $node->agent_version,
-                    'is_primary' => $node->is_primary,
-                ];
-            })
-            ->values()
-            ->all();
-    }
-
-    private static function publicNodeIp(Node $node): ?string
-    {
-        if (self::isPublicIp($node->ip_address)) {
-            return $node->ip_address;
+        if (! is_array($features)) {
+            return [];
         }
 
-        if ($node->hostname) {
-            $resolved = gethostbyname($node->hostname);
-            if ($resolved !== $node->hostname && self::isPublicIp($resolved)) {
-                return $resolved;
+        $normalized = [];
+
+        foreach ($features as $feature) {
+            if (! is_array($feature)) {
+                continue;
+            }
+
+            $key = isset($feature['key']) ? trim((string) $feature['key']) : '';
+            $expiresAt = self::normalizeDate($feature['expires_at'] ?? null);
+
+            if ($key === '' || ! preg_match('/^[a-z0-9_]+$/', $key)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'key' => $key,
+                'expires_at' => $expiresAt,
+            ];
+        }
+
+        return array_values($normalized);
+    }
+
+    private static function normalizeMessages(mixed $messages): array
+    {
+        if (! is_array($messages)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($messages as $message) {
+            if (! is_array($message)) {
+                continue;
+            }
+
+            $type = isset($message['type']) ? trim((string) $message['type']) : '';
+            $body = isset($message['body']) ? trim((string) $message['body']) : '';
+
+            if (! in_array($type, ['security', 'update', 'info'], true) || $body === '') {
+                continue;
+            }
+
+            $normalized[] = [
+                'type' => $type,
+                'body' => Str::limit($body, 2000, ''),
+                'expires_at' => self::normalizeDate($message['expires_at'] ?? null),
+            ];
+        }
+
+        return array_values($normalized);
+    }
+
+    private static function normalizeDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse((string) $value)->toDateString();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private static function cpuCoreCount(): ?int
+    {
+        $cpuInfo = @file('/proc/cpuinfo', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $count = 0;
+
+        foreach ($cpuInfo as $line) {
+            if (str_starts_with($line, 'processor')) {
+                $count++;
             }
         }
 
-        return $node->ip_address;
+        return $count > 0 ? $count : null;
     }
 
-    private static function isPublicIp(?string $ip): bool
+    private static function cpuModel(): ?string
     {
-        if (! $ip) {
-            return false;
+        $cpuInfo = @file('/proc/cpuinfo', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+
+        foreach ($cpuInfo as $line) {
+            if (! str_starts_with($line, 'model name')) {
+                continue;
+            }
+
+            [, $value] = array_pad(explode(':', $line, 2), 2, null);
+
+            return $value ? trim($value) : null;
         }
 
-        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+        return php_uname('m') ?: null;
+    }
+
+    private static function diskMounts(): array
+    {
+        $mountInfo = @file('/proc/mounts', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $ignoredTypes = [
+            'proc',
+            'sysfs',
+            'tmpfs',
+            'devtmpfs',
+            'devpts',
+            'securityfs',
+            'cgroup',
+            'cgroup2',
+            'pstore',
+            'autofs',
+            'mqueue',
+            'hugetlbfs',
+            'debugfs',
+            'tracefs',
+            'configfs',
+            'fusectl',
+            'overlay',
+            'squashfs',
+            'rpc_pipefs',
+            'binfmt_misc',
+            'nsfs',
+        ];
+
+        $mounts = [];
+
+        foreach ($mountInfo as $line) {
+            $parts = preg_split('/\s+/', trim($line));
+            if (! is_array($parts) || count($parts) < 3) {
+                continue;
+            }
+
+            [$device, $mountPoint, $fsType] = [$parts[0], $parts[1], $parts[2]];
+            $mountPoint = str_replace('\\040', ' ', $mountPoint);
+
+            if (in_array($fsType, $ignoredTypes, true)) {
+                continue;
+            }
+
+            if (! str_starts_with($device, '/dev/')) {
+                continue;
+            }
+
+            $mounts[$mountPoint] = true;
+        }
+
+        $paths = array_keys($mounts);
+        usort($paths, static function (string $a, string $b): int {
+            if ($a === '/') {
+                return -1;
+            }
+
+            if ($b === '/') {
+                return 1;
+            }
+
+            return strcmp($a, $b);
+        });
+
+        return $paths;
+    }
+
+    private static function formatBytes(float $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+        $index = 0;
+
+        while ($bytes >= 1024 && $index < count($units) - 1) {
+            $bytes /= 1024;
+            $index++;
+        }
+
+        return number_format($bytes, $index === 0 ? 0 : 1) . ' ' . $units[$index];
     }
 }

@@ -34,8 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
         UpgradeRemoteAgents::class,
     ])
     ->withSchedule(function (Schedule $schedule): void {
-        // Sync license / feature flags every 12 hours at 04:15 and 16:15.
-        $schedule->command(LicenseSync::class)->twiceDaily(4, 16);
+        // Sync license state every 3 hours without blocking user traffic.
+        $schedule->command(LicenseSync::class)->everyThreeHours();
 
         // Ping all nodes every 5 minutes and update their status.
         $schedule->command(NodeHealthCheck::class)->everyFiveMinutes();

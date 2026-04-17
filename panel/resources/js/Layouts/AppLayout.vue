@@ -623,6 +623,33 @@
                 </button>
             </div>
 
+            <template v-if="adminLicenseMessages.length">
+                <div
+                    v-for="message in visibleLicenseMessages"
+                    :key="`${message.type}:${message.body}:${message.expires_at ?? 'none'}`"
+                    class="mx-6 mt-5 rounded-xl border px-4 py-3"
+                    :class="licenseMessageClass(message.type)"
+                >
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold">{{ licenseMessageTitle(message.type) }}</p>
+                            <p class="mt-1 text-sm leading-6">{{ message.body }}</p>
+                            <p v-if="message.expires_at" class="mt-2 text-xs opacity-80">
+                                Expires {{ formatLicenseDate(message.expires_at) }}
+                            </p>
+                        </div>
+                        <button
+                            v-if="message.type !== 'security'"
+                            type="button"
+                            class="shrink-0 text-xs font-semibold opacity-80 transition-opacity hover:opacity-100"
+                            @click="dismissLicenseMessage(message)"
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </template>
+
             <!-- Flash messages -->
             <div v-if="$page.props.flash?.success" class="mx-6 mt-5">
                 <div class="rounded-xl border border-emerald-700 bg-emerald-900/30 px-4 py-3 text-sm text-emerald-300">
@@ -702,25 +729,99 @@ function dismiss2faNudge() {
     nudgeDismissed.value = true;
 }
 
+const dismissedLicenseMessages = ref(loadDismissedLicenseMessages());
 const licenseStatus = computed(() => page.props.license?.status ?? 'active');
+const adminLicenseMessages = computed(() => {
+    if (! page.props.auth?.user?.roles?.includes('admin')) {
+        return [];
+    }
+
+    return page.props.license?.messages ?? [];
+});
+const visibleLicenseMessages = computed(() =>
+    adminLicenseMessages.value.filter((message) =>
+        message.type === 'security' || ! dismissedLicenseMessages.value.includes(licenseMessageKey(message))
+    )
+);
 
 const licenseLabel = computed(() => ({
     active:    'License Active',
-    suspended: 'License Suspended',
+    inactive:  'License Inactive',
     unknown:   'License Unknown',
 }[licenseStatus.value] ?? 'License Active'));
 
 const licenseClass = computed(() => ({
     active:    'bg-emerald-900/40 text-emerald-300',
-    suspended: 'bg-red-900/40 text-red-300',
+    inactive:  'bg-amber-900/40 text-amber-300',
     unknown:   'bg-gray-800 text-gray-400',
 }[licenseStatus.value] ?? 'bg-emerald-900/40 text-emerald-300'));
 
 const licenseDot = computed(() => ({
     active:    'bg-emerald-400',
-    suspended: 'bg-red-400',
+    inactive:  'bg-amber-400',
     unknown:   'bg-gray-500',
 }[licenseStatus.value] ?? 'bg-emerald-400'));
+
+function licenseMessageTitle(type) {
+    return {
+        security: 'Security Notice',
+        update: 'Update Available',
+        info: 'License Notice',
+    }[type] ?? 'License Notice';
+}
+
+function licenseMessageClass(type) {
+    return {
+        security: 'border-red-700/60 bg-red-900/25 text-red-100',
+        update: 'border-amber-700/60 bg-amber-900/20 text-amber-100',
+        info: 'border-sky-700/60 bg-sky-900/20 text-sky-100',
+    }[type] ?? 'border-gray-700 bg-gray-900 text-gray-100';
+}
+
+function licenseMessageKey(message) {
+    return `${message.type}:${message.body}:${message.expires_at ?? ''}`;
+}
+
+function loadDismissedLicenseMessages() {
+    if (typeof sessionStorage === 'undefined') {
+        return [];
+    }
+
+    try {
+        const raw = sessionStorage.getItem('dismissed_license_messages');
+        const parsed = raw ? JSON.parse(raw) : [];
+
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function dismissLicenseMessage(message) {
+    const key = licenseMessageKey(message);
+
+    if (dismissedLicenseMessages.value.includes(key)) {
+        return;
+    }
+
+    dismissedLicenseMessages.value = [...dismissedLicenseMessages.value, key];
+
+    if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('dismissed_license_messages', JSON.stringify(dismissedLicenseMessages.value));
+    }
+}
+
+function formatLicenseDate(value) {
+    if (! value) {
+        return '';
+    }
+
+    return new Date(value).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
 
 const activeTheme = computed(() => themeOptions.find((option) => option.value === theme.value) ?? themeOptions[0]);
 const themeClass = computed(() => ['theme-glass', `theme-glass-${theme.value}`]);

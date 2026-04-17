@@ -7,12 +7,14 @@ use App\Models\AuditLog;
 use App\Models\Node;
 use App\Models\SystemSetting;
 use App\Services\AgentClient;
+use App\Services\StrataLicense;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\Process\Process;
@@ -22,6 +24,7 @@ class UpdateController extends Controller
     private const PANEL_UPGRADE_BIN = '/usr/sbin/strata-upgrade';
     private const STORAGE_MIGRATE_BIN = '/usr/sbin/strata-storage-migrate';
     private const STORAGE_MIGRATE_ROLLBACK_BIN = '/usr/sbin/strata-storage-migrate-rollback';
+    private const LICENSE_SYNC_KEYS = ['panel_upgrade', 'panel_rollback'];
     private const LOG_DEFINITIONS = [
         'backup_jobs' => [
             'label' => 'Backup Jobs',
@@ -721,6 +724,13 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
         $status = $this->inferActivityStatus($lines, $matchingProcesses !== []);
         $stage = $this->inferActivityStage($lines, $stages, $status);
 
+        $this->syncLicenseAfterSuccessfulPanelUpdate(
+            key: $key,
+            status: $status,
+            lastModifiedUnix: $lastModifiedUnix,
+            lines: $lines,
+        );
+
         return [
             'key' => $key,
             'label' => $label,
@@ -796,6 +806,34 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
         }
 
         return $resolved;
+    }
+
+    private function syncLicenseAfterSuccessfulPanelUpdate(string $key, string $status, int $lastModifiedUnix, array $lines): void
+    {
+        if ($status !== 'completed' || ! in_array($key, self::LICENSE_SYNC_KEYS, true) || $lastModifiedUnix <= 0) {
+            return;
+        }
+
+        $fingerprint = sha1($key . '|' . $lastModifiedUnix . '|' . implode("\n", array_slice($lines, -10)));
+        $cacheKey = 'updates.license_sync.' . $fingerprint;
+
+        if (Cache::has($cacheKey)) {
+            return;
+        }
+
+        Cache::put($cacheKey, now()->toIso8601String(), now()->addDays(14));
+
+        try {
+            StrataLicense::sync();
+        } catch (\Throwable $e) {
+            Cache::forget($cacheKey);
+
+            Log::warning(sprintf(
+                'UpdateController: automatic license sync after %s failed - %s',
+                $key,
+                $e->getMessage()
+            ));
+        }
     }
 
     private function tailLines(string $path, int $limit = 200): array
