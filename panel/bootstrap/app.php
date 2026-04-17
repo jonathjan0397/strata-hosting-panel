@@ -71,6 +71,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role'       => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'ability' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'abilities' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
             'account.feature' => \App\Http\Middleware\EnsureAccountFeature::class,
         ]);
     })

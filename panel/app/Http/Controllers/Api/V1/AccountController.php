@@ -29,7 +29,7 @@ class AccountController extends Controller
         ]);
 
         $accounts = Account::query()
-            ->with(['user:id,name,email', 'node:id,name,hostname,status', 'hostingPackage:id,name,slug'])
+            ->with(['user:id,name,email', 'node:id,name,hostname,status', 'hostingPackage:id,name,slug', 'domains:id,account_id,domain'])
             ->withCount(['domains', 'emailAccounts', 'databases'])
             ->when($data['search'] ?? null, fn ($query, string $search) =>
                 $query->where(fn ($searchQuery) =>
@@ -57,7 +57,7 @@ class AccountController extends Controller
      */
     public function show(Account $account): JsonResponse
     {
-        $account->load(['user:id,name,email', 'node:id,name,hostname,status', 'hostingPackage:id,name,slug'])
+        $account->load(['user:id,name,email', 'node:id,name,hostname,status', 'hostingPackage:id,name,slug', 'domains:id,account_id,domain'])
             ->loadCount(['domains', 'emailAccounts', 'databases']);
 
         return response()->json($this->accountPayload($account));
@@ -214,6 +214,7 @@ class AccountController extends Controller
             'id' => $account->id,
             'username' => $account->username,
             'status' => $account->status,
+            'primary_domain' => $account->domains->first()?->domain,
             'provisioning_error' => $account->provisioning_error,
             'php_version' => $account->php_version,
             'user' => $account->user ? [
