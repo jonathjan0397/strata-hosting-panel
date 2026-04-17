@@ -28,6 +28,14 @@ func respond(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+func respondAndFlush(w http.ResponseWriter, status int, v any) {
+	respond(w, status, v)
+
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)

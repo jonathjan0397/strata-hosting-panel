@@ -2,8 +2,10 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jonathjan0397/strata-hosting-panel/agent/internal/php"
@@ -14,6 +16,8 @@ var phpSizeRe = regexp.MustCompile(`^\d+[KMGkmg]?$`)
 
 // PUT /php/pool/{user}/settings
 // Updates PHP-FPM pool limits for the given account and reloads php-fpm.
+// Respond first so reloading the same php-fpm version cannot sever the
+// panel's own FastCGI request on the primary node.
 func handlePHPPoolSettings(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "user")
 
@@ -32,7 +36,7 @@ func handlePHPPoolSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate size strings to prevent config injection
+	// Validate size strings to prevent config injection.
 	for field, val := range map[string]string{
 		"upload_max":   req.UploadMax,
 		"post_max":     req.PostMax,
@@ -63,13 +67,15 @@ func handlePHPPoolSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fpmService := fmt.Sprintf("php%s-fpm", req.PHPVersion)
-	if err := system.ServiceAction(fpmService, "reload"); err != nil {
-		// Non-fatal — config is written; reload may fail if fpm isn't running
-		respond(w, http.StatusOK, map[string]string{"status": "ok", "warning": "reload failed: " + err.Error()})
-		return
-	}
+	respondAndFlush(w, http.StatusOK, map[string]string{"status": "ok"})
 
-	respond(w, http.StatusOK, map[string]string{"status": "ok"})
+	go func(service string) {
+		time.Sleep(350 * time.Millisecond)
+
+		if err := system.ServiceAction(service, "reload"); err != nil {
+			log.Printf("php settings: reload %s failed after response: %v", service, err)
+		}
+	}(fpmService)
 }
 
 func phpOrDefault(val, def string) string {
