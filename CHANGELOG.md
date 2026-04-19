@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.16] - 2026-04-18
+
+Release target: `1.0.16`.
+
+- Fixed outbound DKIM signing for authenticated submission mail by moving OpenDKIM signing off the raw SMTP ingress listeners and onto a loopback reinjection listener that signs the finalized Postfix message after cleanup.
+- Updated fresh install paths for both primary and remote nodes so `submission` and `smtps` traffic is reinjected through the managed DKIM signing path instead of being signed too early.
+- Updated both upgrade repair paths to retrofit existing nodes with the same managed reinjection listener and Postfix overrides, allowing live installs to recover from Gmail and other receivers rejecting messages due to body-hash mismatches.
+
 ## [1.0.12] - 2026-04-16
 
 Release target: `1.0.12`.

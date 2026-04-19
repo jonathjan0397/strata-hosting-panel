@@ -196,6 +196,64 @@ install_storage_migration_tools() {
     fi
 }
 
+configure_postfix_dkim_reinject() {
+    python3 - <<'PY'
+from pathlib import Path
+
+master_cf = Path('/etc/postfix/master.cf')
+if not master_cf.exists():
+    raise SystemExit(0)
+
+text = master_cf.read_text()
+begin = '# BEGIN STRATA DKIM REINJECT\n'
+end = '# END STRATA DKIM REINJECT\n'
+block = (
+    begin +
+    'dkim-reinject unix -       -       n       -       10      smtp\n'
+    '  -o smtp_send_xforward_command=yes\n'
+    '  -o disable_dns_lookups=yes\n'
+    '127.0.0.1:10030 inet n    -       n       -       -       smtpd\n'
+    '  -o content_filter=\n'
+    '  -o receive_override_options=no_header_body_checks\n'
+    '  -o smtpd_helo_restrictions=\n'
+    '  -o smtpd_client_restrictions=permit_mynetworks,reject\n'
+    '  -o smtpd_sender_restrictions=\n'
+    '  -o smtpd_recipient_restrictions=permit_mynetworks,reject\n'
+    '  -o smtpd_relay_restrictions=permit_mynetworks,reject\n'
+    '  -o smtpd_authorized_xforward_hosts=127.0.0.0/8\n'
+    '  -o mynetworks=127.0.0.0/8\n'
+    '  -o local_recipient_maps=\n'
+    '  -o relay_recipient_maps=\n'
+    '  -o smtpd_milters=local:opendkim/opendkim.sock\n'
+    '  -o non_smtpd_milters=\n'
+    '  -o milter_macro_daemon_name=ORIGINATING\n'
+    + end
+)
+
+if begin in text and end in text:
+    start = text.index(begin)
+    finish = text.index(end, start) + len(end)
+    updated = text[:start] + block + text[finish:]
+else:
+    suffix = '' if text.endswith('\n') else '\n'
+    updated = text + suffix + '\n' + block
+
+if updated != text:
+    master_cf.write_text(updated)
+PY
+
+    postconf -e "smtpd_milters =" >/dev/null 2>&1 || true
+    postconf -e "non_smtpd_milters =" >/dev/null 2>&1 || true
+    postconf -e "milter_default_action = accept" >/dev/null 2>&1 || true
+    postconf -e "milter_protocol = 6" >/dev/null 2>&1 || true
+    postconf -P "submission/inet/content_filter=dkim-reinject:[127.0.0.1]:10030" >/dev/null 2>&1 || true
+    postconf -P "submission/inet/smtpd_milters=" >/dev/null 2>&1 || true
+    postconf -P "submission/inet/non_smtpd_milters=" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/content_filter=dkim-reinject:[127.0.0.1]:10030" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/smtpd_milters=" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/non_smtpd_milters=" >/dev/null 2>&1 || true
+}
+
 directory_has_entries() {
     local path="${1:-}"
     [[ -d "$path" ]] || return 1
@@ -888,8 +946,6 @@ postconf -e "smtpd_tls_security_level = may"
 postconf -e "smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination"
 postconf -e "milter_default_action = accept"
 postconf -e "milter_protocol = 6"
-postconf -e "smtpd_milters = local:opendkim/opendkim.sock"
-postconf -e "non_smtpd_milters = local:opendkim/opendkim.sock"
 
 touch /etc/postfix/virtual_domains /etc/postfix/virtual_mailboxes /etc/postfix/virtual_aliases
 postmap /etc/postfix/virtual_domains
@@ -908,6 +964,7 @@ postconf -P "smtps/inet/syslog_name=postfix/smtps" 2>/dev/null || true
 postconf -P "smtps/inet/smtpd_tls_wrappermode=yes" 2>/dev/null || true
 postconf -P "smtps/inet/smtpd_sasl_auth_enable=yes" 2>/dev/null || true
 postconf -P "smtps/inet/smtpd_relay_restrictions=permit_sasl_authenticated,reject" 2>/dev/null || true
+configure_postfix_dkim_reinject
 
 # Dovecot
 sed -i 's/^!include auth-system.conf.ext/#!include auth-system.conf.ext/' /etc/dovecot/conf.d/10-auth.conf 2>/dev/null || true
