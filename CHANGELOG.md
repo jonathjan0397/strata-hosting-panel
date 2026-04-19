@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.17] - 2026-04-18
+
+Release target: `1.0.17`.
+
+- Replaced the earlier Postfix reinjection-only DKIM fix with a final-message signing wrapper that signs authenticated submission mail after queue cleanup, avoiding body-hash mismatches that still leaked through the milter-based path.
+- Updated both fresh installers and both upgrade repair paths to install `python3-dkim`, deploy the managed `/usr/local/sbin/strata-dkim-final-sign.py` signer, and route `submission` plus `smtps` mail through the managed `dkim-sign-pipe` transport.
+- Ensured the managed `master.cf` block now creates the `submission` service, `smtps` service, pipe transport, and final local intake listener together so repaired nodes do not depend on distro defaults or partial legacy Postfix service definitions.
+- Updated DKIM key regeneration to replace the managed `default._domainkey` TXT RRset automatically through the resolved panel DNS zone, so rotating a key no longer leaves stale selector records behind.
+
 ## [1.0.16] - 2026-04-18
 
 Release target: `1.0.16`.

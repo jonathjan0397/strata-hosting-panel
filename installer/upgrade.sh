@@ -421,6 +421,81 @@ repair_mail_tls_defaults() {
         chmod 600 "${mail_tls_dir}/privkey.pem" 2>/dev/null || true
     fi
 
+    apt-get update >/dev/null 2>&1 || true
+    DEBIAN_FRONTEND=noninteractive apt-get install -y python3-dkim >/dev/null 2>&1 || true
+    cat > /usr/local/sbin/strata-dkim-final-sign.py <<'PY'
+#!/usr/bin/env python3
+import argparse
+import smtplib
+import sys
+from email import policy
+from email.parser import BytesParser
+from email.utils import parseaddr
+from pathlib import Path
+
+import dkim
+
+
+def normalize_crlf(raw: bytes) -> bytes:
+    raw = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return raw.replace(b"\n", b"\r\n")
+
+
+def extract_header_names(message: bytes) -> list[bytes]:
+    header_blob = message.split(b"\r\n\r\n", 1)[0]
+    names: list[bytes] = []
+    for line in header_blob.split(b"\r\n"):
+        if not line:
+            break
+        if line[:1] in (b" ", b"\t"):
+            continue
+        if b":" not in line:
+            continue
+        name = line.split(b":", 1)[0].strip().lower()
+        if name in {b"return-path", b"received", b"authentication-results", b"dkim-signature", b"arc-seal", b"arc-message-signature", b"arc-authentication-results"}:
+            continue
+        names.append(name)
+    preferred = [b"date", b"from", b"sender", b"reply-to", b"subject", b"to", b"cc", b"message-id", b"in-reply-to", b"references", b"mime-version", b"content-type", b"content-transfer-encoding"]
+    ordered = [name for name in preferred if name in names]
+    for name in names:
+        if name not in ordered:
+            ordered.append(name)
+    return ordered
+
+
+def determine_domain(message: bytes, sender: str) -> str:
+    parsed = BytesParser(policy=policy.default).parsebytes(message, headersonly=True)
+    from_header = parsed.get("From", "")
+    addr = parseaddr(from_header)[1] or sender
+    if "@" not in addr:
+        raise SystemExit("unable to determine signing domain")
+    return addr.rsplit("@", 1)[1].lower()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sender", required=True)
+    parser.add_argument("--recipient", action="append", required=True)
+    args = parser.parse_args()
+    raw = sys.stdin.buffer.read()
+    message = normalize_crlf(raw)
+    domain = determine_domain(message, args.sender)
+    key_path = Path(f"/etc/opendkim/userkeys/{domain}/default.private")
+    if not key_path.exists():
+        raise SystemExit(f"missing DKIM private key: {key_path}")
+    privkey = key_path.read_bytes()
+    signature = dkim.sign(message=message, selector=b"default", domain=domain.encode(), privkey=privkey, canonicalize=(b"relaxed", b"relaxed"), include_headers=extract_header_names(message), signature_algorithm=b"rsa-sha256")
+    signed = signature + message
+    with smtplib.SMTP("127.0.0.1", 10031) as smtp:
+        smtp.sendmail(args.sender, args.recipient, signed)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+PY
+    chmod 755 /usr/local/sbin/strata-dkim-final-sign.py
+
     postconf -e "smtpd_sasl_auth_enable = no" >/dev/null 2>&1 || true
     postconf -e "smtpd_tls_cert_file = ${mail_tls_dir}/fullchain.pem" >/dev/null 2>&1 || true
     postconf -e "smtpd_tls_key_file = ${mail_tls_dir}/privkey.pem" >/dev/null 2>&1 || true
@@ -434,14 +509,31 @@ if not master_cf.exists():
     raise SystemExit(0)
 
 text = master_cf.read_text()
-begin = '# BEGIN STRATA DKIM REINJECT\n'
-end = '# END STRATA DKIM REINJECT\n'
+begin = '# BEGIN STRATA DKIM FINAL SIGN\n'
+end = '# END STRATA DKIM FINAL SIGN\n'
+old_begin = '# BEGIN STRATA DKIM REINJECT\n'
+old_end = '# END STRATA DKIM REINJECT\n'
 block = (
     begin +
-    'dkim-reinject unix -       -       n       -       10      smtp\n'
-    '  -o smtp_send_xforward_command=yes\n'
-    '  -o disable_dns_lookups=yes\n'
-    '127.0.0.1:10030 inet n    -       n       -       -       smtpd\n'
+    'submission inet n       -       y       -       -       smtpd\n'
+    '    -o syslog_name=postfix/submission\n'
+    '    -o smtpd_tls_security_level=encrypt\n'
+    '    -o smtpd_sasl_auth_enable=yes\n'
+    '    -o smtpd_relay_restrictions=permit_sasl_authenticated,reject\n'
+    '    -o content_filter=dkim-sign-pipe:\n'
+    '    -o smtpd_milters=\n'
+    '    -o non_smtpd_milters=\n'
+    'smtps      inet  n       -       y       -       -       smtpd\n'
+    '    -o syslog_name=postfix/smtps\n'
+    '    -o smtpd_tls_wrappermode=yes\n'
+    '    -o smtpd_sasl_auth_enable=yes\n'
+    '    -o smtpd_relay_restrictions=permit_sasl_authenticated,reject\n'
+    '    -o content_filter=dkim-sign-pipe:\n'
+    '    -o smtpd_milters=\n'
+    '    -o non_smtpd_milters=\n'
+    'dkim-sign-pipe unix -       n       n       -       -       pipe\n'
+    '  flags=Rq user=opendkim argv=/usr/local/sbin/strata-dkim-final-sign.py --sender ${sender} --recipient ${recipient}\n'
+    '127.0.0.1:10031 inet n    -       n       -       -       smtpd\n'
     '  -o content_filter=\n'
     '  -o receive_override_options=no_header_body_checks\n'
     '  -o smtpd_helo_restrictions=\n'
@@ -449,17 +541,19 @@ block = (
     '  -o smtpd_sender_restrictions=\n'
     '  -o smtpd_recipient_restrictions=permit_mynetworks,reject\n'
     '  -o smtpd_relay_restrictions=permit_mynetworks,reject\n'
-    '  -o smtpd_authorized_xforward_hosts=127.0.0.0/8\n'
     '  -o mynetworks=127.0.0.0/8\n'
     '  -o local_recipient_maps=\n'
     '  -o relay_recipient_maps=\n'
-    '  -o smtpd_milters=local:opendkim/opendkim.sock\n'
+    '  -o smtpd_milters=\n'
     '  -o non_smtpd_milters=\n'
-    '  -o milter_macro_daemon_name=ORIGINATING\n'
     + end
 )
 
-if begin in text and end in text:
+if old_begin in text and old_end in text:
+    start = text.index(old_begin)
+    finish = text.index(old_end, start) + len(old_end)
+    updated = text[:start] + block + text[finish:]
+elif begin in text and end in text:
     start = text.index(begin)
     finish = text.index(end, start) + len(end)
     updated = text[:start] + block + text[finish:]
@@ -474,10 +568,15 @@ PY
     postconf -e "non_smtpd_milters =" >/dev/null 2>&1 || true
     postconf -e "milter_default_action = accept" >/dev/null 2>&1 || true
     postconf -e "milter_protocol = 6" >/dev/null 2>&1 || true
-    postconf -P "submission/inet/content_filter=dkim-reinject:[127.0.0.1]:10030" >/dev/null 2>&1 || true
+    postconf -P "submission/inet/content_filter=dkim-sign-pipe:" >/dev/null 2>&1 || true
     postconf -P "submission/inet/smtpd_milters=" >/dev/null 2>&1 || true
     postconf -P "submission/inet/non_smtpd_milters=" >/dev/null 2>&1 || true
-    postconf -P "smtps/inet/content_filter=dkim-reinject:[127.0.0.1]:10030" >/dev/null 2>&1 || true
+    postconf -M smtps/inet="smtps inet n - y - - smtpd" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/syslog_name=postfix/smtps" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/smtpd_tls_wrappermode=yes" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/smtpd_sasl_auth_enable=yes" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/smtpd_relay_restrictions=permit_sasl_authenticated,reject" >/dev/null 2>&1 || true
+    postconf -P "smtps/inet/content_filter=dkim-sign-pipe:" >/dev/null 2>&1 || true
     postconf -P "smtps/inet/smtpd_milters=" >/dev/null 2>&1 || true
     postconf -P "smtps/inet/non_smtpd_milters=" >/dev/null 2>&1 || true
 

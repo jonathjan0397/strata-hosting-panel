@@ -143,12 +143,12 @@ class EmailAccountController extends Controller
             'dkim_dns_record' => $dkimRecord,
         ]);
 
-        if (! $domain->dnsZone) {
+        $dns = new DnsProvisioner(AgentClient::for($domain->node));
+        if (! $dns->hasZoneForDomain($domain)) {
             return back()->with('success', 'Domain key regenerated. Publish the displayed DKIM TXT record with your DNS provider.');
         }
 
-        [$published, $error] = (new DnsProvisioner(AgentClient::for($domain->node)))
-            ->addRecord($domain->dnsZone, 'default._domainkey', 'TXT', 300, [$dkimRecord], true);
+        [$published, $error] = $dns->updateDkimRecord($domain, $dkimRecord);
 
         return $published
             ? back()->with('success', 'Domain key regenerated and published to the managed DNS zone.')

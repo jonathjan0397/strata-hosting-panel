@@ -360,7 +360,7 @@ class DnsProvisioner
         }
 
         if ($domain->dkim_dns_record) {
-            $this->addRecord($zone, 'default._domainkey', 'TXT', 300, [$domain->dkim_dns_record], true);
+            $this->updateDkimRecord($domain, $domain->dkim_dns_record);
         }
         if ($domain->spf_dns_record) {
             $this->updateSpfRecord($domain, $domain->spf_dns_record);
@@ -402,6 +402,19 @@ class DnsProvisioner
         $contents[] = $spfRecord;
 
         return $this->addRecord($zone, '@', 'TXT', 300, $contents, true);
+    }
+
+    /**
+     * Replace the managed DKIM selector RRset for a domain.
+     */
+    public function updateDkimRecord(Domain $domain, string $dkimRecord): array
+    {
+        $zone = $this->resolveZoneForDomain($domain);
+        if (! $zone) {
+            return [false, 'DNS zone has not been provisioned for this domain.'];
+        }
+
+        return $this->addRecord($zone, 'default._domainkey', 'TXT', 300, [$dkimRecord], true);
     }
 
     public function authoritativeNameservers(): array
