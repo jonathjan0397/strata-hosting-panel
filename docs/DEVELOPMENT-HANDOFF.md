@@ -1,0 +1,417 @@
+# Development Handoff
+
+This document is the fast-start reference for a new coding agent or developer picking up Strata work midstream.
+
+It is intended to prevent repeated rediscovery of:
+
+- current branch and release policy
+- live environment shape
+- recent architectural changes
+- known failure modes
+- what must not be forgotten between sessions
+
+## Current State
+
+Project:
+
+- Strata Hosting Panel
+- Repo: `jonathjan0397/strata-hosting-panel`
+
+Current public release line:
+
+- latest published release at the time of this handoff: `1.0.12`
+- `main` and tag `1.0.12` should be treated as the current stable release baseline
+- `latest-untested` may move forward after this release and should not be assumed to match `main`
+
+Current operational state:
+
+- `main` is frozen as the stable release branch
+- `latest-untested` was realigned from `main` immediately after the `1.0.0` promotion
+- new feature work should start from `latest-untested` or short-lived feature branches off it
+
+Recent release lesson:
+
+- `1.0.0-BETA-3.30` exposed an upgrader bootstrap compatibility regression
+- `1.0.0-BETA-3.31` is the corrective release
+- `1.0.0-BETA-3.32` fixed the admin updates screen `500` caused by unreadable `/etc/strata-panel/storage.conf`
+- `1.0.0` is the stable-line promotion of the frozen `1.0.0-BETA-3.32` baseline
+- `1.0.1` adds the missing executable storage migration flow to the admin Updates page and scopes migration to the selected item
+- `1.0.2` ensures `sudo` is installed automatically during panel and node install/upgrade flows before sudoers-dependent features are configured
+- `1.0.3` fixes storage migration launch semantics so the selected item survives `sudo`, and adds service recovery if migration fails after services are stopped
+- `1.0.4` finalizes live storage migration safety by detaching cutover into a transient `systemd` unit and removing remaining `set -e` item-gating hazards from the migration utility
+- `1.0.5` fixes per-domain PHP version changes so the web server socket is reprovisioned with the new PHP-FPM version and expands the user file manager with copy, cut, paste, and better permissions handling
+- `1.0.6` fixes account-wide PHP version switching so supported versions come from the live node, failed persistence cannot leave Apache and panel state split across different PHP versions, stale socket mappings can be repaired, Apache reprovision works on mercury's real-file `sites-enabled` layout, and subdomain SSL issuance no longer forces `www.<subdomain>`
+- `1.0.7` fixes the remaining PHP downgrade cutover race by waiting for the per-account PHP-FPM socket to exist before the agent reports pool creation success
+- `1.0.8` keeps the previous per-account PHP-FPM pool in place during switches so rapid `8.4 <-> 8.2` transitions do not drop in-flight PHP requests during cutover
+- `1.0.9` fixes the remaining PHP upgrade cutover race by waiting for the target socket to accept a real Unix connection before the agent reports pool creation success, and extends the readiness window to `20s`
+- `1.0.10` adds panel-managed cron jobs for users and admins, including a raw cron-line input mode, per-field guidance, and agent-side managed crontab rendering for each hosting account
+- `1.0.11` updates cron jobs to execute from a configurable working directory that defaults to the hosting account home, allowing user commands to stay relative to that home context
+- `1.0.12` fixes file-manager uploads by streaming multipart bodies from the panel to the agent instead of buffering whole uploads in PHP memory, adds upload progress UI, aligns upload limits at `512 MB` per file with `1 GB` request headroom, and includes the pending domain details document-root overflow cleanup
+- the failure mode was not runtime code incompatibility, it was that older live `/usr/sbin/strata-upgrade` binaries could not safely apply the newer release without the fix
+
+Current branch policy:
+
+- `main` = frozen release branch at `1.0.12` except for release blockers
+- `latest-untested` = active pre-release validation branch for new work after the freeze point
+- `experimental` = high-risk branch for unfinished work
+
+Do not resume the old pattern of patching live directly from untagged `main`.
+
+## Critical Workflow Rules
+
+1. Normal development should happen on feature/fix branches and merge into `main`.
+2. Live deployments should go through the upgrade system.
+3. Published tags must not be force-moved or reused for different code.
+4. If a fix lands after a release is published, cut a new release tag.
+5. If a live hotfix is unavoidable, commit it back into source immediately and include it in the next formal release.
+6. If installer or upgrader code changes, verify previous-public-tag -> candidate-tag upgrade compatibility before publish.
+7. While `main` is frozen, all non-blocker development should go to feature branches and stage through `latest-untested`.
+
+Related docs:
+
+- [docs/RELEASE-STRUCTURE.md](RELEASE-STRUCTURE.md)
+- [docs/DEPLOYMENT-POLICY.md](DEPLOYMENT-POLICY.md)
+- [docs/RELEASE-UPGRADE-WORKFLOW.md](RELEASE-UPGRADE-WORKFLOW.md)
+- [docs/UPGRADING.md](UPGRADING.md)
+- [docs/UPGRADER-COMPATIBILITY-CHECKLIST.md](UPGRADER-COMPATIBILITY-CHECKLIST.md)
+- [docs/SECURITY-PRODUCTION-READINESS.md](SECURITY-PRODUCTION-READINESS.md)
+- [docs/STAGING-SECURITY-VALIDATION.md](STAGING-SECURITY-VALIDATION.md)
+- [docs/STAGING-SECURITY-EVIDENCE-TEMPLATE.md](STAGING-SECURITY-EVIDENCE-TEMPLATE.md)
+
+## Live Environment
+
+Primary panel server:
+
+- hostname: `panel.stratadevplatform.net`
+- primary IP: `192.151.156.125`
+
+Remote node:
+
+- hostname: `node1.stratadevplatform.net`
+- remote IP: `69.197.151.84`
+
+Base domain:
+
+- `stratadevplatform.net`
+
+Important:
+
+- do not store or commit live passwords, secrets, HMAC values, API tokens, or generated credentials in this repo
+- if a new agent needs credentials, retrieve them from the operator or from the server-side credential files, not from source control
+
+## Local Development Environment
+
+Windows local development is supported.
+
+Important local helpers:
+
+- bootstrap script: [tools/bootstrap-local-windows.ps1](../tools/bootstrap-local-windows.ps1)
+- curated ops scripts: [tools/ops/README.md](../tools/ops/README.md)
+- local Windows dev doc: [docs/LOCAL-DEVELOPMENT-WINDOWS.md](LOCAL-DEVELOPMENT-WINDOWS.md)
+
+Repo-local PHP runtime:
+
+- `.tools/php83/php.exe`
+
+Known local issue:
+
+- the WinGet PHP install can be blocked by Windows permissions
+- use the repo-local PHP runtime instead of assuming `php.exe` on `PATH` will work
+
+## High-Value Product Changes Already Landed
+
+These areas were recently changed and should be assumed to exist unless proven otherwise.
+
+### Installer / Upgrade / Release
+
+- release-based upgrade flow
+- update UI simplified around release tags
+- advanced source branch display
+- rollback to stored upgrade backups
+- upgrade utility exposed through `/usr/sbin/strata-upgrade`
+- panel update metadata cache reduced from 10 minutes to 2 minutes
+- update page now has a live progress indicator and log scroller
+- fresh primary and remote-node installs now prompt for hosting-data and backup-data storage roots
+- installer keeps runtime compatibility by bind-mounting the selected storage roots onto `/var/www` and `/var/backups/strata`
+- installers now display the exact Strata release version being installed instead of a generic beta label
+
+### DNS
+
+- base/host DNS zone bootstrap during install
+- root-domain zone reuse instead of duplicate zone creation
+- DNS self-heal and backup sync hardening
+- `hosts_dns` node flag for explicit DNS-capable nodes
+- primary authoritative drift repair added
+- PowerDNS rectify handling matters; DNS can exist in backend and still not be served correctly if rectify/reload is skipped
+
+### Certificates
+
+- admin repair flow for public HTTPS
+- pinned per-node certificate handling for agent trust
+- mail TLS handling separated from panel TLS handling
+- current safe mail-client guidance is to use the hosting server's shared mail hostname, not per-domain `mail.<domain>` branding, unless product support for branded mail TLS is explicitly completed and validated
+
+### Troubleshooting / Mail
+
+- troubleshooting section for admin, reseller, and user
+- DNS/mail/certificate guidance surfaced in panel
+- DKIM/SPF/DMARC repair actions added
+- mail pages improved to expose DKIM/SPF/DMARC status directly
+- webmail runtime now depends on `/var/www/webmail/include.php`, not only `_include.php`
+- OpenDKIM socket access should use `UserID opendkim:postfix`; avoid reintroducing the old `postfix` supplementary-group workaround
+- older upgraded installs may miss `auth_mechanisms = plain login` in Dovecot; release `1.0.0-BETA-3.07` added upgrade repairs for that so Outlook submission on port `587` stops failing with `Invalid authentication mechanism: 'LOGIN'`
+- phpMyAdmin should use normal cookie authentication, not a Strata-managed control user
+- MariaDB app/database user provisioning must force the requested password onto existing users; `CREATE USER IF NOT EXISTS` by itself is not safe for reused usernames
+- despite the legacy name, `install_secret` is currently treated as a public installation identifier for license sync, not as a security credential
+
+### Navigation / UI
+
+- navbar was stabilized after a regression
+- admin `System` disappearance was caused by live backend route drift, not only frontend code
+- sidebar changes should be treated carefully and verified with browser checks
+
+## Recent Failure Modes You Must Remember
+
+### 1. Live route drift can break the UI even when assets are current
+
+Observed failure:
+
+- admin `System` section disappeared
+
+Actual cause:
+
+- the live backend route set was stale
+- Ziggy was missing `admin.troubleshooting.index`
+- frontend bundle was current, but runtime route resolution failed and hid part of the nav
+
+Implication:
+
+- after deployments, do not only verify assets
+- verify backend routes and browser behavior together
+
+### 2. Upgrade failures can be migration-state dependent
+
+Observed failure:
+
+- upgrade to `1.0.0-BETA-3.01` failed on live
+
+Actual cause:
+
+- migration `2026_04_09_160000_add_hosts_dns_to_nodes_table.php` tried to add an already-existing column
+
+Fix:
+
+- migration now guards `up()` and `down()` with `Schema::hasColumn()`
+
+Implication:
+
+- upgrades must be safe against partially patched or previously hotfixed live systems
+
+### 3. DNS can fail from bootstrap assumptions
+
+Observed failure:
+
+- base domain did not resolve correctly
+- PowerDNS had missing or stale zone state
+
+Important lessons:
+
+- root/base zone must exist on install
+- root-domain provisioning must reuse shared host zones
+- secondary DNS must be verified against primary, not assumed correct
+- rectify/reload matters after record changes
+
+### 3b. Large disks may exist even when the panel appears to show only ~40 GB
+
+Observed failure:
+
+- servers were provisioned with roughly 500 GB disks
+- panel node status appeared to show only ~30-40 GB available
+
+Actual cause:
+
+- the servers had separate mounts for `/`, `/var`, and a large data volume such as `/srv`
+- the node status UI was only surfacing the first small mounts prominently
+- hosting data would still land on the small system path unless storage placement was handled explicitly during install
+
+Decision:
+
+- new installs should ask where hosting data and backup data will live
+- the installer should recommend the largest suitable mounted volume
+- product runtime paths remain `/var/www` and `/var/backups/strata` via bind mounts for compatibility
+
+Implication:
+
+- do not change the app to arbitrary new paths casually; too much code still assumes `/var/www`
+- prefer storage-root selection plus bind mounts over direct path rewrites
+
+### 4. SMTP problems may not be provider blocking
+
+Observed failure:
+
+- mail tests failed even after provider said they were not blocking ports
+
+Actual causes encountered:
+
+- Postfix listener/auth config issues
+- wrong TLS certificate identity on mail services
+- missing SASL socket assumptions
+
+Implication:
+
+- do not stop at provider responses
+- verify listeners, TLS identity, local service health, and packet flow
+
+### 5. Do not imply per-domain mail hostnames are ready by default
+
+Observed failure:
+
+- Outlook and other strict clients failed when using `mail.<hosted-domain>` because the product did not yet guarantee matching branded mail TLS for every hosted domain
+
+Decision:
+
+- the mail client guide should recommend the hosting server's shared mail hostname
+- mailbox identity remains `user@their-domain`
+- transport hostname should stay on the certificate-valid shared mail host until branded mail TLS is implemented end-to-end and validated
+
+Implication:
+
+- do not casually switch docs or UI back to `mail.<domain>` defaults
+- treat branded mail TLS as a separate product feature, not assumed behavior
+
+### 6. phpMyAdmin failures can be a mix of panel-created user drift and package config drift
+
+Observed failure:
+
+- phpMyAdmin reported both:
+  - control-user auth failure for `phpmyadmin`
+  - login failure for a panel-created MariaDB user even though the panel had just shown a password
+
+Actual causes:
+
+- phpMyAdmin package config was still trying to use a stale/bad control user
+- MariaDB provisioning used `CREATE USER IF NOT EXISTS`, which preserved an old password when a username already existed from an earlier partial attempt
+
+Decision:
+
+- force phpMyAdmin back to normal cookie auth with a Strata override
+- always `ALTER USER` after MariaDB user creation and during password changes
+- update both `localhost` and `127.0.0.1` MariaDB entries
+
+Implication:
+
+- do not trust `CREATE USER IF NOT EXISTS` as sufficient password management
+- do not introduce a custom phpMyAdmin control-user path unless it is fully owned and repaired by Strata
+
+## Release Expectations
+
+A proper release should move through:
+
+1. feature/fix branch
+2. merge to `main`
+3. local validation
+4. browser verification
+5. version/doc bump
+6. tag
+7. GitHub release publish
+8. live upgrade through upgrade utility
+
+Do not skip the browser verification gate.
+
+Required browser-level checks:
+
+- admin nav includes `Resellers`, `Security`, `System`, `Infrastructure`, `Hosting`
+- reseller nav renders expected reseller sections
+- user nav renders expected user sections
+- no browser console errors after login
+- Ziggy contains routes required by the visible sidebar
+
+## Live Upgrade Notes
+
+Updater behavior now includes:
+
+- normal release upgrade by tag
+- advanced source by branch
+- rollback to stored upgrade backup
+- upgrade activity polling
+- tailed log display
+
+When a release is published on GitHub:
+
+- the panel should usually show it within about 2 minutes
+- or immediately after cache clear
+
+If the panel does not show the new release:
+
+- verify latest release exists on GitHub
+- verify the live code includes the shorter cache window
+- clear Laravel cache if needed
+
+## Files A New Agent Should Check First
+
+If continuing product work, start here:
+
+- [README.md](../README.md)
+- [docs/PLAN.md](PLAN.md)
+- [docs/RELEASE-STRUCTURE.md](RELEASE-STRUCTURE.md)
+- [docs/DEPLOYMENT-POLICY.md](DEPLOYMENT-POLICY.md)
+- [docs/RELEASE-UPGRADE-WORKFLOW.md](RELEASE-UPGRADE-WORKFLOW.md)
+- [docs/UPGRADING.md](UPGRADING.md)
+
+If continuing update-system work:
+
+- [panel/app/Http/Controllers/Admin/UpdateController.php](../panel/app/Http/Controllers/Admin/UpdateController.php)
+- [panel/resources/js/Pages/Admin/Updates/Index.vue](../panel/resources/js/Pages/Admin/Updates/Index.vue)
+- [installer/upgrade.sh](../installer/upgrade.sh)
+
+If continuing DNS work:
+
+- [panel/app/Services/DnsProvisioner.php](../panel/app/Services/DnsProvisioner.php)
+- [panel/app/Console/Commands/SyncBackupDnsZones.php](../panel/app/Console/Commands/SyncBackupDnsZones.php)
+- [panel/app/Models/Node.php](../panel/app/Models/Node.php)
+
+If continuing sidebar / browser-verification work:
+
+- [panel/resources/js/Layouts/AppLayout.vue](../panel/resources/js/Layouts/AppLayout.vue)
+- [panel/resources/js/Components/NavGroup.vue](../panel/resources/js/Components/NavGroup.vue)
+- [panel/resources/js/Components/NavItem.vue](../panel/resources/js/Components/NavItem.vue)
+
+## Tools And Workspace Notes
+
+There are many untracked one-off scripts under `tools/`.
+
+Treat them as incident tooling unless explicitly promoted.
+
+Do not assume an untracked script is part of the supported product path.
+
+Generally:
+
+- reusable documented tooling may be committed
+- one-off deploy, repair, and inspection scripts should remain untracked
+
+## Session Carry-Over Checklist
+
+At the start of a new session, confirm:
+
+1. what the current latest release tag is
+2. whether `main` has moved past that release
+3. whether the live panel is on the latest release or still behind
+4. whether there are known live hotfixes not yet formalized in source
+5. whether the current task belongs on `main`, `latest-untested`, or a feature branch
+
+Before ending a session, leave behind:
+
+1. any new release/version changes committed
+2. any new operational rules documented
+3. any unresolved live issue summarized clearly
+4. any new failure mode captured in docs if it is likely to recur
+
+## What Not To Forget
+
+- never rely on stale memory for the current release state; verify it
+- never assume the live panel matches local source; verify routes, assets, and browser behavior
+- never rewrite a published tag
+- never commit secrets into the repo
+- never treat live patching as the normal deployment model
+
+

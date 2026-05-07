@@ -1,0 +1,33 @@
+Provider Support Summary
+Date: 2026-04-09
+
+Primary server IP:
+192.151.156.125
+
+Hostname under test:
+mail.stratadevplatform.net
+
+Issue:
+Inbound SMTP connectivity from external networks is failing even though the mail service is running and the host firewall is allowing the relevant ports.
+
+What has been verified on the server:
+- Postfix is active on the primary server.
+- The server is listening on TCP ports 25, 465, and 587.
+- Host firewall rules allow inbound TCP 25, 465, and 587.
+- DNS for mail.stratadevplatform.net resolves to 192.151.156.125.
+
+Observed external test results:
+- External TCP connection to 192.151.156.125:25 fails.
+- External TCP connection to 192.151.156.125:587 fails.
+- This persists after confirming local listeners and firewall allowances on the host.
+
+Conclusion:
+This does not appear to be an application or host-firewall issue. It appears likely that SMTP-related ports are being blocked or filtered upstream by the provider network or an external ACL.
+
+Request:
+Please confirm whether inbound TCP ports 25, 465, and 587 are blocked, filtered, rate-limited, or otherwise restricted for 192.151.156.125.
+
+Additional context:
+- The server is intended to host email for stratadevplatform.net.
+- DNS and mail host records are now in place and resolving correctly.
+- HTTPS and DNS issues were corrected separately; the remaining issue is SMTP port reachability from outside the server.

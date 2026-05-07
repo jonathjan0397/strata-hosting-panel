@@ -1,0 +1,300 @@
+<template>
+    <AppLayout title="Databases">
+        <div class="space-y-6 p-6">
+            <PageHeader
+                eyebrow="Databases"
+                title="Databases"
+                description="Create MySQL or PostgreSQL databases and users for your applications, then rotate credentials when needed."
+            >
+                <template #actions>
+                    <Link :href="route('my.databases.tools')" class="btn-primary">Database Tools</Link>
+                </template>
+            </PageHeader>
+
+            <div class="grid gap-4 md:grid-cols-3">
+                <StatCard label="Databases" :value="databases.length" color="indigo" />
+                <StatCard label="Package Limit" :value="databaseLimit" color="gray" />
+                <StatCard label="Remaining" :value="remainingDatabases" color="emerald" />
+            </div>
+
+            <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                <h3 class="mb-4 text-sm font-semibold text-gray-300">Create Database</h3>
+                <form @submit.prevent="submit" class="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Engine" :error="form.errors.engine">
+                        <select v-model="form.engine" class="field w-full">
+                            <option value="mysql">MySQL / MariaDB</option>
+                            <option value="postgresql">PostgreSQL</option>
+                        </select>
+                    </FormField>
+                    <FormField label="Assigned Domain" :error="form.errors.domain_id">
+                        <select v-model="form.domain_id" class="field w-full">
+                            <option :value="''">Account level / unassigned</option>
+                            <option v-for="domain in domains" :key="domain.id" :value="domain.id">{{ domain.domain }}</option>
+                        </select>
+                    </FormField>
+                    <FormField label="Database name" :error="form.errors.db_name">
+                        <input
+                            v-model="form.db_name"
+                            type="text"
+                            placeholder="myapp_db"
+                            class="field w-full"
+                        />
+                    </FormField>
+                    <FormField label="DB username" :error="form.errors.db_user" :class="form.engine === 'mysql' ? '' : 'sm:col-span-2'">
+                        <input
+                            v-model="form.db_user"
+                            type="text"
+                            placeholder="myapp_user"
+                            class="field w-full"
+                        />
+                    </FormField>
+                    <FormField label="Password" :error="form.errors.password" class="sm:col-span-2">
+                        <input
+                            v-model="form.password"
+                            type="password"
+                            placeholder="Min. 8 characters"
+                            class="field w-full"
+                        />
+                    </FormField>
+                    <div class="flex justify-end sm:col-span-2">
+                        <button
+                            type="submit"
+                            :disabled="form.processing"
+                            class="btn-primary"
+                        >
+                            {{ form.processing ? 'Creating...' : 'Create Database' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
+                <table class="min-w-full divide-y divide-gray-800">
+                    <thead>
+                        <tr>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Database</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Engine</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Domain</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">User</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Note</th>
+                            <th class="px-5 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800">
+                        <tr v-for="db in databases" :key="db.id" class="transition-colors hover:bg-gray-800/40">
+                            <td class="px-5 py-3.5 text-sm font-mono text-gray-100">
+                                <div class="flex flex-col gap-1">
+                                    <span>{{ db.db_name }}</span>
+                                    <span v-if="db.migration_reset_required" class="w-fit rounded-full bg-amber-900/40 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-200">
+                                        Reset required after migration
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="px-5 py-3.5 text-sm text-gray-400">{{ engineLabel(db.engine) }}</td>
+                            <td class="px-5 py-3.5 text-sm text-gray-400">
+                                <select
+                                    class="field min-w-52"
+                                    :value="db.domain_id ?? ''"
+                                    @change="updateDomain(db, $event.target.value)"
+                                >
+                                    <option value="">Account level / unassigned</option>
+                                    <option v-for="domain in domains" :key="domain.id" :value="domain.id">{{ domain.domain }}</option>
+                                </select>
+                            </td>
+                            <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ db.db_user }}</td>
+                            <td class="px-5 py-3.5 text-sm text-gray-500">{{ db.note ?? '-' }}</td>
+                            <td class="px-5 py-3.5 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    <button
+                                        @click="openPwModal(db)"
+                                        class="text-xs text-gray-400 transition-colors hover:text-gray-200"
+                                    >
+                                        {{ db.migration_reset_required ? 'Set pw' : 'Change pw' }}
+                                    </button>
+                                    <ConfirmButton
+                                        :href="route('my.databases.destroy', db.id)"
+                                        method="delete"
+                                        label="Delete"
+                                        color="red"
+                                        :confirm-message="`Delete database ${db.db_name}? This cannot be undone.`"
+                                    />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-if="databases.length === 0">
+                            <td colspan="6" class="px-5 py-8">
+                                <EmptyState
+                                    title="No databases yet"
+                                    description="Create a MySQL or PostgreSQL database and matching user for your first application."
+                                />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="grid gap-6 xl:grid-cols-[1fr_1.3fr]">
+                <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                    <h3 class="mb-2 text-sm font-semibold text-gray-300">Remote Database Access</h3>
+                    <p class="mb-4 text-sm text-gray-400">Grant a database user access from a remote host. Use <span class="font-mono text-gray-300">localhost</span> for local-only access or <span class="font-mono text-gray-300">%</span> for any host.</p>
+                    <form @submit.prevent="submitGrant" class="space-y-4">
+                        <FormField label="Database" :error="grantForm.errors.database_id">
+                            <select v-model="grantForm.database_id" class="field w-full">
+                                <option value="">Choose database</option>
+                                <option v-for="db in databases" :key="db.id" :value="db.id">{{ db.db_name }}</option>
+                            </select>
+                        </FormField>
+                        <FormField label="DB username" :error="grantForm.errors.db_user">
+                            <input v-model="grantForm.db_user" type="text" class="field w-full" placeholder="app_remote" />
+                        </FormField>
+                        <FormField label="Password" :error="grantForm.errors.password">
+                            <input v-model="grantForm.password" type="password" class="field w-full" placeholder="Min. 8 characters" />
+                        </FormField>
+                        <FormField label="Allowed host" :error="grantForm.errors.host">
+                            <input v-model="grantForm.host" type="text" class="field w-full" placeholder="203.0.113.10 or %" />
+                        </FormField>
+                        <button type="submit" :disabled="grantForm.processing || !grantForm.database_id" class="btn-primary w-full">
+                            {{ grantForm.processing ? 'Granting...' : 'Grant Remote Access' }}
+                        </button>
+                    </form>
+                </div>
+
+                <div class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
+                    <table class="min-w-full divide-y divide-gray-800">
+                        <thead>
+                            <tr>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Database</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Engine</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">User</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Host</th>
+                                <th class="px-5 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800">
+                            <tr v-for="grant in grants" :key="grant.id" class="transition-colors hover:bg-gray-800/40">
+                                <td class="px-5 py-3.5 text-sm font-mono text-gray-100">{{ grant.db_name }}</td>
+                                <td class="px-5 py-3.5 text-sm text-gray-500">{{ engineLabel(grant.engine) }}</td>
+                                <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ grant.db_user }}</td>
+                                <td class="px-5 py-3.5 text-sm font-mono text-gray-400">{{ grant.host ?? 'localhost' }}</td>
+                                <td class="px-5 py-3.5 text-right">
+                                    <button @click="revokeGrant(grant)" class="text-xs text-red-500 transition-colors hover:text-red-400">
+                                        Revoke
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr v-if="grants.length === 0">
+                                <td colspan="5" class="px-5 py-8">
+                                    <EmptyState
+                                        title="No database grants"
+                                        description="Grant a database user to localhost or a remote host when an application needs direct database access."
+                                    />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-if="pwTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <div class="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
+                    <h3 class="mb-4 text-sm font-semibold text-gray-200">Change password for <span class="font-mono">{{ pwTarget.db_user }}</span></h3>
+                    <form @submit.prevent="submitPw" class="space-y-4">
+                        <FormField label="New password" :error="pwForm.errors.password">
+                            <input
+                                v-model="pwForm.password"
+                                type="password"
+                                placeholder="Min. 8 characters"
+                                class="field w-full"
+                                autofocus
+                            />
+                        </FormField>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" @click="pwTarget = null" class="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-800">
+                                Cancel
+                            </button>
+                            <button type="submit" :disabled="pwForm.processing" class="btn-primary">
+                                {{ pwForm.processing ? 'Updating...' : 'Update' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </AppLayout>
+</template>
+
+<script setup>
+import { computed, ref } from 'vue';
+import { Link, router, useForm } from '@inertiajs/vue3';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import ConfirmButton from '@/Components/ConfirmButton.vue';
+import EmptyState from '@/Components/EmptyState.vue';
+import FormField from '@/Components/FormField.vue';
+import PageHeader from '@/Components/PageHeader.vue';
+import StatCard from '@/Components/StatCard.vue';
+
+const props = defineProps({
+    account: Object,
+    databases: Array,
+    domains: Array,
+    grants: { type: Array, default: () => [] },
+});
+
+const databaseLimit = computed(() => props.account.max_databases > 0 ? props.account.max_databases : 'Unlimited');
+const remainingDatabases = computed(() => {
+    if (props.account.max_databases <= 0) return 'Unlimited';
+    return Math.max(props.account.max_databases - props.databases.length, 0);
+});
+
+const form = useForm({ engine: 'mysql', domain_id: '', db_name: '', db_user: '', password: '' });
+const grantForm = useForm({ database_id: '', db_user: '', password: '', host: 'localhost' });
+
+function submit() {
+    form.post(route('my.databases.store'), { onSuccess: () => form.reset() });
+}
+
+function updateDomain(database, domainId) {
+    router.put(route('my.databases.domain', database.id), {
+        domain_id: domainId === '' ? null : Number(domainId),
+    }, {
+        preserveScroll: true,
+    });
+}
+
+function engineLabel(engine) {
+    return engine === 'postgresql' ? 'PostgreSQL' : 'MySQL';
+}
+
+const pwTarget = ref(null);
+const pwForm = useForm({ password: '' });
+
+function openPwModal(db) {
+    pwTarget.value = db;
+    pwForm.reset();
+}
+
+function submitPw() {
+    pwForm.put(route('my.databases.password', pwTarget.value.id), {
+        onSuccess: () => { pwTarget.value = null; pwForm.reset(); },
+    });
+}
+
+function submitGrant() {
+    grantForm.post(route('my.databases.grant', grantForm.database_id), {
+        onSuccess: () => grantForm.reset('database_id', 'db_user', 'password'),
+    });
+}
+
+function revokeGrant(grant) {
+    const database = props.databases.find((db) => db.db_name === grant.db_name);
+    if (!database || !confirm(`Revoke ${grant.db_user}@${grant.host ?? 'localhost'} from ${grant.db_name}?`)) return;
+
+    router.delete(route('my.databases.revoke', database.id), {
+        data: {
+            db_user: grant.db_user,
+            host: grant.host ?? 'localhost',
+        },
+        preserveScroll: true,
+    });
+}
+</script>

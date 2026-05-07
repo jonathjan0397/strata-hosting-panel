@@ -1,0 +1,271 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Account;
+use App\Models\AuditLog;
+use App\Models\DatabaseGrant;
+use App\Models\Domain;
+use App\Models\HostingDatabase;
+use App\Services\AgentClient;
+use App\Services\DatabaseProvisioner;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class DatabaseController extends Controller
+{
+    /**
+     * Database management page for an account.
+     */
+    public function index(Account $account): Response
+    {
+        $account->load('node');
+        $databases = HostingDatabase::where('account_id', $account->id)->with('domain:id,domain')->latest()->get();
+
+        return Inertia::render('Admin/Database/Index', [
+            'account'   => $account,
+            'databases' => $databases,
+            'domains' => Domain::where('account_id', $account->id)
+                ->orderBy('domain')
+                ->get(['id', 'domain']),
+            'grants' => DatabaseGrant::where('account_id', $account->id)
+                ->latest()
+                ->get(['id', 'engine', 'db_name', 'db_user', 'host', 'password_hint', 'created_at']),
+        ]);
+    }
+
+    /**
+     * Create a new database + user for the account.
+     */
+    public function store(Request $request, Account $account): RedirectResponse
+    {
+        // Enforce account database limit.
+        if ($account->max_databases > 0) {
+            $current = HostingDatabase::where('account_id', $account->id)->count();
+            if ($current >= $account->max_databases) {
+                return back()->with('error', "Database limit reached ({$account->max_databases}).");
+            }
+        }
+
+        $data = $request->validate([
+            'db_name'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,47}$/', 'unique:hosting_databases,db_name'],
+            'db_user'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,15}$/', 'unique:hosting_databases,db_user'],
+            'engine'   => ['required', 'in:mysql,postgresql'],
+            'password' => ['required', 'string', 'min:8'],
+            'domain_id' => ['nullable', 'integer', 'exists:domains,id'],
+            'note'     => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if (! empty($data['domain_id'])) {
+            Domain::where('account_id', $account->id)->findOrFail($data['domain_id']);
+        }
+
+        $client   = AgentClient::for($account->node);
+        $provisioner = new DatabaseProvisioner($client);
+
+        [$success, $error] = $provisioner->create(
+            $account,
+            $data['db_name'],
+            $data['db_user'],
+            $data['password'],
+            $data['domain_id'] ?? null,
+            $data['note'] ?? null,
+            $data['engine'],
+        );
+
+        if ($success) {
+            AuditLog::record('database.created', $account, [
+                'db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'engine' => $data['engine'],
+            ]);
+        }
+
+        return $success
+            ? back()->with('success', "{$data['db_name']} created.")
+            : back()->with('error', "Database creation failed: {$error}");
+    }
+
+    /**
+     * Delete a database and its associated user.
+     */
+    public function destroy(HostingDatabase $database): RedirectResponse
+    {
+        $account = $database->account;
+        $error = $this->deleteDatabase($database);
+
+        return $error === null
+            ? redirect()->route('admin.accounts.databases', $account->id)
+                ->with('success', "{$database->db_name} deleted.")
+            : back()->with('error', "Deletion failed: {$error}");
+    }
+
+    public function bulkDestroy(Request $request, Account $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'database_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'database_ids.*' => ['integer', 'exists:hosting_databases,id'],
+        ]);
+
+        $deleted = 0;
+        $errors = [];
+
+        HostingDatabase::with(['account', 'node'])
+            ->where('account_id', $account->id)
+            ->whereIn('id', $data['database_ids'])
+            ->get()
+            ->each(function (HostingDatabase $database) use (&$deleted, &$errors) {
+                $error = $this->deleteDatabase($database);
+
+                if ($error) {
+                    $errors[] = "{$database->db_name}: {$error}";
+                    return;
+                }
+
+                $deleted++;
+            });
+
+        if ($errors !== []) {
+            return back()->with(
+                $deleted > 0 ? 'success' : 'error',
+                $deleted > 0
+                    ? "Deleted {$deleted} database(s). " . count($errors) . ' failed: ' . implode(' ', array_slice($errors, 0, 3))
+                    : 'No databases deleted. ' . implode(' ', array_slice($errors, 0, 3))
+            );
+        }
+
+        return back()->with('success', "Deleted {$deleted} database(s).");
+    }
+
+    private function deleteDatabase(HostingDatabase $database): ?string
+    {
+        $database->loadMissing(['account', 'node']);
+        $account = $database->account;
+        $dbName = $database->db_name;
+        $dbUser = $database->db_user;
+
+        $client  = AgentClient::for($database->node);
+        $provisioner = new DatabaseProvisioner($client);
+
+        [$success, $error] = $provisioner->delete($database);
+
+        if (! $success) {
+            return $error;
+        }
+
+        AuditLog::record('database.deleted', $account, [
+            'db_name' => $dbName,
+            'db_user' => $dbUser,
+        ]);
+
+        return null;
+    }
+
+    /**
+     * Change the password for a database user.
+     */
+    public function changePassword(Request $request, HostingDatabase $database): RedirectResponse
+    {
+        $data = $request->validate([
+            'password' => ['required', 'string', 'min:8'],
+        ]);
+
+        $client = AgentClient::for($database->node);
+        $provisioner = new DatabaseProvisioner($client);
+
+        [$success, $error] = $provisioner->changePassword($database, $data['password']);
+
+        return $success
+            ? back()->with('success', "Password updated for {$database->db_user}.")
+            : back()->with('error', "Password change failed: {$error}");
+    }
+
+    public function updateDomain(Request $request, HostingDatabase $database): RedirectResponse
+    {
+        $account = $database->account;
+
+        $data = $request->validate([
+            'domain_id' => ['nullable', 'integer', 'exists:domains,id'],
+        ]);
+
+        if (! empty($data['domain_id'])) {
+            Domain::where('account_id', $account->id)->findOrFail($data['domain_id']);
+        }
+
+        $database->update([
+            'domain_id' => $data['domain_id'] ?? null,
+        ]);
+
+        AuditLog::record('database.domain_updated', $account, [
+            'db_name' => $database->db_name,
+            'domain_id' => $data['domain_id'] ?? null,
+        ]);
+
+        return back()->with('success', "Domain assignment updated for {$database->db_name}.");
+    }
+
+    public function grantUser(Request $request, Account $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'db_name'  => ['required', 'string'],
+            'db_user'  => ['required', 'regex:/^[a-z][a-z0-9_]{0,15}$/'],
+            'password' => ['required', 'string', 'min:8'],
+            'host'     => ['nullable', 'regex:/^(localhost|%|[A-Za-z0-9][A-Za-z0-9._%-]{0,252})$/'],
+        ]);
+        $host = $data['host'] ?: 'localhost';
+        $database = HostingDatabase::where('account_id', $account->id)
+            ->where('db_name', $data['db_name'])
+            ->firstOrFail();
+        $engine = $database->engine ?? 'mysql';
+
+        if ($engine === 'postgresql' && $host !== 'localhost') {
+            return back()->with('error', 'PostgreSQL remote host access requires pg_hba.conf/listen_addresses configuration on the node.');
+        }
+
+        $client   = AgentClient::for($account->node);
+        $response = $client->databaseGrant($data['db_name'], $data['db_user'], $data['password'], $host, $engine);
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Grant failed: ' . $response->body());
+        }
+
+        DatabaseGrant::updateOrCreate(
+            ['db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'host' => $host],
+            ['account_id' => $account->id, 'node_id' => $account->node_id, 'engine' => $engine, 'password_hint' => substr($data['password'], 0, 3) . '***', 'migration_reset_required' => false],
+        );
+
+        AuditLog::record('database.grant', $account, ['db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'host' => $host, 'engine' => $engine]);
+
+        return back()->with('success', "User {$data['db_user']} granted to {$data['db_name']} from {$host}.");
+    }
+
+    public function revokeUser(Request $request, Account $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'db_name' => ['required', 'string'],
+            'db_user' => ['required', 'string'],
+            'host' => ['nullable', 'regex:/^(localhost|%|[A-Za-z0-9][A-Za-z0-9._%-]{0,252})$/'],
+        ]);
+        $host = $data['host'] ?: 'localhost';
+        $database = HostingDatabase::where('account_id', $account->id)
+            ->where('db_name', $data['db_name'])
+            ->firstOrFail();
+
+        $client   = AgentClient::for($account->node);
+        $response = $client->databaseRevoke($data['db_name'], $data['db_user'], true, $host, $database->engine ?? 'mysql');
+
+        if (! $response->successful()) {
+            return back()->with('error', 'Revoke failed: ' . $response->body());
+        }
+
+        DatabaseGrant::where('db_name', $data['db_name'])
+            ->where('db_user', $data['db_user'])
+            ->where('host', $host)
+            ->delete();
+
+        AuditLog::record('database.revoke', $account, ['db_name' => $data['db_name'], 'db_user' => $data['db_user'], 'host' => $host, 'engine' => $database->engine ?? 'mysql']);
+
+        return back()->with('success', "Access revoked for {$data['db_user']} from {$host}.");
+    }
+}

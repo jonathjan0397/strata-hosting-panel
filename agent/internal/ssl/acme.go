@@ -1,0 +1,120 @@
+package ssl
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	acmeBin  = "/root/.acme.sh/acme.sh"
+	certBase = "/etc/ssl/strata"
+)
+
+type IssueRequest struct {
+	Domain    string   `json:"domain"`
+	Wildcard  bool     `json:"wildcard"`
+	WebServer string   `json:"web_server"`
+	Webroot   string   `json:"webroot"`
+	AltNames  []string `json:"alt_names"`
+}
+
+type CertPaths struct {
+	CertFile  string `json:"cert_file"`
+	KeyFile   string `json:"key_file"`
+	ChainFile string `json:"chain_file"`
+}
+
+func CertDir(domain string) string {
+	return filepath.Join(certBase, domain)
+}
+
+func Paths(domain string) CertPaths {
+	dir := CertDir(domain)
+	return CertPaths{
+		CertFile:  filepath.Join(dir, "cert.pem"),
+		KeyFile:   filepath.Join(dir, "privkey.pem"),
+		ChainFile: filepath.Join(dir, "fullchain.pem"),
+	}
+}
+
+// Issue requests a certificate via acme.sh.
+// Standard certs use the HTTP webroot challenge; wildcard certs use PowerDNS.
+func Issue(req IssueRequest) (*CertPaths, error) {
+	certDir := CertDir(req.Domain)
+	if err := os.MkdirAll(certDir, 0700); err != nil {
+		return nil, fmt.Errorf("mkdir cert dir: %w", err)
+	}
+
+	args := []string{"--issue", "-d", req.Domain, "--keylength", "4096", "--force"}
+	env := append(os.Environ(), "HOME=/root")
+	if req.Wildcard {
+		pdnsURL := strings.TrimSpace(os.Getenv("STRATA_PDNS_URL"))
+		pdnsToken := strings.TrimSpace(os.Getenv("STRATA_PDNS_API_KEY"))
+		if pdnsURL == "" || pdnsToken == "" {
+			return nil, fmt.Errorf("wildcard SSL requires STRATA_PDNS_URL and STRATA_PDNS_API_KEY")
+		}
+
+		args = append(args, "--dns", "dns_pdns", "-d", "*."+req.Domain)
+		env = append(env,
+			"PDNS_Url="+pdnsURL,
+			"PDNS_ServerId=localhost",
+			"PDNS_Token="+pdnsToken,
+		)
+	} else {
+		webroot := strings.TrimSpace(req.Webroot)
+		if webroot == "" {
+			webroot = "/var/www/html"
+		}
+		if err := os.MkdirAll(filepath.Join(webroot, ".well-known", "acme-challenge"), 0755); err != nil {
+			return nil, fmt.Errorf("prepare acme webroot: %w", err)
+		}
+
+		for _, altName := range req.AltNames {
+			altName = strings.TrimSpace(altName)
+			if altName == "" || strings.EqualFold(altName, req.Domain) {
+				continue
+			}
+			args = append(args, "-d", altName)
+		}
+		args = append(args, "-w", webroot)
+	}
+
+	cmd := exec.Command(acmeBin, args...)
+	cmd.Env = env
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("acme.sh issue failed: %w\n%s", err, string(out))
+	}
+
+	paths := Paths(req.Domain)
+	reloadCmd := "systemctl reload nginx"
+	if strings.EqualFold(strings.TrimSpace(req.WebServer), "apache") {
+		reloadCmd = "systemctl reload apache2"
+	}
+
+	installArgs := []string{
+		"--install-cert", "-d", req.Domain,
+		"--cert-file", paths.CertFile,
+		"--key-file", paths.KeyFile,
+		"--fullchain-file", paths.ChainFile,
+		"--reloadcmd", reloadCmd,
+	}
+	installCmd := exec.Command(acmeBin, installArgs...)
+	installCmd.Env = append(os.Environ(), "HOME=/root")
+	if out, err := installCmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("acme.sh install-cert failed: %w\n%s", err, string(out))
+	}
+
+	return &paths, nil
+}
+
+// Remove revokes and removes a certificate.
+func Remove(domain string) error {
+	cmd := exec.Command(acmeBin, "--remove", "-d", domain)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+	cmd.Run() // best-effort revoke
+
+	return os.RemoveAll(CertDir(domain))
+}

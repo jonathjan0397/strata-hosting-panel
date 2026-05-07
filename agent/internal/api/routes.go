@@ -1,0 +1,181 @@
+package api
+
+import (
+	"github.com/go-chi/chi/v5"
+)
+
+func Routes() chi.Router {
+	r := chi.NewRouter()
+
+	// Health + version
+	r.Get("/health", handleHealth)
+	r.Get("/version", handleVersion)
+	r.Get("/agent/certificate", handleAgentCertificateInfo)
+	r.Post("/agent/certificate/renew", handleAgentCertificateRenew)
+	r.Post("/agent/certificate/repair", handleManagedCertificateRepair)
+
+	// App installer
+	r.Post("/apps/install", handleAppInstall)
+	r.Post("/apps/update", handleAppUpdate)
+	r.Delete("/apps/uninstall", handleAppUninstall)
+
+	// System info
+	r.Get("/system/info", handleSystemInfo)
+
+	// Service management
+	r.Get("/services", handleServiceList)
+	r.Post("/services/{name}/start", handleServiceStart)
+	r.Post("/services/{name}/stop", handleServiceStop)
+	r.Post("/services/{name}/restart", handleServiceRestart)
+	r.Post("/services/{name}/reload", handleServiceReload)
+
+	// Log viewer
+	r.Get("/logs", handleLogList)
+	r.Get("/logs/{service}", handleLogRead)
+
+	// Account provisioning
+	r.Post("/accounts", handleAccountProvision)
+	r.Delete("/accounts/{username}", handleAccountDeprovision)
+	r.Put("/cron/{username}", handleCronApply)
+
+	// SSH Keys
+	r.Get("/accounts/{username}/ssh-keys", handleSshKeyList)
+	r.Post("/accounts/{username}/ssh-keys", handleSshKeyAdd)
+	r.Delete("/accounts/{username}/ssh-keys/{fingerprint}", handleSshKeyDelete)
+
+	// Nginx vhost management
+	r.Post("/nginx/vhost", handleNginxVhostCreate)
+	r.Delete("/nginx/vhost/{domain}", handleNginxVhostDelete)
+	r.Post("/nginx/reload", handleNginxReload)
+
+	// PHP-FPM pool management
+	r.Post("/php/pool", handlePHPPoolCreate)
+	r.Delete("/php/pool/{user}", handlePHPPoolDelete)
+	r.Put("/php/pool/{user}/version", handlePHPPoolVersionSet)
+	r.Put("/php/pool/{user}/settings", handlePHPPoolSettings)
+
+	// SSL
+	r.Post("/ssl/issue", handleSSLIssue)
+	r.Delete("/ssl/{domain}", handleSSLDelete)
+
+	// Mail domain provisioning
+	r.Post("/mail/domain", handleMailDomainProvision)
+	r.Delete("/mail/domain/{domain}", handleMailDomainDeprovision)
+	r.Post("/mail/domain/{domain}/dkim/regenerate", handleMailDomainDKIMRegenerate)
+
+	// Mailbox management
+	r.Post("/mail/mailbox", handleMailboxCreate)
+	r.Delete("/mail/mailbox/{email}", handleMailboxDelete)
+	r.Put("/mail/mailbox/{email}/password", handleMailboxPassword)
+
+	// Forwarders
+	r.Post("/mail/forwarder", handleForwarderCreate)
+	r.Delete("/mail/forwarder/{source}", handleForwarderDelete)
+
+	// Autoresponders
+	r.Post("/mail/autoresponder", handleAutoresponderSet)
+	r.Delete("/mail/autoresponder/{email}", handleAutoresponderDelete)
+	r.Post("/mail/mailbox-rules", handleMailboxSieveSet)
+	r.Delete("/mail/mailbox-rules/{email}", handleMailboxSieveDelete)
+
+	// Rspamd
+	r.Get("/mail/rspamd/stats", handleRspamdStats)
+	r.Get("/mail/delivery", handleMailDeliveryLog)
+	r.Get("/mail/queue", handleMailQueue)
+	r.Post("/mail/queue/flush", handleMailQueueFlush)
+	r.Delete("/mail/queue", handleMailQueueDeleteAll)
+	r.Delete("/mail/queue/{queueID}", handleMailQueueDelete)
+
+	// DNS zone + record management (PowerDNS)
+	r.Get("/dns/zones", handleDNSListZones)
+	r.Post("/dns/zone", handleDNSCreateZone)
+	r.Delete("/dns/zone/{domain}", handleDNSDeleteZone)
+	r.Get("/dns/zone/{domain}", handleDNSGetZone)
+	r.Post("/dns/zone/{domain}/rectify", handleDNSRectifyZone)
+	r.Patch("/dns/zone/{domain}/record", handleDNSUpsertRecord)
+	r.Delete("/dns/zone/{domain}/record", handleDNSDeleteRecord)
+
+	// Database management (MariaDB)
+	r.Post("/databases", handleDatabaseCreate)
+	r.Delete("/databases/{name}", handleDatabaseDelete)
+	r.Put("/databases/users/{username}/password", handleDatabasePasswordChange)
+	r.Post("/databases/stats", handleDatabaseStats)
+
+	// Database grants
+	r.Post("/databases/grant", handleDatabaseGrant)
+	r.Delete("/databases/grant", handleDatabaseRevoke)
+
+	// FTP account management (Pure-FTPd)
+	r.Post("/ftp/accounts", handleFTPCreate)
+	r.Delete("/ftp/accounts/{username}", handleFTPDelete)
+	r.Put("/ftp/accounts/{username}/password", handleFTPPassword)
+
+	// WebDAV account management (Strata Web Disk)
+	r.Post("/webdav/accounts", handleWebDAVCreate)
+	r.Delete("/webdav/accounts/{username}", handleWebDAVDelete)
+	r.Put("/webdav/accounts/{username}/password", handleWebDAVPassword)
+
+	// Backups
+	r.Post("/backups/{username}", handleBackupCreate)
+	r.Get("/backups/{username}", handleBackupList)
+	r.Post("/backups/{username}/upload", handleBackupUpload)
+	r.Delete("/backups/{username}/{filename}", handleBackupDelete)
+	r.Get("/backups/{username}/download/{filename}", handleBackupDownload)
+	r.Post("/backups/{username}/restore/{filename}", handleBackupRestore)
+	r.Post("/backups/{username}/restore-path/{filename}", handleBackupRestorePath)
+	r.Post("/backups/{username}/push", handleBackupPush)
+
+	// fail2ban
+	r.Get("/fail2ban/status", handleFail2BanStatus)
+	r.Get("/fail2ban/config", handleFail2BanConfig)
+	r.Post("/fail2ban/config", handleFail2BanConfigUpdate)
+	r.Post("/fail2ban/ban", handleFail2BanBan)
+	r.Post("/fail2ban/unban", handleFail2BanUnban)
+
+	// Firewall (UFW)
+	r.Get("/firewall/rules", handleFirewallRules)
+	r.Post("/firewall/rules", handleFirewallAddRule)
+	r.Delete("/firewall/rules/{number}", handleFirewallDeleteRule)
+
+	// OS updates
+	r.Get("/system/updates", handleUpdatesList)
+	r.Post("/system/updates", handleUpdatesApply)
+
+	// Custom SSL cert storage
+	r.Post("/ssl/store/{domain}", handleSSLStore)
+
+	// Self-upgrade
+	r.Post("/agent/upgrade", handleAgentUpgrade)
+
+	// File manager (jailed to /var/www/{username}/)
+	r.Get("/files/{username}", handleFileList)
+	r.Get("/files/{username}/disk-usage", handleFileDiskUsage)
+	r.Get("/files/{username}/read", handleFileRead)
+	r.Get("/files/{username}/tail", handleFileTail)
+	r.Get("/files/{username}/download", handleFileDownload)
+	r.Post("/files/{username}/write", handleFileWrite)
+	r.Post("/files/{username}/mkdir", handleFileMkdir)
+	r.Post("/files/{username}/rename", handleFileRename)
+	r.Post("/files/{username}/copy", handleFileCopy)
+	r.Delete("/files/{username}", handleFileDelete)
+	r.Post("/files/{username}/chmod", handleFileChmod)
+	r.Post("/files/{username}/compress", handleFileCompress)
+	r.Post("/files/{username}/extract", handleFileExtract)
+	r.Post("/files/{username}/upload", handleFileUpload)
+
+	// Metrics (jailed to account log directory)
+	r.Get("/metrics/{username}/traffic", handleTrafficSummary)
+
+	// Git repository management (jailed to /var/www/{username}/)
+	r.Get("/git/{username}/status", handleGitStatus)
+	r.Post("/git/{username}/init", handleGitInit)
+	r.Post("/git/{username}/clone", handleGitClone)
+	r.Post("/git/{username}/pull", handleGitPull)
+
+	// Malware scanning (jailed to /var/www/{username}/)
+	r.Post("/malware/{username}/scan", handleMalwareScan)
+	r.Get("/malware/{username}/quarantine", handleMalwareQuarantineList)
+	r.Delete("/malware/{username}/quarantine/{filename}", handleMalwareQuarantineDelete)
+
+	return r
+}

@@ -1,0 +1,103 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use App\Services\StrataLicense;
+use Illuminate\Http\Request;
+use Inertia\Middleware;
+use Tighten\Ziggy\Ziggy;
+
+class HandleInertiaRequests extends Middleware
+{
+    protected $rootView = 'app';
+
+    private function resolveBranding(Request $request): ?array
+    {
+        $user = $request->user();
+        if (! $user) return null;
+
+        // Reseller viewing their own portal — show their own branding
+        if ($user->isReseller() && ($user->brand_name || $user->brand_color)) {
+            return ['name' => $user->brand_name, 'color' => $user->brand_color];
+        }
+
+        // End user whose reseller has branding set
+        if ($user->reseller_id) {
+            $reseller = $user->reseller;
+            if ($reseller && ($reseller->brand_name || $reseller->brand_color)) {
+                return ['name' => $reseller->brand_name, 'color' => $reseller->brand_color];
+            }
+        }
+
+        return null;
+    }
+
+    public function version(Request $request): ?string
+    {
+        return parent::version($request);
+    }
+
+    /**
+     * Define the props that are shared by default.
+     */
+    public function share(Request $request): array
+    {
+        $account = $request->user()?->account()
+            ->with('hostingPackage.featureList')
+            ->first();
+
+        return [
+            ...parent::share($request),
+            'auth' => [
+                'user' => $request->user() ? [
+                    'id'               => $request->user()->id,
+                    'name'             => $request->user()->name,
+                    'email'            => $request->user()->email,
+                    'roles'            => $request->user()->getRoleNames(),
+                    'two_factor_enabled' => (bool) $request->user()->two_factor_confirmed_at,
+                    'account' => $account ? [
+                        'id' => $account->id,
+                        'username' => $account->username,
+                        'hosting_package' => $account->hostingPackage?->only(['id', 'name', 'slug']),
+                        'features' => $account->enabledFeatures(),
+                    ] : null,
+                ] : null,
+                'impersonation' => $request->session()->has('impersonator_id') ? [
+                    'impersonator_id' => $request->session()->get('impersonator_id'),
+                    'impersonator_name' => $request->session()->get('impersonator_name'),
+                    'impersonator_email' => $request->session()->get('impersonator_email'),
+                ] : null,
+            ],
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error'   => fn () => $request->session()->get('error'),
+            ],
+            // License data — served from cache, never blocks the request.
+            'license' => fn () => [
+                'status'    => StrataLicense::status(),
+                'features'  => StrataLicense::features(),
+                'managed'   => StrataLicense::isManaged(),
+                'synced_at' => StrataLicense::cached()['synced_at'] ?? null,
+                'messages'  => $request->user()?->isAdmin() ? StrataLicense::messages() : [],
+                'first_run' => $request->user()?->isAdmin() ? StrataLicense::isFreshInstall() : false,
+                'stale'     => $request->user()?->isAdmin() ? StrataLicense::isStale() : false,
+            ],
+            'app' => [
+                'version' => config('app.version', config('strata.version', 'dev')),
+                'demo_mode' => (bool) config('strata.demo_mode'),
+                'browser_shell_enabled' => (bool) config('strata.browser_shell_enabled'),
+                'browser_shell_available' => (bool) (
+                    config('strata.browser_shell_enabled')
+                    && (! app()->environment('production') || config('strata.browser_shell_allow_production'))
+                ),
+            ],
+            // White-label: if the authenticated user has a reseller with branding,
+            // pass it through so the UI can swap the panel name/colour.
+            'branding' => fn () => $this->resolveBranding($request),
+            'ziggy' => fn () => [
+                ...(new Ziggy)->toArray(),
+                'location' => $request->url(),
+            ],
+        ];
+    }
+}

@@ -1,0 +1,934 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Account;
+use App\Models\Domain;
+use App\Models\DnsZone;
+use Illuminate\Support\Facades\DB;
+
+class DomainProvisioner
+{
+    private const PRIVACY_DIR = '/.strata/directory-privacy';
+
+    /**
+     * Create the vhost on the node for this domain.
+     */
+    public function provision(Domain $domain): array
+    {
+        try {
+            [$filesSynced, $fileError] = $this->syncDirectoryPrivacy($domain);
+            if (! $filesSynced) {
+                return [false, $fileError];
+            }
+
+            $response = AgentClient::for($domain->node)->createDomain(
+                $this->buildPayload($domain, ['ssl_enabled' => false])
+            );
+
+            if (! $response->successful()) {
+                return [false, $response->json('message') ?? $response->body()];
+            }
+
+            [$mailEnabled, $mailError] = $this->ensureMailProvisioned($domain->fresh());
+            if (! $mailEnabled) {
+                (new DnsProvisioner(AgentClient::for($domain->node)))->deleteZone($domain);
+                AgentClient::for($domain->node)->removeDomain($domain->domain, $this->webServerFor($domain));
+                return [false, 'Mail provisioning failed: ' . $mailError];
+            }
+
+            return [true, null];
+        } catch (\Throwable $e) {
+            return [false, $e->getMessage()];
+        }
+    }
+
+    /**
+     * Re-provision vhost with current domain config (custom directives, redirects, etc.).
+     */
+    public function reprovision(Domain $domain): array
+    {
+        try {
+            [$filesSynced, $fileError] = $this->syncDirectoryPrivacy($domain);
+            if (! $filesSynced) {
+                return [false, $fileError];
+            }
+
+            $payload = $this->buildPayload($domain, $this->effectiveSslOverride($domain));
+
+            $response = AgentClient::for($domain->node)->createDomain(array_filter($payload, fn($v) => $v !== null));
+
+            return $response->successful() ? [true, null]
+                : [false, $response->json('message') ?? $response->body()];
+        } catch (\Throwable $e) {
+            return [false, $e->getMessage()];
+        }
+    }
+
+    /**
+     * Remove the vhost (and SSL cert if present).
+     */
+    public function deprovision(Domain $domain): array
+    {
+        $errors = [];
+        $client = AgentClient::for($domain->node);
+
+        if ($domain->mail_enabled) {
+            try {
+                $mailResponse = $client->deprovisionMailDomain($domain->domain);
+                if (! $mailResponse->successful()) {
+                    $errors[] = 'Mail removal: ' . $mailResponse->body();
+                }
+            } catch (\Throwable $e) {
+                $errors[] = 'Mail removal: ' . $e->getMessage();
+            }
+        }
+
+        try {
+            if ($domain->ssl_enabled) {
+                $client->removeSSL($domain->domain);
+            }
+        } catch (\Throwable $e) {
+            $errors[] = "SSL removal: " . $e->getMessage();
+        }
+
+        try {
+            $response = $client->removeDomain($domain->domain, $this->webServerFor($domain));
+            if (! $response->successful()) {
+                $errors[] = $response->body();
+            }
+        } catch (\Throwable $e) {
+            $errors[] = "Vhost removal: " . $e->getMessage();
+        }
+
+        if (DnsZone::where('domain_id', $domain->id)->exists()) {
+            try {
+                [$dnsRemoved, $dnsError] = (new DnsProvisioner($client))->deleteZone($domain);
+                if (! $dnsRemoved) {
+                    $errors[] = 'DNS zone removal: ' . $dnsError;
+                }
+            } catch (\Throwable $e) {
+                $errors[] = "DNS zone removal: " . $e->getMessage();
+            }
+        }
+
+        try {
+            [$filesRemoved, $fileError] = $this->syncDirectoryPrivacy($domain->forceFill(['directory_privacy' => []]));
+            if (! $filesRemoved && $fileError) {
+                $errors[] = $fileError;
+            }
+        } catch (\Throwable $e) {
+            $errors[] = "Directory privacy cleanup: " . $e->getMessage();
+        }
+
+        try {
+            [$rootRemoved, $rootError] = $this->deleteDedicatedDocumentRoot($domain, $client);
+            if (! $rootRemoved && $rootError) {
+                $errors[] = $rootError;
+            }
+        } catch (\Throwable $e) {
+            $errors[] = "Document root cleanup: " . $e->getMessage();
+        }
+
+        return [empty($errors), implode('; ', $errors) ?: null];
+    }
+
+    public function ensureMailProvisioned(Domain $domain): array
+    {
+        $dnsProvisioner = new DnsProvisioner(AgentClient::for($domain->node));
+
+        if (! $dnsProvisioner->hasZoneForDomain($domain)) {
+            [$dnsCreated, $dnsError] = $dnsProvisioner->createZone($domain);
+            if (! $dnsCreated) {
+                return [false, 'DNS zone provisioning failed: ' . $dnsError];
+            }
+        }
+
+        if ($domain->mail_enabled) {
+            $dnsProvisioner->addMailRecords($domain);
+            return [true, null];
+        }
+
+        [$enabled, $error] = app(MailProvisioner::class)->enableDomain($domain);
+        if (! $enabled) {
+            return [false, $error];
+        }
+
+        $dnsProvisioner->addMailRecords($domain->fresh());
+
+        return [true, null];
+    }
+
+    public function hasUsableSsl(Domain $domain): bool
+    {
+        return $this->effectiveSslOverride($domain)['ssl_enabled'];
+    }
+
+    /**
+     * Change the PHP version for a domain's FPM pool.
+     */
+    public function changePhpVersion(Domain $domain, string $newVersion): array
+    {
+        try {
+            $domain->loadMissing(['account', 'node']);
+            $account = $domain->account;
+            if (! $account || ! $domain->node) {
+                return [false, 'Domain is missing its account or node assignment.'];
+            }
+
+            $oldVersion = $domain->php_version ?? $account->php_version;
+
+            if ($newVersion === $oldVersion) {
+                return [true, null];
+            }
+
+            return $this->switchAccountPhpVersion($account, $newVersion, $oldVersion);
+        } catch (\Throwable $e) {
+            return [false, $e->getMessage()];
+        }
+    }
+
+    public function repairPhpSockets(Account $account): array
+    {
+        $account->loadMissing(['node', 'domains.node']);
+
+        if (! $account->node) {
+            return [false, 'Account is missing its node assignment.'];
+        }
+
+        return $this->reprovisionAccountDomains($account, $account->php_version ?: '8.4', deleteOldPoolVersion: null);
+    }
+
+    /**
+     * Issue an SSL certificate and update the vhost.
+     */
+    public function issueSSL(Domain $domain, bool $wildcard = false): array
+    {
+        try {
+            $domain->loadMissing(['account', 'node']);
+            if (! $domain->node) {
+                return [false, 'Domain is missing its node assignment.'];
+            }
+
+            if ($wildcard && ! $this->supportsWildcardSsl($domain)) {
+                return [false, 'Wildcard SSL requires a managed DNS zone for this domain.'];
+            }
+
+            $response = AgentClient::for($domain->node)->issueSSL($domain->domain, [
+                'wildcard' => $wildcard,
+                'web_server' => $domain->node->web_server ?? $domain->web_server ?? 'nginx',
+                'webroot' => $domain->document_root,
+                'alt_names' => $wildcard ? [] : $this->defaultAltNames($domain),
+            ]);
+
+            if (! $response->successful()) {
+                return [false, $response->body()];
+            }
+
+            $paths = $response->json();
+            $vhostResponse = AgentClient::for($domain->node)->createDomain(
+                $this->buildPayload($domain, [
+                    'ssl_enabled' => true,
+                    'ssl_cert'    => $paths['chain_file'],
+                    'ssl_key'     => $paths['key_file'],
+                ])
+            );
+
+            if (! $vhostResponse->successful()) {
+                return [false, $vhostResponse->json('message') ?? $vhostResponse->body()];
+            }
+
+            $domain->update([
+                'ssl_enabled'    => true,
+                'ssl_wildcard'   => $wildcard,
+                'ssl_provider'   => $wildcard ? 'letsencrypt-wildcard' : 'letsencrypt',
+                'ssl_expires_at' => now()->addDays(90),
+            ]);
+
+            return [true, null];
+        } catch (\Throwable $e) {
+            return [false, $e->getMessage()];
+        }
+    }
+
+    public function supportsWildcardSsl(Domain $domain): bool
+    {
+        return (new DnsProvisioner(AgentClient::for($domain->node)))->hasZoneForDomain($domain);
+    }
+
+    /**
+     * Store a custom SSL certificate and re-provision the vhost.
+     */
+    public function storeCustomSSL(Domain $domain, string $certPem, string $keyPem): array
+    {
+        try {
+            $response = AgentClient::for($domain->node)->sslStore($domain->domain, $certPem, $keyPem);
+
+            if (! $response->successful()) {
+                return [false, $response->body()];
+            }
+
+            $result = $response->json();
+            $expires = isset($result['expires']) && $result['expires']
+                ? \Carbon\Carbon::parse($result['expires'])
+                : now()->addYear();
+
+            $vhostResponse = AgentClient::for($domain->node)->createDomain(
+                $this->buildPayload($domain, [
+                    'ssl_enabled' => true,
+                    'ssl_cert'    => $result['cert_file'],
+                    'ssl_key'     => $result['key_file'],
+                ])
+            );
+
+            if (! $vhostResponse->successful()) {
+                return [false, $vhostResponse->json('message') ?? $vhostResponse->body()];
+            }
+
+            $domain->update([
+                'ssl_enabled'    => true,
+                'ssl_wildcard'   => false,
+                'ssl_provider'   => 'custom',
+                'ssl_expires_at' => $expires,
+            ]);
+
+            return [true, null];
+        } catch (\Throwable $e) {
+            return [false, $e->getMessage()];
+        }
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private function buildPayload(Domain $domain, array $override = []): array
+    {
+        $domain->loadMissing(['account', 'node']);
+        $account = $domain->account;
+        if (! $account) {
+            throw new \RuntimeException('Domain is missing its account association.');
+        }
+
+        $phpVersion = $domain->php_version ?? $account->php_version;
+        $phpSocket  = "/run/php/php{$phpVersion}-fpm-{$account->username}.sock";
+
+        $base = [
+            'web_server'       => $domain->node->web_server ?? $domain->web_server ?? 'nginx',
+            'domain'           => $domain->domain,
+            'username'         => $account->username,
+            'document_root'    => $domain->document_root,
+            'php_version'      => $phpVersion,
+            'php_socket'       => $phpSocket,
+            'custom_directives'=> $this->buildDirectives($domain),
+        ];
+
+        return array_merge($base, $override);
+    }
+
+    private function defaultAltNames(Domain $domain): array
+    {
+        if ($domain->type === 'subdomain') {
+            return [];
+        }
+
+        return ["www.{$domain->domain}"];
+    }
+
+    private function poolConfigFor($account, string $phpVersion): array
+    {
+        return [
+            'Username' => $account->username,
+            'PHPVersion' => $phpVersion,
+            'MaxChildren' => 5,
+            'UploadMax' => $account->php_upload_max ?: '64M',
+            'PostMax' => $account->php_post_max ?: '64M',
+            'MemoryLimit' => $account->php_memory_limit ?: '256M',
+            'MaxExecTime' => (int) ($account->php_max_exec_time ?: 30),
+        ];
+    }
+
+    private function switchAccountPhpVersion(Account $account, string $newVersion, string $oldVersion): array
+    {
+        $account->loadMissing(['node', 'domains.node']);
+
+        $supportedVersions = $this->supportedPhpVersions($account);
+        if (! in_array($newVersion, $supportedVersions, true)) {
+            return [false, "PHP {$newVersion} is not available on node {$account->node->name}."];
+        }
+
+        $client = AgentClient::for($account->node);
+        $response = $client->createPhpPool($this->poolConfigFor($account, $newVersion));
+
+        if (! $response->successful()) {
+            return [false, $response->body()];
+        }
+
+        [$reprovisioned, $reprovisionError, $reprovisionedDomains] = $this->reprovisionAccountDomains($account, $newVersion, null);
+
+        if (! $reprovisioned) {
+            $client->deletePhpPool($account->username, $newVersion);
+
+            return [false, $reprovisionError];
+        }
+
+        try {
+            DB::transaction(function () use ($account, $newVersion) {
+                $account->update(['php_version' => $newVersion]);
+                $account->domains()->update(['php_version' => $newVersion]);
+            });
+        } catch (\Throwable $e) {
+            $this->rollbackReprovisionedDomains($reprovisionedDomains, $account);
+            $client->deletePhpPool($account->username, $newVersion);
+
+            return [false, 'PHP version state sync failed after vhost reprovision: ' . $e->getMessage()];
+        }
+
+        return [true, null];
+    }
+
+    private function reprovisionAccountDomains(Account $account, string $targetVersion, ?string $deleteOldPoolVersion): array
+    {
+        $domains = $account->domains
+            ->filter(fn (Domain $domain) => $domain->node_id === $account->node_id)
+            ->values();
+
+        $reprovisioned = [];
+
+        foreach ($domains as $domain) {
+            $domain->setRelation('account', $account);
+            $domain->setRelation('node', $domain->node ?: $account->node);
+
+            $workingDomain = $domain->replicate();
+            $workingDomain->exists = true;
+            $workingDomain->setRelation('account', $account);
+            $workingDomain->setRelation('node', $domain->node ?: $account->node);
+            $workingDomain->php_version = $targetVersion;
+
+            [$ok, $error] = $this->reprovision($workingDomain);
+            if (! $ok) {
+                $this->rollbackReprovisionedDomains($reprovisioned, $account);
+
+                return [false, "Vhost reprovision failed for {$domain->domain}: {$error}", $reprovisioned];
+            }
+
+            $reprovisioned[] = $domain;
+        }
+
+        if ($deleteOldPoolVersion) {
+            AgentClient::for($account->node)->deletePhpPool($account->username, $deleteOldPoolVersion);
+        }
+
+        return [true, null, $reprovisioned];
+    }
+
+    private function rollbackReprovisionedDomains(array $domains, Account $account): void
+    {
+        foreach ($domains as $domain) {
+            $domain->refresh();
+            $domain->setRelation('account', $account->fresh());
+            $domain->setRelation('node', $domain->node ?: $account->node);
+            $this->reprovision($domain);
+        }
+    }
+
+    private function supportedPhpVersions(Account $account): array
+    {
+        $fallback = array_values(array_unique(array_filter([
+            $account->php_version ?: null,
+            '8.4',
+        ])));
+
+        if (! $account->node) {
+            return $fallback;
+        }
+
+        try {
+            $response = AgentClient::for($account->node)->services();
+            if (! $response->successful()) {
+                return $fallback;
+            }
+
+            $versions = collect($response->json() ?? [])
+                ->filter(fn ($service) => preg_match('/^php[78]\.\d+-fpm$/', (string) ($service['name'] ?? '')) === 1)
+                ->filter(fn ($service) => (bool) ($service['active'] ?? false) || (bool) ($service['enabled'] ?? false))
+                ->map(function ($service) {
+                    if (preg_match('/php((?:7|8)\.\d+)-fpm/', (string) $service['name'], $matches)) {
+                        return $matches[1];
+                    }
+
+                    return null;
+                })
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($versions === []) {
+                return $fallback;
+            }
+
+            if ($account->php_version && ! in_array($account->php_version, $versions, true)) {
+                $versions[] = $account->php_version;
+            }
+
+            sort($versions);
+
+            return array_values($versions);
+        } catch (\Throwable) {
+            return $fallback;
+        }
+    }
+
+    private function resolvedSslOverride(Domain $domain): array
+    {
+        if (! $domain->ssl_enabled) {
+            return [
+                'ssl_enabled' => false,
+                'ssl_cert' => null,
+                'ssl_key' => null,
+            ];
+        }
+
+        $provider = $domain->ssl_provider ?: 'letsencrypt';
+        $paths = match ($provider) {
+            'custom' => [
+                'cert' => "/etc/strata-agent/certs/{$domain->domain}/cert.pem",
+                'key' => "/etc/strata-agent/certs/{$domain->domain}/key.pem",
+            ],
+            default => [
+                'cert' => "/etc/ssl/strata/{$domain->domain}/fullchain.pem",
+                'key' => "/etc/ssl/strata/{$domain->domain}/privkey.pem",
+            ],
+        };
+
+        return [
+            'ssl_enabled' => true,
+            'ssl_cert' => $paths['cert'],
+            'ssl_key' => $paths['key'],
+        ];
+    }
+
+    private function effectiveSslOverride(Domain $domain): array
+    {
+        $resolved = $this->resolvedSslOverride($domain);
+
+        if ($resolved['ssl_enabled']) {
+            return $resolved;
+        }
+
+        return $resolved;
+    }
+
+    private function sslPathsFor(Domain $domain): ?array
+    {
+        $provider = $domain->ssl_provider ?: 'letsencrypt';
+
+        return match ($provider) {
+            'custom' => [
+                'cert' => "/etc/strata-agent/certs/{$domain->domain}/cert.pem",
+                'key' => "/etc/strata-agent/certs/{$domain->domain}/key.pem",
+            ],
+            'letsencrypt', 'letsencrypt-wildcard', '', null => [
+                'cert' => "/etc/ssl/strata/{$domain->domain}/fullchain.pem",
+                'key' => "/etc/ssl/strata/{$domain->domain}/privkey.pem",
+            ],
+            default => null,
+        };
+    }
+
+    /**
+     * Build the custom_directives string: merge user raw directives with redirect rules.
+     */
+    private function buildDirectives(Domain $domain): string
+    {
+        $parts   = [];
+        $webServer = $domain->node->web_server ?? 'nginx';
+
+        if ($domain->custom_directives) {
+            $parts[] = trim($domain->custom_directives);
+        }
+
+        foreach ($domain->redirects ?? [] as $redirect) {
+            $src  = $redirect['source'] ?? '';
+            $dest = $redirect['destination'] ?? '';
+            $code = (int) ($redirect['type'] ?? 301);
+
+            if (! $src || ! $dest) {
+                continue;
+            }
+
+            if ($webServer === 'apache') {
+                $parts[] = "Redirect {$code} {$src} {$dest}";
+            } else {
+                // Nginx: exact match for plain paths, prefix otherwise
+                $modifier = str_ends_with($src, '/') ? '' : '= ';
+                $parts[] = "location {$modifier}{$src} {\n    return {$code} {$dest};\n}";
+            }
+        }
+
+        $forceHttpsDirective = $this->buildForceHttpsDirective($domain, $webServer);
+        if ($forceHttpsDirective) {
+            $parts[] = $forceHttpsDirective;
+        }
+
+        foreach ($domain->directory_privacy ?? [] as $index => $rule) {
+            $directive = $this->buildDirectoryPrivacyDirective($domain, $rule, $index, $webServer);
+            if ($directive) {
+                $parts[] = $directive;
+            }
+        }
+
+        $hotlinkDirective = $this->buildHotlinkProtectionDirective($domain, $webServer);
+        if ($hotlinkDirective) {
+            $parts[] = $hotlinkDirective;
+        }
+
+        $modSecurityDirective = $this->buildModSecurityDirective($domain, $webServer);
+        if ($modSecurityDirective) {
+            $parts[] = $modSecurityDirective;
+        }
+
+        $leechDirective = $this->buildLeechProtectionDirective($domain, $webServer);
+        if ($leechDirective) {
+            $parts[] = $leechDirective;
+        }
+
+        return implode("\n\n", array_filter($parts));
+    }
+
+    private function buildModSecurityDirective(Domain $domain, string $webServer): ?string
+    {
+        $config = $domain->modsecurity ?? [];
+        if (! ($config['enabled'] ?? false)) {
+            return null;
+        }
+
+        $mode = $config['mode'] ?? 'on';
+        if (! in_array($mode, ['on', 'detection_only'], true)) {
+            $mode = 'on';
+        }
+
+        if ($webServer === 'apache') {
+            return implode("\n", [
+                '<IfModule security2_module>',
+                '    SecRuleEngine ' . ($mode === 'detection_only' ? 'DetectionOnly' : 'On'),
+                '</IfModule>',
+            ]);
+        }
+
+        return implode("\n", [
+            'modsecurity on;',
+            'modsecurity_rules \'SecRuleEngine ' . ($mode === 'detection_only' ? 'DetectionOnly' : 'On') . '\';',
+        ]);
+    }
+
+    private function buildLeechProtectionDirective(Domain $domain, string $webServer): ?string
+    {
+        $config = $domain->leech_protection ?? [];
+        if (! ($config['enabled'] ?? false)) {
+            return null;
+        }
+
+        $path = $this->normalizeProtectedPath($config['path'] ?? null);
+        if (! $path) {
+            return null;
+        }
+
+        $limit = max(1, min(120, (int) ($config['requests_per_minute'] ?? 30)));
+        $redirectUrl = trim((string) ($config['redirect_url'] ?? ''));
+        $returnCode = $redirectUrl !== '' && filter_var($redirectUrl, FILTER_VALIDATE_URL) ? 302 : 429;
+
+        if ($webServer === 'apache') {
+            $conditions = [
+                'RewriteEngine On',
+                'RewriteCond %{REQUEST_URI} ^' . preg_quote($path, '#') . '(/|$) [NC]',
+            ];
+
+            if ($redirectUrl !== '') {
+                $conditions[] = 'RewriteRule ^ ' . $redirectUrl . ' [R=302,L]';
+            } else {
+                $conditions[] = 'RewriteRule ^ - [R=429,L]';
+            }
+
+            $conditions[] = '# Leech threshold: ' . $limit . ' requests/minute. Enforce precise per-client rate limits at the WAF/proxy layer.';
+
+            return implode("\n", $conditions);
+        }
+
+        $zone = 'strata_leech_' . substr(sha1($domain->domain . $path), 0, 12);
+        $parts = [
+            'limit_req_zone $binary_remote_addr zone=' . $zone . ':10m rate=' . $limit . 'r/m;',
+            'location ^~ ' . rtrim($path, '/') . '/ {',
+            '    limit_req zone=' . $zone . ' burst=' . max(1, (int) ceil($limit / 4)) . ' nodelay;',
+        ];
+
+        if ($returnCode === 302) {
+            $parts[] = '    error_page 503 =302 ' . $redirectUrl . ';';
+        } else {
+            $parts[] = '    limit_req_status 429;';
+        }
+
+        $parts[] = '}';
+
+        return implode("\n", $parts);
+    }
+
+    private function buildForceHttpsDirective(Domain $domain, string $webServer): ?string
+    {
+        if (! $domain->force_https || ! $this->resolvedSslOverride($domain)['ssl_enabled']) {
+            return null;
+        }
+
+        if ($webServer === 'apache') {
+            return implode("\n", [
+                'RewriteEngine On',
+                'RewriteCond %{HTTPS} !=on',
+                'RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]',
+            ]);
+        }
+
+        return implode("\n", [
+            'if ($scheme = http) {',
+            '    return 301 https://$host$request_uri;',
+            '}',
+        ]);
+    }
+
+    private function buildHotlinkProtectionDirective(Domain $domain, string $webServer): ?string
+    {
+        $config = $domain->hotlink_protection ?? [];
+        if (! ($config['enabled'] ?? false)) {
+            return null;
+        }
+
+        $extensions = array_values(array_unique(array_filter(
+            array_map(fn ($ext) => strtolower(trim((string) $ext, " .\t\n\r\0\x0B")), (array) ($config['extensions'] ?? [])),
+            fn ($ext) => preg_match('/^[a-z0-9]+$/', $ext)
+        )));
+
+        if ($extensions === []) {
+            $extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico'];
+        }
+
+        $allowedDomains = array_values(array_unique(array_filter(array_map(
+            fn ($host) => strtolower(trim((string) $host)),
+            array_merge([$domain->domain], (array) ($config['allowed_domains'] ?? []))
+        ), fn ($host) => $this->isValidHost($host))));
+
+        $allowDirect = (bool) ($config['allow_direct'] ?? true);
+        $pattern = implode('|', array_map('preg_quote', $extensions));
+
+        if ($webServer === 'apache') {
+            $rules = [];
+            if ($allowDirect) {
+                $rules[] = 'SetEnvIfNoCase Referer "^$" strata_hotlink_allowed';
+            }
+
+            foreach ($allowedDomains as $host) {
+                $quoted = preg_quote($host, '/');
+                $rules[] = 'SetEnvIfNoCase Referer "^https?://([^/]+\.)?' . $quoted . '(/|$)" strata_hotlink_allowed';
+            }
+
+            $rules[] = '<FilesMatch "\.(' . $pattern . ')$">';
+            $rules[] = '    Require env strata_hotlink_allowed';
+            $rules[] = '</FilesMatch>';
+
+            return implode("\n", $rules);
+        }
+
+        $referers = array_map(fn ($host) => $host . ' *.' . $host, $allowedDomains);
+        $referers = implode(' ', $referers);
+        $direct = $allowDirect ? 'none ' : '';
+
+        return implode("\n", [
+            'location ~* \.(' . $pattern . ')$ {',
+            '    valid_referers ' . $direct . 'blocked server_names ' . $referers . ';',
+            '    if ($invalid_referer) {',
+            '        return 403;',
+            '    }',
+            '}',
+        ]);
+    }
+
+    private function buildDirectoryPrivacyDirective(Domain $domain, array $rule, int $index, string $webServer): ?string
+    {
+        $path = $this->normalizeProtectedPath($rule['path'] ?? null);
+        $filePath = $this->privacyFilePath($domain, $path, $index);
+
+        if (! $path) {
+            return null;
+        }
+
+        if ($webServer === 'apache') {
+            $directoryPath = $this->directoryPath($domain, $path);
+
+            return implode("\n", [
+                '<Directory "' . $directoryPath . '">',
+                '    AuthType Basic',
+                '    AuthName "Restricted Area"',
+                '    AuthUserFile ' . $filePath,
+                '    Require valid-user',
+                '</Directory>',
+            ]);
+        }
+
+        return implode("\n", [
+            'location = ' . $path . ' {',
+            '    auth_basic "Restricted Area";',
+            '    auth_basic_user_file ' . $filePath . ';',
+            '}',
+            'location ^~ ' . rtrim($path, '/') . '/ {',
+            '    auth_basic "Restricted Area";',
+            '    auth_basic_user_file ' . $filePath . ';',
+            '}',
+        ]);
+    }
+
+    private function syncDirectoryPrivacy(Domain $domain): array
+    {
+        $client = AgentClient::for($domain->node);
+        $username = $domain->account->username;
+
+        $baseMkdir = $client->fileMkdir($username, '/.strata');
+        if (! $baseMkdir->successful()) {
+            return [false, 'Directory privacy storage setup failed: ' . $baseMkdir->body()];
+        }
+
+        $mkdir = $client->fileMkdir($username, self::PRIVACY_DIR);
+        if (! $mkdir->successful()) {
+            return [false, 'Directory privacy storage setup failed: ' . $mkdir->body()];
+        }
+
+        $desiredFiles = [];
+        foreach (($domain->directory_privacy ?? []) as $index => $rule) {
+            $path = $this->normalizeProtectedPath($rule['path'] ?? null);
+            $login = trim((string) ($rule['username'] ?? ''));
+            $hash = trim((string) ($rule['password_hash'] ?? ''));
+
+            if (! $path || $login === '' || $hash === '') {
+                continue;
+            }
+
+            $relativePath = $this->privacyRelativePath($domain, $path, $index);
+            $desiredFiles[$relativePath] = $login . ':' . $hash . "\n";
+        }
+
+        $existing = $client->fileList($username, self::PRIVACY_DIR);
+        if ($existing->successful()) {
+            foreach ($existing->json('entries') ?? [] as $entry) {
+                $entryPath = $entry['path'] ?? null;
+                $entryName = $entry['name'] ?? '';
+
+                if (! is_string($entryPath) || ! str_starts_with($entryName, $this->privacyFilePrefix($domain))) {
+                    continue;
+                }
+
+                if (! array_key_exists($entryPath, $desiredFiles)) {
+                    $delete = $client->fileDelete($username, $entryPath);
+                    if (! $delete->successful()) {
+                        return [false, 'Failed to remove obsolete directory privacy file: ' . $delete->body()];
+                    }
+                }
+            }
+        }
+
+        foreach ($desiredFiles as $relativePath => $content) {
+            $write = $client->fileWrite($username, $relativePath, $content);
+            if (! $write->successful()) {
+                return [false, 'Failed to write directory privacy credentials: ' . $write->body()];
+            }
+        }
+
+        return [true, null];
+    }
+
+    private function privacyRelativePath(Domain $domain, string $path, int $index): string
+    {
+        return self::PRIVACY_DIR . '/' . $this->privacyFileName($domain, $path, $index);
+    }
+
+    private function privacyFilePath(Domain $domain, string $path, int $index): string
+    {
+        return '/var/www/' . $domain->account->username . $this->privacyRelativePath($domain, $path, $index);
+    }
+
+    private function privacyFileName(Domain $domain, string $path, int $index): string
+    {
+        return $this->privacyFilePrefix($domain) . '-' . $index . '-' . substr(sha1($path), 0, 12) . '.htpasswd';
+    }
+
+    private function privacyFilePrefix(Domain $domain): string
+    {
+        return 'privacy-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($domain->domain));
+    }
+
+    private function directoryPath(Domain $domain, string $path): string
+    {
+        $documentRoot = rtrim($domain->document_root, '/');
+
+        return $path === '/'
+            ? $documentRoot
+            : $documentRoot . $path;
+    }
+
+    private function deleteDedicatedDocumentRoot(Domain $domain, AgentClient $client): array
+    {
+        if (! in_array($domain->type, ['addon', 'subdomain'], true)) {
+            return [true, null];
+        }
+
+        $account = $domain->account;
+        $base = '/var/www/' . $account->username;
+        $documentRoot = rtrim((string) $domain->document_root, '/');
+
+        if ($documentRoot === '' || $documentRoot === $base || $documentRoot === $base . '/public_html') {
+            return [true, null];
+        }
+
+        if (! str_starts_with($documentRoot . '/', $base . '/')) {
+            return [false, 'Document root cleanup refused because the path is outside the account jail.'];
+        }
+
+        $relativePath = substr($documentRoot, strlen($base));
+        if ($relativePath === '' || $relativePath === '/' || str_contains($relativePath, '..')) {
+            return [true, null];
+        }
+
+        $response = $client->fileDelete($account->username, $relativePath);
+
+        return $response->successful()
+            ? [true, null]
+            : [false, 'Document root cleanup: ' . $response->body()];
+    }
+
+    private function normalizeProtectedPath(?string $path): ?string
+    {
+        if (! is_string($path)) {
+            return null;
+        }
+
+        $path = trim($path);
+        if ($path === '' || $path === '/' || str_contains($path, '..') || ! str_starts_with($path, '/')) {
+            return null;
+        }
+
+        if (! preg_match('#^/[A-Za-z0-9._/\-]+$#', $path)) {
+            return null;
+        }
+
+        return rtrim($path, '/') ?: '/';
+    }
+
+    private function isValidHost(string $host): bool
+    {
+        $host = strtolower(trim($host));
+
+        return $host !== ''
+            && strlen($host) <= 253
+            && preg_match('/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/', $host);
+    }
+
+    private function webServerFor(Domain $domain): string
+    {
+        return $domain->node->web_server ?? $domain->web_server ?? 'nginx';
+    }
+}

@@ -1,0 +1,255 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1;
+
+use App\Http\Controllers\Controller;
+use App\Jobs\ProvisionAccount;
+use App\Models\Account;
+use App\Models\AuditLog;
+use App\Models\HostingPackage;
+use App\Models\Node;
+use App\Models\User;
+use App\Services\AccountProvisioner;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+class AccountController extends Controller
+{
+    /**
+     * GET /api/v1/accounts
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'in:provisioning,active,suspended,failed'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $accounts = Account::query()
+            ->with(['user:id,name,email', 'node:id,name,hostname,status', 'hostingPackage:id,name,slug', 'domains:id,account_id,domain'])
+            ->withCount(['domains', 'emailAccounts', 'databases'])
+            ->when($data['search'] ?? null, fn ($query, string $search) =>
+                $query->where(fn ($searchQuery) =>
+                    $searchQuery->where('username', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn ($userQuery) => $userQuery->where('email', 'like', "%{$search}%"))
+                )
+            )
+            ->when($data['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+            ->latest()
+            ->paginate($data['per_page'] ?? 25);
+
+        return response()->json([
+            'data' => $accounts->getCollection()->map(fn (Account $account) => $this->accountPayload($account))->values(),
+            'meta' => [
+                'current_page' => $accounts->currentPage(),
+                'last_page' => $accounts->lastPage(),
+                'per_page' => $accounts->perPage(),
+                'total' => $accounts->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/v1/accounts/{id}
+     */
+    public function show(Account $account): JsonResponse
+    {
+        $account->load(['user:id,name,email', 'node:id,name,hostname,status', 'hostingPackage:id,name,slug', 'domains:id,account_id,domain'])
+            ->loadCount(['domains', 'emailAccounts', 'databases']);
+
+        return response()->json($this->accountPayload($account));
+    }
+
+    /**
+     * POST /api/v1/accounts
+     * Provision a new hosting account.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name'               => ['required', 'string', 'max:100'],
+            'email'              => ['required', 'email', 'unique:users,email'],
+            'username'           => ['required', 'regex:/^[a-z][a-z0-9_]{1,31}$/', 'unique:accounts,username'],
+            'password'           => ['nullable', 'string', 'min:12'],
+            'node_id'            => ['nullable', 'exists:nodes,id'],
+            'hosting_package_id' => ['nullable', 'exists:hosting_packages,id'],
+            'php_version'        => ['nullable', 'in:8.1,8.2,8.3,8.4'],
+            'disk_limit_mb'      => ['nullable', 'integer', 'min:0'],
+            'bandwidth_limit_mb' => ['nullable', 'integer', 'min:0'],
+            'max_domains'        => ['nullable', 'integer', 'min:0'],
+            'max_email_accounts' => ['nullable', 'integer', 'min:0'],
+            'max_databases'      => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $node = isset($data['node_id'])
+            ? Node::findOrFail($data['node_id'])
+            : Node::where('status', 'online')->first();
+
+        if (! $node) {
+            return response()->json(['error' => 'No online node available.'], 503);
+        }
+
+        $package = isset($data['hosting_package_id'])
+            ? HostingPackage::where('is_active', true)->findOrFail($data['hosting_package_id'])
+            : null;
+
+        $accountAttributes = [
+            'php_version' => $data['php_version'] ?? '8.4',
+            'disk_limit_mb' => $data['disk_limit_mb'] ?? 0,
+            'bandwidth_limit_mb' => $data['bandwidth_limit_mb'] ?? 0,
+            'max_domains' => $data['max_domains'] ?? 0,
+            'max_email_accounts' => $data['max_email_accounts'] ?? 0,
+            'max_databases' => $data['max_databases'] ?? 0,
+        ];
+        if ($package) {
+            $accountAttributes = array_merge($accountAttributes, $package->accountAttributes());
+        }
+
+        $user = User::create([
+            'name'     => $data['name'],
+            'email'    => $data['email'],
+            'password' => Hash::make($data['password'] ?? Str::password(16)),
+        ]);
+        $user->assignRole('user');
+
+        $account = Account::create([
+            'user_id'            => $user->id,
+            'node_id'            => $node->id,
+            'hosting_package_id' => $package?->id,
+            'username'           => $data['username'],
+            'status'             => 'provisioning',
+            ...$accountAttributes,
+        ]);
+
+        ProvisionAccount::dispatch($account->id, $request->user()?->id, 'api.account');
+
+        AuditLog::record('api.account_provisioning_queued', $account, ['by' => 'api', 'queued' => true]);
+
+        return response()->json([
+            'id'       => $account->id,
+            'username' => $account->username,
+            'status'   => $account->status,
+        ], 202);
+    }
+
+    /**
+     * POST /api/v1/accounts/{id}/suspend
+     */
+    public function suspend(Request $request, Account $account): JsonResponse
+    {
+        if (! $account->isActive()) {
+            return response()->json(['error' => 'Only active accounts can be suspended.'], 409);
+        }
+
+        $account->update(['status' => 'suspended', 'suspended_at' => now()]);
+        AuditLog::record('api.account_suspended', $account, ['by' => 'api']);
+
+        return response()->json(['status' => 'suspended']);
+    }
+
+    /**
+     * POST /api/v1/accounts/{id}/unsuspend
+     */
+    public function unsuspend(Request $request, Account $account): JsonResponse
+    {
+        if (! $account->isSuspended()) {
+            return response()->json(['error' => 'Only suspended accounts can be unsuspended.'], 409);
+        }
+
+        $account->update(['status' => 'active', 'suspended_at' => null]);
+        AuditLog::record('api.account_unsuspended', $account, ['by' => 'api']);
+
+        return response()->json(['status' => 'active']);
+    }
+
+    /**
+     * DELETE /api/v1/accounts/{id}
+     */
+    public function destroy(Account $account): JsonResponse
+    {
+        [$success, $error] = app(AccountProvisioner::class)->deprovision($account);
+
+        if (! $success) {
+            return response()->json(['error' => 'Server cleanup failed, account was kept in the panel: ' . $error], 502);
+        }
+
+        AuditLog::record('api.account_terminated', $account, ['username' => $account->username, 'by' => 'api']);
+
+        $account->user?->delete();
+        $account->delete();
+
+        return response()->json(null, 204);
+    }
+
+    /**
+     * GET /api/v1/accounts/{id}/usage
+     */
+    public function usage(Account $account): JsonResponse
+    {
+        $account->loadCount(['domains', 'emailAccounts', 'databases']);
+
+        return response()->json([
+            'id'                 => $account->id,
+            'username'           => $account->username,
+            'status'             => $account->status,
+            'disk_used_mb'       => $account->disk_used_mb,
+            'disk_limit_mb'      => $account->disk_limit_mb,
+            'bandwidth_used_mb'  => $account->bandwidth_used_mb,
+            'bandwidth_limit_mb' => $account->bandwidth_limit_mb,
+            'domains'            => $account->domains()->count(),
+            'max_domains'        => $account->max_domains,
+            'email_accounts'     => $account->emailAccounts()->count(),
+            'max_email_accounts' => $account->max_email_accounts,
+            'databases'          => $account->databases()->count(),
+            'max_databases'      => $account->max_databases,
+        ]);
+    }
+
+    private function accountPayload(Account $account): array
+    {
+        return [
+            'id' => $account->id,
+            'username' => $account->username,
+            'status' => $account->status,
+            'primary_domain' => $account->domains->first()?->domain,
+            'provisioning_error' => $account->provisioning_error,
+            'php_version' => $account->php_version,
+            'user' => $account->user ? [
+                'id' => $account->user->id,
+                'name' => $account->user->name,
+                'email' => $account->user->email,
+            ] : null,
+            'node' => $account->node ? [
+                'id' => $account->node->id,
+                'name' => $account->node->name,
+                'hostname' => $account->node->hostname,
+                'status' => $account->node->status,
+            ] : null,
+            'hosting_package' => $account->hostingPackage ? [
+                'id' => $account->hostingPackage->id,
+                'name' => $account->hostingPackage->name,
+                'slug' => $account->hostingPackage->slug,
+            ] : null,
+            'limits' => [
+                'disk_mb' => $account->disk_limit_mb,
+                'bandwidth_mb' => $account->bandwidth_limit_mb,
+                'domains' => $account->max_domains,
+                'email_accounts' => $account->max_email_accounts,
+                'databases' => $account->max_databases,
+                'ftp_accounts' => $account->max_ftp_accounts,
+            ],
+            'usage' => [
+                'disk_mb' => $account->disk_used_mb,
+                'bandwidth_mb' => $account->bandwidth_used_mb,
+                'domains' => $account->domains_count ?? $account->domains()->count(),
+                'email_accounts' => $account->email_accounts_count ?? $account->emailAccounts()->count(),
+                'databases' => $account->databases_count ?? $account->databases()->count(),
+            ],
+            'created_at' => $account->created_at?->toISOString(),
+            'updated_at' => $account->updated_at?->toISOString(),
+        ];
+    }
+}

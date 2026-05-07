@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
+
+#[Fillable(['name', 'email', 'password', 'reseller_id', 'quota_accounts', 'quota_disk_mb', 'quota_bandwidth_mb', 'quota_domains', 'quota_email_accounts', 'quota_databases', 'default_hosting_package_id', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at', 'brand_name', 'brand_color'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
+class User extends Authenticatable
+{
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, Notifiable, HasApiTokens, HasRoles;
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    public function account(): HasOne
+    {
+        return $this->hasOne(Account::class);
+    }
+
+    public function reseller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reseller_id');
+    }
+
+    public function resellerClients(): HasMany
+    {
+        return $this->hasMany(User::class, 'reseller_id');
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
+    }
+
+    public function isReseller(): bool
+    {
+        return $this->hasRole('reseller');
+    }
+}
