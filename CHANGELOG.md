@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.26] - 2026-05-07
+
+Release target: `1.0.26`.
+
+- Added an Admin Dashboard operations section with primary panel memory usage, processor load, uptime, and prioritized panel mountpoint disk usage.
+
 ## [1.0.25] - 2026-05-07
 
 Release target: `1.0.25`.

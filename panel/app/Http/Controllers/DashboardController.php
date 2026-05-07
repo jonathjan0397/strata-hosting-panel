@@ -28,6 +28,9 @@ class DashboardController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'hostname', 'status', 'agent_version', 'last_seen_at', 'is_primary']);
 
+        $operationsNode = Node::where('is_primary', true)->first()
+            ?? Node::orderBy('name')->first();
+
         $stats = [
             ['label' => 'Nodes',    'value' => Node::count(),    'color' => 'indigo'],
             ['label' => 'Accounts', 'value' => Account::count(), 'color' => 'emerald'],
@@ -38,6 +41,42 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard', [
             'nodes' => $nodes,
             'stats' => $stats,
+            'operations' => $this->operationsSnapshot($operationsNode),
         ]);
+    }
+
+    private function operationsSnapshot(?Node $node): array
+    {
+        if (! $node) {
+            return [
+                'node' => null,
+                'info' => null,
+                'error' => 'No primary node is configured.',
+            ];
+        }
+
+        try {
+            $response = AgentClient::for($node)->systemInfo();
+
+            if (! $response->successful()) {
+                return [
+                    'node' => $node->only('id', 'name', 'hostname'),
+                    'info' => null,
+                    'error' => 'Primary node telemetry is unavailable.',
+                ];
+            }
+
+            return [
+                'node' => $node->only('id', 'name', 'hostname'),
+                'info' => $response->json(),
+                'error' => null,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'node' => $node->only('id', 'name', 'hostname'),
+                'info' => null,
+                'error' => 'Primary node telemetry is unavailable: ' . $e->getMessage(),
+            ];
+        }
     }
 }
