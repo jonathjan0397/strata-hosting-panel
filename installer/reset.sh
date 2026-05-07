@@ -94,7 +94,7 @@ DEBIAN_FRONTEND=noninteractive apt-get purge -y \
 
 # Purge all PHP versions
 DEBIAN_FRONTEND=noninteractive apt-get purge -y \
-    'php8.1*' 'php8.2*' 'php8.3*' 'php8.4*' 'php8.5*' \
+    'php7.4*' 'php8.0*' 'php8.1*' 'php8.2*' 'php8.3*' 'php8.4*' 'php8.5*' \
     php-common php-bz2 php-mysql php-pgsql php-mcrypt \
     2>/dev/null || true
 

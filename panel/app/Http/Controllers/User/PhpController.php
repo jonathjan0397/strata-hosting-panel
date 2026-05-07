@@ -26,6 +26,7 @@ class PhpController extends Controller
             'account' => $account->only([
                 'id', 'php_version',
                 'php_upload_max', 'php_post_max', 'php_memory_limit', 'php_max_exec_time',
+                'php_max_input_time', 'php_max_input_vars', 'php_max_file_uploads',
             ]),
         ]);
     }
@@ -37,6 +38,9 @@ class PhpController extends Controller
             'php_post_max'     => ['required', 'regex:/^\d+[KMGkmg]?$/'],
             'php_memory_limit' => ['required', 'regex:/^\d+[KMGkmg]?$/'],
             'php_max_exec_time' => ['required', 'integer', 'min:1', 'max:300'],
+            'php_max_input_time' => ['required', 'integer', 'min:1', 'max:300'],
+            'php_max_input_vars' => ['required', 'integer', 'min:100', 'max:10000'],
+            'php_max_file_uploads' => ['required', 'integer', 'min:1', 'max:100'],
         ]);
 
         $account = $this->account($request);
@@ -49,6 +53,9 @@ class PhpController extends Controller
                 'post_max'     => strtoupper($data['php_post_max']),
                 'memory_limit' => strtoupper($data['php_memory_limit']),
                 'max_exec_time' => (int) $data['php_max_exec_time'],
+                'max_input_time' => (int) $data['php_max_input_time'],
+                'max_input_vars' => (int) $data['php_max_input_vars'],
+                'max_file_uploads' => (int) $data['php_max_file_uploads'],
             ]
         );
 
@@ -61,6 +68,9 @@ class PhpController extends Controller
             'php_post_max'      => strtoupper($data['php_post_max']),
             'php_memory_limit'  => strtoupper($data['php_memory_limit']),
             'php_max_exec_time' => (int) $data['php_max_exec_time'],
+            'php_max_input_time' => (int) $data['php_max_input_time'],
+            'php_max_input_vars' => (int) $data['php_max_input_vars'],
+            'php_max_file_uploads' => (int) $data['php_max_file_uploads'],
         ]);
 
         AuditLog::record('php.settings_updated', $account, $data);

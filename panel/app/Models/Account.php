@@ -24,6 +24,7 @@ class Account extends Model
         'max_subdomains', 'max_email_accounts', 'max_databases', 'max_ftp_accounts',
         'disk_used_mb', 'bandwidth_used_mb', 'suspended_at',
         'php_upload_max', 'php_post_max', 'php_memory_limit', 'php_max_exec_time',
+        'php_max_input_time', 'php_max_input_vars', 'php_max_file_uploads',
         'backup_schedule', 'backup_time', 'backup_day',
         'malware_scan_schedule', 'malware_scan_path', 'malware_scan_quarantine',
         'malware_scan_last_queued_at',
@@ -33,6 +34,10 @@ class Account extends Model
         'suspended_at' => 'datetime',
         'malware_scan_quarantine' => 'boolean',
         'malware_scan_last_queued_at' => 'datetime',
+        'php_max_exec_time' => 'integer',
+        'php_max_input_time' => 'integer',
+        'php_max_input_vars' => 'integer',
+        'php_max_file_uploads' => 'integer',
     ];
 
     public function user(): BelongsTo

@@ -27,6 +27,9 @@ func handlePHPPoolSettings(w http.ResponseWriter, r *http.Request) {
 		PostMax     string `json:"post_max"`
 		MemoryLimit string `json:"memory_limit"`
 		MaxExecTime int    `json:"max_exec_time"`
+		MaxInputTime int   `json:"max_input_time"`
+		MaxInputVars int   `json:"max_input_vars"`
+		MaxFileUploads int `json:"max_file_uploads"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -56,9 +59,21 @@ func handlePHPPoolSettings(w http.ResponseWriter, r *http.Request) {
 		PostMax:     phpOrDefault(req.PostMax, "64M"),
 		MemoryLimit: phpOrDefault(req.MemoryLimit, "256M"),
 		MaxExecTime: req.MaxExecTime,
+		MaxInputTime: req.MaxInputTime,
+		MaxInputVars: req.MaxInputVars,
+		MaxFileUploads: req.MaxFileUploads,
 	}
 	if cfg.MaxExecTime <= 0 {
 		cfg.MaxExecTime = 30
+	}
+	if cfg.MaxInputTime <= 0 {
+		cfg.MaxInputTime = 60
+	}
+	if cfg.MaxInputVars <= 0 {
+		cfg.MaxInputVars = 1000
+	}
+	if cfg.MaxFileUploads <= 0 {
+		cfg.MaxFileUploads = 20
 	}
 
 	if err := php.WritePool(cfg); err != nil {

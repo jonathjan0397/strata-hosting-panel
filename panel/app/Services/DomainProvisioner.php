@@ -448,10 +448,10 @@ class DomainProvisioner
             }
 
             $versions = collect($response->json() ?? [])
-                ->filter(fn ($service) => str_starts_with((string) ($service['name'] ?? ''), 'php8.') && str_ends_with((string) ($service['name'] ?? ''), '-fpm'))
+                ->filter(fn ($service) => preg_match('/^php[78]\.\d+-fpm$/', (string) ($service['name'] ?? '')) === 1)
                 ->filter(fn ($service) => (bool) ($service['active'] ?? false) || (bool) ($service['enabled'] ?? false))
                 ->map(function ($service) {
-                    if (preg_match('/php(8\.\d+)-fpm/', (string) $service['name'], $matches)) {
+                    if (preg_match('/php((?:7|8)\.\d+)-fpm/', (string) $service['name'], $matches)) {
                         return $matches[1];
                     }
 

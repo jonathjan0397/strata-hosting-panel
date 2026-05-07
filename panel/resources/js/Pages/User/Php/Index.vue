@@ -34,6 +34,21 @@
                             <input v-model.number="form.php_max_exec_time" type="number" min="1" max="300" placeholder="30" class="field w-full" />
                             <p v-if="form.errors.php_max_exec_time" class="mt-1 text-xs text-red-400">{{ form.errors.php_max_exec_time }}</p>
                         </div>
+                        <div>
+                            <label class="label">Max Input Time (s)</label>
+                            <input v-model.number="form.php_max_input_time" type="number" min="1" max="300" placeholder="60" class="field w-full" />
+                            <p v-if="form.errors.php_max_input_time" class="mt-1 text-xs text-red-400">{{ form.errors.php_max_input_time }}</p>
+                        </div>
+                        <div>
+                            <label class="label">Max Input Vars</label>
+                            <input v-model.number="form.php_max_input_vars" type="number" min="100" max="10000" placeholder="1000" class="field w-full" />
+                            <p v-if="form.errors.php_max_input_vars" class="mt-1 text-xs text-red-400">{{ form.errors.php_max_input_vars }}</p>
+                        </div>
+                        <div>
+                            <label class="label">Max File Uploads</label>
+                            <input v-model.number="form.php_max_file_uploads" type="number" min="1" max="100" placeholder="20" class="field w-full" />
+                            <p v-if="form.errors.php_max_file_uploads" class="mt-1 text-xs text-red-400">{{ form.errors.php_max_file_uploads }}</p>
+                        </div>
                     </div>
 
                     <p class="text-xs text-gray-500">
@@ -79,6 +94,9 @@ const form = useForm({
     php_post_max: props.account.php_post_max ?? '64M',
     php_memory_limit: props.account.php_memory_limit ?? '256M',
     php_max_exec_time: props.account.php_max_exec_time ?? 30,
+    php_max_input_time: props.account.php_max_input_time ?? 60,
+    php_max_input_vars: props.account.php_max_input_vars ?? 1000,
+    php_max_file_uploads: props.account.php_max_file_uploads ?? 20,
 });
 
 function save() {

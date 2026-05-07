@@ -79,7 +79,7 @@ class AccountController extends Controller
 
         return Inertia::render('Reseller/Accounts/Create', [
             'nodes'       => Node::where('status', 'online')->select('id', 'name', 'hostname')->get(),
-            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
+            'phpVersions' => ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'],
             'packages'    => $packages,
             'defaultPackageId' => $packages->contains('id', $reseller->default_hosting_package_id)
                 ? $reseller->default_hosting_package_id
