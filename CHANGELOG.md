@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.24] - 2026-05-07
+
+Release target: `1.0.24`.
+
+- Restored the hosting account detail workflow by adding an Access Panel action directly to the admin account management page.
+
 ## [1.0.23] - 2026-05-07
 
 Release target: `1.0.23`.

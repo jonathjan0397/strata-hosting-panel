@@ -20,6 +20,14 @@
             </div>
             <!-- Actions -->
             <div class="flex items-center gap-2">
+                <button
+                    v-if="account.status === 'active'"
+                    type="button"
+                    class="rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-500"
+                    @click="accessPanel"
+                >
+                    Access Panel
+                </button>
                 <Link
                     v-if="account.status === 'active'"
                     :href="route('admin.domains.create', { account_id: account.id })"
@@ -213,15 +221,19 @@
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AccountUsageSummary from '@/Components/AccountUsageSummary.vue';
 import AccountStatusBadge from '@/Components/AccountStatusBadge.vue';
 import ConfirmButton from '@/Components/ConfirmButton.vue';
 import ResourceBar from '@/Components/ResourceBar.vue';
 
-defineProps({
+const props = defineProps({
     account: Object,
     usageMetrics: Object,
 });
+
+function accessPanel() {
+    router.post(route('admin.accounts.impersonate', props.account.id));
+}
 </script>
