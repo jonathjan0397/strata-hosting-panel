@@ -145,6 +145,14 @@
                             </template>
                             Nodes
                         </NavItem>
+                        <NavItem :href="route('admin.php-versions.index')" :active="$page.url.startsWith('/admin/php-versions')">
+                            <template #icon>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5h10.5M6.75 12h10.5m-10.5 4.5h6m-7.5 4.5h13.5A2.25 2.25 0 0 0 21 18.75V5.25A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25v13.5A2.25 2.25 0 0 0 5.25 21Z" />
+                                </svg>
+                            </template>
+                            PHP Versions
+                        </NavItem>
                         <NavItem :href="route('admin.updates.index')" :active="$page.url.startsWith('/admin/updates')">
                             <template #icon>
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -849,6 +857,7 @@ const navActions = computed(() => {
             { label: 'Domains', group: 'Hosting', href: route('admin.domains.index') },
             { label: 'DNS Zones', group: 'Hosting', href: route('admin.dns.index') },
             { label: 'Nodes', group: 'Infrastructure', href: route('admin.nodes.index') },
+            { label: 'PHP Versions', group: 'Infrastructure', href: route('admin.php-versions.index') },
             { label: 'Updates', group: 'Infrastructure', href: route('admin.updates.index') },
             { label: 'Backups', group: 'System', href: route('admin.backups.index') },
             { label: 'Firewall and IP Blocker', group: 'Security', href: route('admin.security.firewall') },

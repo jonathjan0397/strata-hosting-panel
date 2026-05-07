@@ -90,7 +90,7 @@ const props = defineProps({
 })
 
 const enableVersion = (version) => {
-    router.post(route('php-versions.enable', { version }), {}, {
+    router.post(route('admin.php-versions.enable', { version }), {}, {
         onSuccess: () => {
             // Refresh the page to update status
             window.location.reload()
@@ -103,7 +103,7 @@ const disableVersion = (version) => {
         return
     }
     
-    router.post(route('php-versions.disable', { version }), {}, {
+    router.post(route('admin.php-versions.disable', { version }), {}, {
         onSuccess: () => {
             // Refresh the page to update status
             window.location.reload()
