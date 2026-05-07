@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.21] - 2026-05-07
+
+Release target: `1.0.21`.
+
+- Reworked the admin PHP Versions page to use the standard app layout, readable admin panel styling, and an internally scrolling runtime table.
+- Added main-content width guards so wide page content cannot push the admin shell outside the viewport frame.
+
 ## [1.0.20] - 2026-05-07
 
 Release target: `1.0.20`.

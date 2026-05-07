@@ -538,7 +538,7 @@
         </aside>
 
         <!-- Main content -->
-        <div class="pl-64 flex flex-col min-h-screen">
+        <div class="pl-64 flex min-h-screen min-w-0 flex-col overflow-x-hidden">
             <!-- Top bar -->
             <header class="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-gray-800 bg-gray-950/80 backdrop-blur px-6">
                 <div class="min-w-0">
@@ -671,7 +671,7 @@
             </div>
 
             <!-- Page slot -->
-            <main class="flex-1 px-6 py-6">
+            <main class="min-w-0 flex-1 overflow-x-hidden px-6 py-6">
                 <slot />
             </main>
 
