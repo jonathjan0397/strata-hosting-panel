@@ -45,7 +45,7 @@ class HostingPackageController extends Controller
     {
         return Inertia::render('Admin/Packages/Create', [
             'featureLists' => FeatureList::orderBy('name')->get(['id', 'name']),
-            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
+            'phpVersions' => ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'],
         ]);
     }
 
@@ -78,7 +78,7 @@ class HostingPackageController extends Controller
                 'is_active',
             ]),
             'featureLists' => FeatureList::orderBy('name')->get(['id', 'name']),
-            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
+            'phpVersions' => ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'],
         ]);
     }
 

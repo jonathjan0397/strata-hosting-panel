@@ -101,8 +101,15 @@ func addSshKey(username, name, pubKey string) (string, error) {
 	if len(parts) < 2 {
 		return "", fmt.Errorf("invalid public key format")
 	}
+	if !isAllowedSshKeyType(parts[0]) {
+		return "", fmt.Errorf("unsupported public key type")
+	}
 	if _, err := base64.StdEncoding.DecodeString(parts[1]); err != nil {
 		return "", fmt.Errorf("invalid public key encoding")
+	}
+	name = sanitizeSshKeyComment(name)
+	if name == "" {
+		name = "imported-by-strata"
 	}
 	fp := sshKeyFingerprint(parts[1])
 	path := sshKeyPath(username)
@@ -125,6 +132,28 @@ func addSshKey(username, name, pubKey string) (string, error) {
 		return "", err
 	}
 	return fp, nil
+}
+
+func isAllowedSshKeyType(keyType string) bool {
+	switch keyType {
+	case "ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521", "sk-ecdsa-sha2-nistp256@openssh.com", "sk-ssh-ed25519@openssh.com":
+		return true
+	default:
+		return false
+	}
+}
+
+func sanitizeSshKeyComment(comment string) string {
+	comment = strings.TrimSpace(comment)
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == '\t' {
+			return ' '
+		}
+		if r < 32 || r == 127 {
+			return -1
+		}
+		return r
+	}, comment)
 }
 
 func deleteSshKey(username, fingerprint string) error {

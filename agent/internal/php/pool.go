@@ -34,6 +34,9 @@ php_value[upload_max_filesize] = {{.UploadMax}}
 php_value[post_max_size]       = {{.PostMax}}
 php_value[memory_limit]        = {{.MemoryLimit}}
 php_value[max_execution_time]  = {{.MaxExecTime}}
+php_value[max_input_time]      = {{.MaxInputTime}}
+php_value[max_input_vars]      = {{.MaxInputVars}}
+php_value[max_file_uploads]    = {{.MaxFileUploads}}
 `))
 
 type PoolConfig struct {
@@ -44,6 +47,9 @@ type PoolConfig struct {
 	PostMax     string
 	MemoryLimit string
 	MaxExecTime int
+	MaxInputTime int
+	MaxInputVars int
+	MaxFileUploads int
 }
 
 func DefaultPool(username, phpVersion string) PoolConfig {
@@ -55,6 +61,9 @@ func DefaultPool(username, phpVersion string) PoolConfig {
 		PostMax:     "64M",
 		MemoryLimit: "256M",
 		MaxExecTime: 30,
+		MaxInputTime: 60,
+		MaxInputVars: 1000,
+		MaxFileUploads: 20,
 	}
 }
 

@@ -320,7 +320,11 @@ class DomainController extends Controller
             'php_version' => ['required', Rule::in($this->phpVersionsFor($account))],
         ]);
 
-        [$success, $error] = app(DomainProvisioner::class)->changePhpVersion($domain, $data['php_version']);
+        try {
+            [$success, $error] = app(DomainProvisioner::class)->changePhpVersion($domain, $data['php_version']);
+        } catch (\Throwable $e) {
+            return back()->with('error', 'PHP version change failed: ' . $e->getMessage());
+        }
 
         if (! $success) {
             return back()->with('error', "PHP version change failed: {$error}");
@@ -665,10 +669,10 @@ class DomainController extends Controller
             }
 
             $versions = collect($response->json() ?? [])
-                ->filter(fn ($service) => str_starts_with((string) ($service['name'] ?? ''), 'php8.') && str_ends_with((string) ($service['name'] ?? ''), '-fpm'))
+                ->filter(fn ($service) => preg_match('/^php[78]\.\d+-fpm$/', (string) ($service['name'] ?? '')) === 1)
                 ->filter(fn ($service) => (bool) ($service['active'] ?? false) || (bool) ($service['enabled'] ?? false))
                 ->map(function ($service) {
-                    if (preg_match('/php(8\.\d+)-fpm/', (string) $service['name'], $matches)) {
+                    if (preg_match('/php((?:7|8)\.\d+)-fpm/', (string) $service['name'], $matches)) {
                         return $matches[1];
                     }
 

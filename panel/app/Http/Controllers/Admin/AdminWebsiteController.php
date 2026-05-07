@@ -40,7 +40,7 @@ class AdminWebsiteController extends Controller
                 'node'        => $account->node?->only('id', 'name', 'hostname'),
                 'domain'      => $account->domains->first()?->only('id', 'domain', 'ssl_enabled', 'ssl_expires_at'),
             ] : null,
-            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
+            'phpVersions' => ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'],
             'primaryNode' => $primaryNode?->only('id', 'name', 'hostname'),
         ]);
     }

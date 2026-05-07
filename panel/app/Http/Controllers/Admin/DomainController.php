@@ -48,7 +48,7 @@ class DomainController extends Controller
         return Inertia::render('Admin/Domains/Create', [
             'accounts'    => Account::with('user')->where('status', 'active')->get()
                 ->map(fn ($a) => ['id' => $a->id, 'label' => "{$a->username} ({$a->user->email})", 'node_id' => $a->node_id]),
-            'phpVersions' => ['8.1', '8.2', '8.3', '8.4'],
+            'phpVersions' => ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'],
             'preselect'   => $request->input('account_id'),
         ]);
     }
