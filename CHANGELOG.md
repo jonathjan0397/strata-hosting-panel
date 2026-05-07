@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.25] - 2026-05-07
+
+Release target: `1.0.25`.
+
+- Made account management actions visible from the username column on the admin accounts list so Manage and Access Panel remain reachable on constrained layouts.
+
 ## [1.0.24] - 2026-05-07
 
 Release target: `1.0.24`.
