@@ -15,16 +15,18 @@ return new class extends Migration
             });
         }
 
-        DB::table('hosting_databases as hd')
-            ->join('app_installations as ai', function ($join): void {
-                $join->on('ai.account_id', '=', 'hd.account_id')
-                    ->on('ai.db_name', '=', 'hd.db_name')
-                    ->on('ai.db_user', '=', 'hd.db_user');
+        DB::table('hosting_databases')
+            ->whereNull('password')
+            ->whereExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('app_installations')
+                    ->whereColumn('app_installations.account_id', 'hosting_databases.account_id')
+                    ->whereColumn('app_installations.db_name', 'hosting_databases.db_name')
+                    ->whereColumn('app_installations.db_user', 'hosting_databases.db_user')
+                    ->whereNotNull('app_installations.db_password');
             })
-            ->whereNull('hd.password')
-            ->whereNotNull('ai.db_password')
             ->update([
-                'hd.password' => DB::raw('ai.db_password'),
+                'password' => DB::raw('(select app_installations.db_password from app_installations where app_installations.account_id = hosting_databases.account_id and app_installations.db_name = hosting_databases.db_name and app_installations.db_user = hosting_databases.db_user and app_installations.db_password is not null limit 1)'),
             ]);
     }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.19] - 2026-05-07
+
+Release target: `1.0.19`.
+
+- Hardened application install handling in the agent by replacing shell-based recursive copy with Go-native path copying, rejecting symlink entries, validating install paths through existing filesystem prefixes, and escaping database identifiers/literals before MariaDB operations.
+- Fixed Laravel migration portability issues that broke SQLite-backed validation, including duplicate Sanctum table rollback ownership and joined update statements in hosting database backfill migrations.
+- Fixed the admin PHP versions frontend build by removing an invalid Vue conditional pair and updating the Inertia router import.
+- Removed a duplicate domain-controller helper, updated the default feature test to match the root redirect, and refreshed Axios/PostCSS dependencies so the frontend audit passes.
+
 ## [1.0.17] - 2026-04-18
 
 Release target: `1.0.17`.
@@ -745,5 +754,4 @@ Public beta target: `1.0.0-BETA-3.04`.
 - SSL via acme.sh (Let's Encrypt)
 - PHP-FPM multi-version (8.1 / 8.2 / 8.3)
 - One-line bash installer (`installer/install.sh`)
-
 

@@ -690,11 +690,6 @@ class DomainController extends Controller
 
     private function phpVersionsFor($account): array
     {
-        return $this->getInstalledPhpVersions();
-    }
-
-    private function phpVersionsFor($account): array
-    {
         $fallback = array_values(array_unique(array_filter([
             $account->php_version ?: null,
             '8.4',

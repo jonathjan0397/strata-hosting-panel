@@ -26,6 +26,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('personal_access_tokens');
+        // The canonical Sanctum token table is created by the earlier
+        // 2026_04_01_035351 migration. This duplicate migration intentionally
+        // leaves that shared table intact during rollback.
     }
 };

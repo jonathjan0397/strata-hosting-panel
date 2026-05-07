@@ -56,18 +56,12 @@
                                 >
                                     Disable
                                 </button>
-                                <!-- Enable button (always shown if can manage) -->
-                                <button 
-                                    v-if="canManage"
-                                    v-else
-                                    @click="enableVersion(version)"
-                                    class="px-3 py-1 bg-primary text-primary-foreground text-xs hover:bg-primary/20 rounded"
-                                >
-                                    Enable
-                                </button>
                                 <!-- Cannot disable (in use) -->
-                                <span v-else class="text-xs text-muted-foreground">
+                                <span v-else-if="versionUsage[version] > 0" class="text-xs text-muted-foreground">
                                     In use
+                                </span>
+                                <span v-else class="text-xs text-muted-foreground">
+                                    Unavailable
                                 </span>
                             </td>
                         </tr>
@@ -86,7 +80,7 @@
 </template>
 
 <script setup>
-import { post } from '@inertiajs/inertia-vue3'
+import { router } from '@inertiajs/vue3'
 
 const props = defineProps({
     installedVersions: Array,
@@ -96,7 +90,7 @@ const props = defineProps({
 })
 
 const enableVersion = (version) => {
-    post(route('php-versions.enable', { version }), {
+    router.post(route('php-versions.enable', { version }), {}, {
         onSuccess: () => {
             // Refresh the page to update status
             window.location.reload()
@@ -109,7 +103,7 @@ const disableVersion = (version) => {
         return
     }
     
-    post(route('php-versions.disable', { version }), {
+    router.post(route('php-versions.disable', { version }), {}, {
         onSuccess: () => {
             // Refresh the page to update status
             window.location.reload()

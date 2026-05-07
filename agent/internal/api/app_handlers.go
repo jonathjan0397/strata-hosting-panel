@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -350,8 +351,8 @@ func installGenericApp(req appInstallRequest) (string, error) {
 		if len(entries) == 1 && entries[0].IsDir() {
 			src = filepath.Join(tmpDir, entries[0].Name())
 		}
-		if out, err := exec.Command("sh", "-c", fmt.Sprintf("cp -r %s/. %s/", src, req.InstallDir)).CombinedOutput(); err != nil {
-			return "", fmt.Errorf("copy failed: %s", string(out))
+		if err := copyDirContents(src, req.InstallDir); err != nil {
+			return "", fmt.Errorf("copy failed: %w", err)
 		}
 	}
 
@@ -366,6 +367,13 @@ func installGenericApp(req appInstallRequest) (string, error) {
 // ── Database helpers ──────────────────────────────────────────────────────────
 
 func createAppDatabase(dbName, dbUser, dbPass string) error {
+	if !isSafeSQLIdentifier(dbName) {
+		return fmt.Errorf("invalid database name")
+	}
+	if !isSafeSQLIdentifier(dbUser) {
+		return fmt.Errorf("invalid database username")
+	}
+
 	mysql := func(query string) error {
 		cmd := exec.Command("mysql",
 			"--defaults-file=/etc/strata-agent/mysql.cnf",
@@ -379,20 +387,34 @@ func createAppDatabase(dbName, dbUser, dbPass string) error {
 		return nil
 	}
 
-	if err := mysql(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", dbName)); err != nil {
-		return err
+	dbIdent := sqlIdentifier(dbName)
+	userLiteral := sqlString(dbUser)
+	passLiteral := sqlString(dbPass)
+
+	queries := []string{
+		fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", dbIdent),
+		fmt.Sprintf("CREATE USER IF NOT EXISTS %s@'localhost' IDENTIFIED BY %s;", userLiteral, passLiteral),
+		fmt.Sprintf("ALTER USER %s@'localhost' IDENTIFIED BY %s;", userLiteral, passLiteral),
+		fmt.Sprintf("CREATE USER IF NOT EXISTS %s@'127.0.0.1' IDENTIFIED BY %s;", userLiteral, passLiteral),
+		fmt.Sprintf("ALTER USER %s@'127.0.0.1' IDENTIFIED BY %s;", userLiteral, passLiteral),
+		fmt.Sprintf("GRANT ALL PRIVILEGES ON %s.* TO %s@'localhost';", dbIdent, userLiteral),
+		fmt.Sprintf("GRANT ALL PRIVILEGES ON %s.* TO %s@'127.0.0.1';", dbIdent, userLiteral),
+		"FLUSH PRIVILEGES;",
 	}
-	mysql(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'localhost' IDENTIFIED BY '%s';", dbUser, dbPass))
-	mysql(fmt.Sprintf("ALTER USER '%s'@'localhost' IDENTIFIED BY '%s';", dbUser, dbPass))
-	mysql(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'127.0.0.1' IDENTIFIED BY '%s';", dbUser, dbPass))
-	mysql(fmt.Sprintf("ALTER USER '%s'@'127.0.0.1' IDENTIFIED BY '%s';", dbUser, dbPass))
-	mysql(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'localhost';", dbName, dbUser))
-	mysql(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'127.0.0.1';", dbName, dbUser))
-	mysql("FLUSH PRIVILEGES;")
+
+	for _, query := range queries {
+		if err := mysql(query); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func dropAppDatabase(dbName, dbUser string) {
+	if !isSafeSQLIdentifier(dbName) || !isSafeSQLIdentifier(dbUser) {
+		return
+	}
+
 	mysql := func(query string) {
 		exec.Command("mysql",
 			"--defaults-file=/etc/strata-agent/mysql.cnf",
@@ -400,9 +422,9 @@ func dropAppDatabase(dbName, dbUser string) {
 			"-e", query,
 		).Run()
 	}
-	mysql(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`;", dbName))
-	mysql(fmt.Sprintf("DROP USER IF EXISTS '%s'@'localhost';", dbUser))
-	mysql(fmt.Sprintf("DROP USER IF EXISTS '%s'@'127.0.0.1';", dbUser))
+	mysql(fmt.Sprintf("DROP DATABASE IF EXISTS %s;", sqlIdentifier(dbName)))
+	mysql(fmt.Sprintf("DROP USER IF EXISTS %s@'localhost';", sqlString(dbUser)))
+	mysql(fmt.Sprintf("DROP USER IF EXISTS %s@'127.0.0.1';", sqlString(dbUser)))
 	mysql("FLUSH PRIVILEGES;")
 }
 
@@ -423,6 +445,9 @@ func isSafeInstallDir(installDir, siteOwner string) bool {
 	if installDir == "" || siteOwner == "" {
 		return false
 	}
+	if !isSafeSystemName(siteOwner) {
+		return false
+	}
 	if strings.Contains(installDir, "..") {
 		return false
 	}
@@ -433,5 +458,149 @@ func isSafeInstallDir(installDir, siteOwner string) bool {
 		return false
 	}
 
-	return cleanDir == baseDir || strings.HasPrefix(cleanDir, baseDir+"/")
+	baseResolved, err := filepath.EvalSymlinks(baseDir)
+	if err != nil {
+		return false
+	}
+
+	resolved, err := resolveExistingPrefix(cleanDir)
+	if err != nil {
+		return false
+	}
+
+	return resolved == baseResolved || strings.HasPrefix(resolved, baseResolved+string(os.PathSeparator))
+}
+
+func resolveExistingPrefix(path string) (string, error) {
+	clean := filepath.Clean(path)
+	existing := clean
+	missing := []string{}
+
+	for {
+		if resolved, err := filepath.EvalSymlinks(existing); err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missing[i])
+			}
+			return filepath.Clean(resolved), nil
+		}
+
+		parent := filepath.Dir(existing)
+		if parent == existing {
+			return "", fmt.Errorf("no existing path prefix")
+		}
+
+		missing = append(missing, filepath.Base(existing))
+		existing = parent
+	}
+}
+
+func isSafeSystemName(value string) bool {
+	if value == "" || len(value) > 32 {
+		return false
+	}
+	for i, r := range value {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if i > 0 && r >= '0' && r <= '9' {
+			continue
+		}
+		if i > 0 && (r == '_' || r == '-') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func isSafeSQLIdentifier(value string) bool {
+	if value == "" || len(value) > 64 {
+		return false
+	}
+	for _, r := range value {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		if r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func sqlIdentifier(value string) string {
+	return "`" + strings.ReplaceAll(value, "`", "``") + "`"
+}
+
+func sqlString(value string) string {
+	escaped := strings.ReplaceAll(value, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `'`, `''`)
+	return "'" + escaped + "'"
+}
+
+func copyDirContents(src, dest string) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if err := copyPath(filepath.Join(src, entry.Name()), filepath.Join(dest, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyPath(src, dest string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to copy symlink %s", src)
+	}
+	if info.IsDir() {
+		if err := os.MkdirAll(dest, info.Mode().Perm()); err != nil {
+			return err
+		}
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if err := copyPath(filepath.Join(src, entry.Name()), filepath.Join(dest, entry.Name())); err != nil {
+				return err
+			}
+		}
+		return os.Chmod(dest, info.Mode().Perm())
+	}
+
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Chmod(dest, info.Mode().Perm())
 }
