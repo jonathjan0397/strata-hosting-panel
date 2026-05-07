@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.20] - 2026-05-07
+
+Release target: `1.0.20`.
+
+- Added the admin PHP Versions page to the admin Infrastructure navigation and quick navigation actions.
+- Fixed the PHP Versions enable/disable actions to call the admin-prefixed route names.
+
 ## [1.0.19] - 2026-05-07
 
 Release target: `1.0.19`.
@@ -754,4 +761,3 @@ Public beta target: `1.0.0-BETA-3.04`.
 - SSL via acme.sh (Let's Encrypt)
 - PHP-FPM multi-version (8.1 / 8.2 / 8.3)
 - One-line bash installer (`installer/install.sh`)
-
