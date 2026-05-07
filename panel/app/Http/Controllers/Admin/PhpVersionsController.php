@@ -185,7 +185,7 @@ class PhpVersionsController extends Controller
         $versionId = $this->osReleaseValue('VERSION_ID');
 
         return match ($versionId) {
-            '13' => ['7.4', '8.0', '8.2', '8.4'],
+            '13' => ['7.4', '8.0', '8.2', '8.3', '8.4'],
             '12' => ['7.4', '8.0', '8.1', '8.2', '8.3'],
             default => ['7.4', '8.0', '8.1', '8.2', '8.3'],
         };

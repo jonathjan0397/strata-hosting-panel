@@ -213,7 +213,7 @@ func supportedPHPVersions() []string {
 	versionID := osReleaseValue("VERSION_ID")
 	switch strings.Trim(versionID, `"`) {
 	case "13":
-		return []string{"7.4", "8.0", "8.2", "8.4"}
+		return []string{"7.4", "8.0", "8.2", "8.3", "8.4"}
 	case "12":
 		return []string{"7.4", "8.0", "8.1", "8.2", "8.3"}
 	default:

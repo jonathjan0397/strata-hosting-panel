@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.23] - 2026-05-07
+
+Release target: `1.0.23`.
+
+- Added PHP 8.3 to Debian 13 supported runtime lists after confirming Sury Trixie packages resolve cleanly on mercury.
+- Updated primary and remote node installer PHP version sets so fresh Debian 13 installs include PHP 8.3.
+
 ## [1.0.22] - 2026-05-07
 
 Release target: `1.0.22`.

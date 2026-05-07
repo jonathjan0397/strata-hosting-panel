@@ -780,10 +780,8 @@ echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.
     > /etc/apt/sources.list.d/php.list
 apt-get update
 
-# Debian 13 (Trixie) native repo has PHP 8.2; Sury Trixie has 8.1, 8.2, 8.4.
-# PHP 8.3 from Sury conflicts with Trixie native packages — skip it, use 8.4 instead.
 case "$DEBIAN_VERSION" in
-    13) PHP_VERSIONS=(7.4 8.0 8.2 8.4) ;;
+    13) PHP_VERSIONS=(7.4 8.0 8.2 8.3 8.4) ;;
     *)  PHP_VERSIONS=(7.4 8.0 8.1 8.2 8.3) ;;
 esac
 PHP_EXTENSIONS="fpm cli common curl mbstring xml zip bcmath intl gd mysql redis"

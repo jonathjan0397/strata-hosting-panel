@@ -535,7 +535,7 @@ systemctl enable --now clamav-daemon 2>/dev/null || true
 info "Installing PHP..."
 curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg
 case "$DEBIAN_VERSION" in
-    13) PHP_CODENAME="trixie"; PHP_VERSIONS=(7.4 8.0 8.2 8.4) ;;
+    13) PHP_CODENAME="trixie"; PHP_VERSIONS=(7.4 8.0 8.2 8.3 8.4) ;;
     12) PHP_CODENAME="bookworm"; PHP_VERSIONS=(7.4 8.0 8.1 8.2 8.3) ;;
     *)  PHP_CODENAME="bullseye"; PHP_VERSIONS=(7.4 8.0 8.1 8.2 8.3) ;;
 esac
