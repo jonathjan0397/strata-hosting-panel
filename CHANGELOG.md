@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.22] - 2026-05-07
+
+Release target: `1.0.22`.
+
+- Added primary-server PHP version installation from the admin PHP Versions page.
+- Added a Strata agent endpoint that installs supported PHP-FPM runtimes and managed PHP extensions through apt, starts/enables the matching FPM service, and reports package-manager output back to the panel.
+- Updated the PHP Versions UI to show supported-but-missing runtimes with an Install action.
+
 ## [1.0.21] - 2026-05-07
 
 Release target: `1.0.21`.

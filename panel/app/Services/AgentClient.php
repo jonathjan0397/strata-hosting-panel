@@ -508,6 +508,11 @@ class AgentClient
         ));
     }
 
+    public function installPhpVersion(string $version): Response
+    {
+        return $this->request('POST', '/php/versions/install', ['version' => $version], timeout: 650);
+    }
+
     // ── Backup restore ────────────────────────────────────────────────────────
 
     public function backupRestore(string $username, string $filename): Response

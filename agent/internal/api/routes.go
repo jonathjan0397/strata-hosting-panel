@@ -53,6 +53,7 @@ func Routes() chi.Router {
 	r.Delete("/php/pool/{user}", handlePHPPoolDelete)
 	r.Put("/php/pool/{user}/version", handlePHPPoolVersionSet)
 	r.Put("/php/pool/{user}/settings", handlePHPPoolSettings)
+	r.Post("/php/versions/install", handlePHPVersionInstall)
 
 	// SSL
 	r.Post("/ssl/issue", handleSSLIssue)

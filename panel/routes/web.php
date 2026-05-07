@@ -443,6 +443,7 @@ Route::middleware(['auth'])->group(function () {
 
         // PHP versions
         Route::get('php-versions', [App\Http\Controllers\Admin\PhpVersionsController::class, 'index'])->name('php-versions.index');
+        Route::post('php-versions/{version}/install', [App\Http\Controllers\Admin\PhpVersionsController::class, 'install'])->name('php-versions.install');
         Route::post('php-versions/{version}/enable', [App\Http\Controllers\Admin\PhpVersionsController::class, 'enable'])->name('php-versions.enable');
         Route::post('php-versions/{version}/disable', [App\Http\Controllers\Admin\PhpVersionsController::class, 'disable'])->name('php-versions.disable');
 

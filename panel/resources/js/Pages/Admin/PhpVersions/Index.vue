@@ -19,11 +19,11 @@
                         <p class="mt-1 text-sm text-gray-400">Versions detected on this server and their current account usage.</p>
                     </div>
                     <div class="shrink-0 rounded-lg border border-gray-800 bg-gray-950/70 px-3 py-2 text-xs text-gray-400">
-                        {{ installedVersions.length }} detected
+                        {{ installedVersions.length }} installed / {{ allVersions.length }} supported
                     </div>
                 </div>
 
-                <div v-if="installedVersions.length > 0" class="min-w-0 overflow-x-auto">
+                <div v-if="allVersions.length > 0" class="min-w-0 overflow-x-auto">
                     <table class="min-w-[640px] w-full divide-y divide-gray-800">
                         <thead class="bg-gray-950/70">
                             <tr>
@@ -42,13 +42,22 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-800">
-                            <tr v-for="version in installedVersions" :key="version" class="transition-colors hover:bg-gray-800/40">
+                            <tr v-for="version in allVersions" :key="version" class="transition-colors hover:bg-gray-800/40">
                                 <td class="whitespace-nowrap px-5 py-4 text-sm font-medium text-gray-100">
                                     PHP {{ version }}
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-4 text-sm">
-                                    <span class="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/25 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                                    <span
+                                        v-if="isInstalled(version)"
+                                        class="inline-flex rounded-full border border-emerald-700/50 bg-emerald-900/25 px-2.5 py-1 text-xs font-medium text-emerald-300"
+                                    >
                                         Installed
+                                    </span>
+                                    <span
+                                        v-else
+                                        class="inline-flex rounded-full border border-gray-700 bg-gray-950/60 px-2.5 py-1 text-xs font-medium text-gray-400"
+                                    >
+                                        Not installed
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-300">
@@ -56,7 +65,16 @@
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-4 text-right text-sm">
                                     <button
-                                        v-if="usageCount(version) === 0 && canManage"
+                                        v-if="!isInstalled(version) && canManage"
+                                        type="button"
+                                        :disabled="processingVersion === version"
+                                        @click="installVersion(version)"
+                                        class="rounded-lg border border-indigo-600/60 bg-indigo-600/15 px-3 py-1.5 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-600/25 disabled:cursor-wait disabled:opacity-60"
+                                    >
+                                        {{ processingVersion === version ? 'Installing...' : 'Install' }}
+                                    </button>
+                                    <button
+                                        v-else-if="usageCount(version) === 0 && canManage"
                                         type="button"
                                         @click="disableVersion(version)"
                                         class="rounded-lg border border-red-700/50 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-950/50"
@@ -76,7 +94,7 @@
                 </div>
 
                 <div v-else class="px-5 py-10 text-center text-sm text-gray-400">
-                    No PHP versions detected on the system.
+                    No supported PHP versions were detected for this platform.
                 </div>
             </section>
         </div>
@@ -84,17 +102,43 @@
 </template>
 
 <script setup>
+import { computed, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
 const props = defineProps({
     installedVersions: Array,
+    availableVersions: Array,
     versionUsage: Object,
     accountsByNode: Object,
     canManage: Boolean
 })
 
+const processingVersion = ref(null)
+
+const allVersions = computed(() => {
+    return [...new Set([...(props.availableVersions || []), ...(props.installedVersions || [])])].sort((a, b) => {
+        return a.localeCompare(b, undefined, { numeric: true })
+    })
+})
+
+const isInstalled = (version) => (props.installedVersions || []).includes(version)
+
 const usageCount = (version) => props.versionUsage?.[version] || 0
+
+const installVersion = (version) => {
+    if (!confirm(`Install PHP ${version} and its managed extensions on the primary server?`)) {
+        return
+    }
+
+    processingVersion.value = version
+
+    router.post(route('admin.php-versions.install', { version }), {}, {
+        onFinish: () => {
+            processingVersion.value = null
+        }
+    })
+}
 
 const enableVersion = (version) => {
     router.post(route('admin.php-versions.enable', { version }), {}, {

@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\Node;
 use App\Services\AgentClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Support\Facades\DB;
 
 class PhpVersionsController extends Controller
 {
@@ -24,6 +24,7 @@ class PhpVersionsController extends Controller
         
         // Get installed PHP versions from system
         $installedVersions = $this->getInstalledPhpVersions();
+        $availableVersions = $this->getSupportedPhpVersions();
         
         // Get accounts using each version
         $versionUsage = $accounts->groupBy('php_version')->map(function ($group) {
@@ -39,10 +40,49 @@ class PhpVersionsController extends Controller
         
         return Inertia::render('Admin/PhpVersions/Index', [
             'installedVersions' => $installedVersions,
+            'availableVersions' => $availableVersions,
             'versionUsage' => $versionUsage,
             'accountsByNode' => $accountsByNode,
-            'canManage' => $request->user()->can('manage php versions'),
+            'canManage' => $request->user()->hasRole('admin'),
         ]);
+    }
+
+    /**
+     * Install a missing PHP version on the primary server.
+     */
+    public function install(Request $request, string $version): RedirectResponse
+    {
+        abort_unless($request->user()->hasRole('admin'), 403);
+
+        $this->validatePhpVersion($version);
+
+        if (in_array($version, $this->getInstalledPhpVersions(), true)) {
+            return back()->with('success', "PHP {$version} is already installed.");
+        }
+
+        $node = Node::where('is_primary', true)->orderBy('id')->first() ?? Node::orderBy('id')->first();
+
+        if (! $node) {
+            return back()->with('error', 'No primary node is registered for PHP installation.');
+        }
+
+        $response = AgentClient::for($node)->installPhpVersion($version);
+
+        if (! $response->successful()) {
+            $payload = $response->json();
+            $message = is_array($payload)
+                ? ($payload['output'] ?? $payload['error'] ?? $response->body())
+                : $response->body();
+
+            return back()->with('error', trim("PHP {$version} installation failed. {$message}"));
+        }
+
+        AuditLog::record('php.version_installed', $request->user(), [
+            'version' => $version,
+            'node' => $node->name,
+        ]);
+
+        return back()->with('success', "PHP {$version} has been installed on {$node->name}.");
     }
 
     /**
@@ -93,10 +133,7 @@ class PhpVersionsController extends Controller
      */
     private function validatePhpVersion(string $version): void
     {
-        $supportedVersions = array_merge(
-            range(7, 8), // Major versions
-            ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4'] // Specific versions we support
-        );
+        $supportedVersions = $this->getSupportedPhpVersions();
         
         if (!in_array($version, $supportedVersions, true)) {
             throw new \InvalidArgumentException("Unsupported PHP version: {$version}");
@@ -138,5 +175,36 @@ class PhpVersionsController extends Controller
         }
         
         return array_unique($versions);
+    }
+
+    /**
+     * Get PHP versions supported by this server's Debian release.
+     */
+    private function getSupportedPhpVersions(): array
+    {
+        $versionId = $this->osReleaseValue('VERSION_ID');
+
+        return match ($versionId) {
+            '13' => ['7.4', '8.0', '8.2', '8.4'],
+            '12' => ['7.4', '8.0', '8.1', '8.2', '8.3'],
+            default => ['7.4', '8.0', '8.1', '8.2', '8.3'],
+        };
+    }
+
+    private function osReleaseValue(string $key): string
+    {
+        if (! is_readable('/etc/os-release')) {
+            return '';
+        }
+
+        foreach (file('/etc/os-release', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            if (! str_starts_with($line, "{$key}=")) {
+                continue;
+            }
+
+            return trim(substr($line, strlen($key) + 1), '"');
+        }
+
+        return '';
     }
 }
