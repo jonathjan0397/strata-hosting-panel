@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.27] - 2026-05-08
+
+Release target: `1.0.27`.
+
+- Added a persistent guided Admin Dashboard mode with button-based web hosting management groups and plain-English tooltips for the current admin feature set.
+- Added a simple Default/Guided dashboard switcher so admins can return to the original dashboard layout at any time.
+
 ## [1.0.26] - 2026-05-07
 
 Release target: `1.0.26`.

@@ -6,6 +6,26 @@
             description="Monitor node health, manage accounts and packages, review backups, and jump into common WHM-style operations."
         >
             <template #actions>
+                <div class="inline-flex rounded-lg border border-gray-700 bg-gray-950 p-1">
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                        :class="!guidedDashboard ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200'"
+                        title="Use the original dashboard layout with summaries, operations, shortcuts, and node status."
+                        @click="setDashboardMode(false)"
+                    >
+                        Default
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                        :class="guidedDashboard ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200'"
+                        title="Use a button-based dashboard organized around common web hosting tasks."
+                        @click="setDashboardMode(true)"
+                    >
+                        Guided
+                    </button>
+                </div>
                 <Link :href="route('admin.accounts.create')" class="btn-primary">
                     Create Account
                 </Link>
@@ -15,6 +35,126 @@
             </template>
         </PageHeader>
 
+        <template v-if="guidedDashboard">
+            <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <div class="space-y-5">
+                    <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                                <h2 class="text-base font-semibold text-gray-100">Start Here</h2>
+                                <p class="mt-1 text-sm text-gray-500">The most common hosting jobs, grouped by what you are trying to do.</p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 sm:flex">
+                                <Link
+                                    :href="route('admin.accounts.create')"
+                                    class="rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+                                    title="Create a new hosting login and reserve space for its websites, email, databases, and files."
+                                >
+                                    New Account
+                                </Link>
+                                <Link
+                                    :href="route('admin.domains.create')"
+                                    class="rounded-lg border border-gray-700 px-4 py-2 text-center text-sm font-semibold text-gray-300 transition-colors hover:bg-gray-800"
+                                    title="Add a website name and point it at an existing hosting account."
+                                >
+                                    Add Website
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    <section v-for="group in guidedGroups" :key="group.name" class="rounded-xl border border-gray-800 bg-gray-900">
+                        <div class="border-b border-gray-800 px-5 py-4">
+                            <div class="flex items-start gap-3">
+                                <component :is="group.icon" class="mt-0.5 h-5 w-5 shrink-0 text-indigo-300" aria-hidden="true" />
+                                <div>
+                                    <h2 class="text-sm font-semibold text-gray-200">{{ group.name }}</h2>
+                                    <p class="mt-1 text-xs leading-5 text-gray-500">{{ group.description }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                            <Link
+                                v-for="item in group.items"
+                                :key="item.label"
+                                :href="item.href"
+                                class="group min-h-28 rounded-lg border border-gray-800 bg-gray-950/60 p-4 transition-colors hover:border-indigo-500/60 hover:bg-gray-800/60"
+                                :title="item.tooltip"
+                            >
+                                <div class="flex items-start gap-3">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600/15 text-indigo-300 ring-1 ring-indigo-500/30">
+                                        <component :is="item.icon" class="h-5 w-5" aria-hidden="true" />
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-semibold text-gray-100">{{ item.label }}</p>
+                                        <p class="mt-1 text-xs leading-5 text-gray-500">{{ item.help }}</p>
+                                        <p class="mt-3 text-xs font-semibold text-indigo-400 group-hover:text-indigo-300">Open</p>
+                                    </div>
+                                </div>
+                            </Link>
+                        </div>
+                    </section>
+                </div>
+
+                <aside class="space-y-5">
+                    <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                        <h2 class="text-sm font-semibold text-gray-200">Quick Health</h2>
+                        <p class="mt-1 text-xs text-gray-500">Plain-English status for this panel server.</p>
+                        <div v-if="operationsInfo" class="mt-4 space-y-4">
+                            <div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-400">Memory</span>
+                                    <span :class="usageTextClass(operationsInfo.memory.used_pct)">{{ formatPercent(operationsInfo.memory.used_pct) }}</span>
+                                </div>
+                                <UsageBar class="mt-2" :percent="operationsInfo.memory.used_pct" />
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-400">Processor</span>
+                                    <span :class="usageTextClass(processorUsedPct)">{{ formatPercent(processorUsedPct) }}</span>
+                                </div>
+                                <UsageBar class="mt-2" :percent="processorUsedPct" />
+                            </div>
+                            <div v-for="disk in panelDisks.slice(0, 3)" :key="disk.path">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-mono text-gray-400">{{ disk.path }}</span>
+                                    <span :class="usageTextClass(disk.used_pct)">{{ formatPercent(disk.used_pct) }}</span>
+                                </div>
+                                <UsageBar class="mt-2" :percent="disk.used_pct" />
+                            </div>
+                        </div>
+                        <div v-else class="mt-4 rounded-lg border border-amber-800/50 bg-amber-900/10 px-4 py-3 text-xs text-amber-200">
+                            {{ operations?.error ?? 'System health is not available yet.' }}
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                        <h2 class="text-sm font-semibold text-gray-200">Platform Totals</h2>
+                        <div class="mt-4 grid grid-cols-2 gap-3">
+                            <div v-for="stat in stats" :key="stat.label" class="rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+                                <p class="text-xs text-gray-500">{{ stat.label }}</p>
+                                <p class="mt-1 text-xl font-semibold text-gray-100">{{ stat.value }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-800 bg-gray-900 p-5">
+                        <h2 class="text-sm font-semibold text-gray-200">Need The Old View?</h2>
+                        <p class="mt-2 text-sm leading-6 text-gray-500">Use the switch at the top any time. Your choice is saved in this browser.</p>
+                        <button
+                            type="button"
+                            class="mt-4 w-full rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 transition-colors hover:bg-gray-800"
+                            title="Return to the original admin dashboard layout."
+                            @click="setDashboardMode(false)"
+                        >
+                            Use Default Dashboard
+                        </button>
+                    </div>
+                </aside>
+            </div>
+        </template>
+
+        <template v-else>
         <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
                 v-for="stat in stats"
@@ -280,12 +420,33 @@
                 </EmptyState>
             </div>
         </div>
+        </template>
     </AppLayout>
 </template>
 
 <script setup>
 import { computed, defineComponent, h, ref } from 'vue';
 import { usePage, router, Link } from '@inertiajs/vue3';
+import {
+    ArrowPathIcon,
+    CircleStackIcon,
+    CloudArrowUpIcon,
+    CodeBracketIcon,
+    CommandLineIcon,
+    CpuChipIcon,
+    EnvelopeIcon,
+    GlobeAltIcon,
+    KeyIcon,
+    LifebuoyIcon,
+    LockClosedIcon,
+    MagnifyingGlassCircleIcon,
+    ServerIcon,
+    ShieldCheckIcon,
+    SparklesIcon,
+    UserGroupIcon,
+    UsersIcon,
+    WrenchScrewdriverIcon,
+} from '@heroicons/vue/24/outline';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ActionCard from '@/Components/ActionCard.vue';
 import EmptyState from '@/Components/EmptyState.vue';
@@ -301,6 +462,8 @@ defineProps({
 const license = usePage().props.license;
 const syncing = ref(false);
 const page = usePage();
+const dashboardModeKey = 'strata_admin_dashboard_guided';
+const guidedDashboard = ref(typeof localStorage !== 'undefined' && localStorage.getItem(dashboardModeKey) === '1');
 const operations = computed(() => page.props.operations ?? {});
 const operationsInfo = computed(() => operations.value?.info ?? null);
 const processorUsedPct = computed(() => {
@@ -344,6 +507,77 @@ const UsageBar = defineComponent({
     },
 });
 
+const guidedGroups = computed(() => [
+    {
+        name: 'Websites and Customers',
+        description: 'Create hosting accounts, add domains, and choose what tools customers can use.',
+        icon: GlobeAltIcon,
+        items: [
+            guidedItem('Accounts', route('admin.accounts.index'), UsersIcon, 'See every hosting account, open its control panel, suspend it, or delete it.', 'Use this when a customer calls or you need to manage their whole hosting account.'),
+            guidedItem('Domains', route('admin.domains.index'), GlobeAltIcon, 'Manage website names, SSL, DNS, PHP version, redirects, and domain-level settings.', 'Use this when a website name is not working or needs a new setting.'),
+            guidedItem('Hosting Packages', route('admin.packages.index'), ServerIcon, 'Create plans that control storage, email limits, databases, PHP defaults, and enabled tools.', 'Packages are templates for what a customer gets.'),
+            guidedItem('Feature Lists', route('admin.feature-lists.index'), SparklesIcon, 'Choose which cPanel-style tools appear for package-backed customers.', 'Use this to keep simple plans simple and advanced plans full-featured.'),
+            guidedItem('Resellers', route('admin.resellers.index'), UserGroupIcon, 'Manage users who can create and control their own customer accounts.', 'Use this when another person or company should manage their own clients.'),
+            guidedItem('My Website', route('admin.my-website.index'), GlobeAltIcon, 'Provision and maintain the panel owner website hosted alongside the control panel.', 'Use this for the server owner site, not a regular customer site.'),
+        ],
+    },
+    {
+        name: 'Email and Deliverability',
+        description: 'Create mailboxes, manage spam controls, and troubleshoot mail delivery.',
+        icon: EnvelopeIcon,
+        items: [
+            guidedItem('Email Accounts', route('email-accounts.index'), EnvelopeIcon, 'Create and manage mailboxes for hosted domains.', 'Use this when someone needs a new email address or password reset.'),
+            guidedItem('Mail Queue', route('admin.mail-queue.index'), ArrowPathIcon, 'View messages waiting to send and flush or remove stuck mail.', 'Use this when email is delayed or blocked.'),
+            guidedItem('Spam Filter', route('admin.security.spam'), ShieldCheckIcon, 'Review Rspamd spam filtering status and statistics.', 'Use this to understand spam protection and filtering behavior.'),
+            guidedItem('Deliverability', route('admin.deliverability.index'), LifebuoyIcon, 'Check DNS records that help mail reach inboxes instead of spam folders.', 'Use this when outgoing mail is rejected or lands in spam.'),
+        ],
+    },
+    {
+        name: 'Files, Data, and Apps',
+        description: 'Handle backups, imported accounts, databases, and developer tools.',
+        icon: CircleStackIcon,
+        items: [
+            guidedItem('Backups', route('admin.backups.index'), CloudArrowUpIcon, 'Create, restore, import, and delete account backups.', 'Use this before risky changes or when restoring customer data.'),
+            guidedItem('Backup Schedules', route('admin.backups.schedules'), ArrowPathIcon, 'Set when accounts are backed up automatically.', 'Use this to make sure important accounts are protected on a schedule.'),
+            guidedItem('Backup Destinations', route('admin.backups.destinations'), CloudArrowUpIcon, 'Send backup copies to remote storage.', 'Use this so backups are not only stored on the same server.'),
+            guidedItem('Backup Imports', route('admin.backup-imports.index'), CloudArrowUpIcon, 'Convert cPanel or CWP archives into Strata backup jobs.', 'Use this when moving sites from another hosting panel.'),
+            guidedItem('Account Migrations', route('admin.migrations.index'), ArrowPathIcon, 'Track transfer, restore, cutover, and source cleanup work.', 'Use this for planned migrations between servers or panels.'),
+        ],
+    },
+    {
+        name: 'Server Operations',
+        description: 'Watch nodes, manage runtimes, inspect security controls, and run updates.',
+        icon: ServerIcon,
+        items: [
+            guidedItem('Nodes', route('admin.nodes.index'), ServerIcon, 'Manage the servers that run websites, mail, DNS, backups, and agents.', 'Use this when checking whether a server is online or needs attention.'),
+            guidedItem('PHP Versions', route('admin.php-versions.index'), CodeBracketIcon, 'Install and manage PHP runtimes available to hosted accounts.', 'Use this when a site needs a specific PHP version.'),
+            guidedItem('Security Center', route('admin.security.index'), ShieldCheckIcon, 'Open firewall, Fail2Ban, spam, and host security tools.', 'Use this to protect the server and investigate suspicious activity.'),
+            guidedItem('Firewall', route('admin.security.firewall'), LockClosedIcon, 'Allow or block network access with UFW rules.', 'Use this carefully when opening service ports or blocking abusive IPs.'),
+            guidedItem('Fail2Ban', route('admin.security.fail2ban.index'), ShieldCheckIcon, 'View bans and protections for exposed services.', 'Use this when repeated login failures or attacks need investigation.'),
+            guidedItem('Updates', route('admin.updates.index'), WrenchScrewdriverIcon, 'Run OS package updates and Strata panel upgrades.', 'Use this to keep the system patched and upgrade the control panel.'),
+            guidedItem('Browser Shell', firstShellHref.value, CommandLineIcon, 'Open a browser terminal for the primary node when enabled.', 'Use this for advanced maintenance when the web shell feature is available.'),
+            guidedItem('API Tokens', route('admin.api-tokens.index'), KeyIcon, 'Create tokens for scripts or outside systems to use the panel API.', 'Use this for automation, and keep tokens private.'),
+        ],
+    },
+    {
+        name: 'DNS, Diagnostics, and Automation',
+        description: 'Repair name service, inspect audit trails, and connect outside systems.',
+        icon: MagnifyingGlassCircleIcon,
+        items: [
+            guidedItem('DNS Zones', route('admin.dns.index'), GlobeAltIcon, 'Manage DNS records for hosted domains.', 'Use this when a domain, website, or email record needs changing.'),
+            guidedItem('Server DNS', route('admin.dns.server.index'), ServerIcon, 'Manage authoritative server zones and backup DNS sync.', 'Use this for nameserver zones and DNS infrastructure.'),
+            guidedItem('Troubleshooting', route('admin.troubleshooting.index'), LifebuoyIcon, 'Run DNS, mail, and certificate diagnostics in one place.', 'Use this first when something is not working and you need a plain report.'),
+            guidedItem('Audit Log', route('admin.audit-log.index'), MagnifyingGlassCircleIcon, 'Review admin and system activity recorded by the panel.', 'Use this to answer who changed what and when.'),
+            guidedItem('Webhooks', route('admin.webhooks.index'), ArrowPathIcon, 'Send panel events to outside systems.', 'Use this to notify billing, monitoring, or automation tools.'),
+        ],
+    },
+]);
+
+const firstShellHref = computed(() => {
+    const node = page.props.nodes?.find((item) => item.is_primary) ?? page.props.nodes?.[0];
+    return node ? route('admin.nodes.shell', node.id) : route('admin.nodes.index');
+});
+
 function formatDate(iso) {
     if (!iso) return '';
 
@@ -361,6 +595,17 @@ function forceSync() {
         preserveScroll: true,
         onFinish: () => { syncing.value = false; },
     });
+}
+
+function setDashboardMode(enabled) {
+    guidedDashboard.value = enabled;
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(dashboardModeKey, enabled ? '1' : '0');
+    }
+}
+
+function guidedItem(label, href, icon, help, tooltip) {
+    return { label, href, icon, help, tooltip };
 }
 
 function formatPercent(value) {
