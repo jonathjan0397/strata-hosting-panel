@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.28] - 2026-05-08
+
+Release target: `1.0.28`.
+
+- Renamed the admin dashboard workspace label to "Manage Your Hosting Environment".
+
 ## [1.0.27] - 2026-05-08
 
 Release target: `1.0.27`.

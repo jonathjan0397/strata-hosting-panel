@@ -836,7 +836,7 @@ const themeClass = computed(() => ['theme-glass', `theme-glass-${theme.value}`])
 
 const workspaceLabel = computed(() => {
     const roles = page.props.auth?.user?.roles ?? [];
-    if (roles.includes('admin')) return 'Admin Workspace';
+    if (roles.includes('admin')) return 'Manage Your Hosting Environment';
     if (roles.includes('reseller')) return 'Reseller Workspace';
     if (roles.includes('user')) return 'Hosting Workspace';
     return 'Workspace';

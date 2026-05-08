@@ -1,7 +1,7 @@
 <template>
     <AppLayout title="Dashboard">
         <PageHeader
-            eyebrow="Admin Workspace"
+            eyebrow="Manage Your Hosting Environment"
             title="Operate the hosting platform"
             description="Monitor node health, manage accounts and packages, review backups, and jump into common WHM-style operations."
         >
