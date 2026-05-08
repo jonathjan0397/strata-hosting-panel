@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.29] - 2026-05-08
+
+Release target: `1.0.29`.
+
+- Renamed the admin dashboard title to "Operations Dashboard".
+
 ## [1.0.28] - 2026-05-08
 
 Release target: `1.0.28`.

@@ -2,7 +2,7 @@
     <AppLayout title="Dashboard">
         <PageHeader
             eyebrow="Manage Your Hosting Environment"
-            title="Operate the hosting platform"
+            title="Operations Dashboard"
             description="Monitor node health, manage accounts and packages, review backups, and jump into common WHM-style operations."
         >
             <template #actions>
