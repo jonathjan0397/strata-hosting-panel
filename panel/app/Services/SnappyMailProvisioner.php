@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Domain;
+use App\Models\EmailAccount;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 class SnappyMailProvisioner
 {
@@ -11,7 +13,11 @@ class SnappyMailProvisioner
     {
         $dataPath = $this->dataPath();
         if (! $dataPath) {
-            return [false, 'SnappyMail data directory was not found.'];
+            Log::warning('SnappyMailProvisioner: data directory not found, attempting to create it');
+            $dataPath = $this->createDataPath();
+            if (! $dataPath) {
+                return [false, 'SnappyMail data directory could not be found or created.'];
+            }
         }
 
         $domain = $domain->loadMissing('node');
@@ -29,14 +35,75 @@ class SnappyMailProvisioner
         @chown($path, 'www-data');
         @chgrp($path, 'www-data');
 
+        Log::info("SnappyMailProvisioner: provisioned domain profile for {$domain->domain}");
         return [true, null];
+    }
+
+    /**
+     * Ensure the SnappyMail domain profile exists for the given mailbox's domain.
+     * Called during mailbox creation to catch missing profiles.
+     */
+    public function provisionForMailbox(EmailAccount $mailbox): array
+    {
+        $domain = $mailbox->domain;
+        if (! $domain) {
+            return [false, 'Mailbox has no associated domain.'];
+        }
+
+        $dataPath = $this->dataPath();
+        if (! $dataPath) {
+            $dataPath = $this->createDataPath();
+            if (! $dataPath) {
+                return [false, 'SnappyMail data directory could not be found or created.'];
+            }
+        }
+
+        $domainsDir = $this->ensureDomainsDir($dataPath);
+        $profilePath = $domainsDir.'/'.strtolower($domain->domain).'.json';
+
+        if (File::exists($profilePath)) {
+            return [true, null];
+        }
+
+        return $this->provisionDomain($domain);
+    }
+
+    public function provisionAll(): array
+    {
+        $dataPath = $this->dataPath();
+        if (! $dataPath) {
+            $dataPath = $this->createDataPath();
+            if (! $dataPath) {
+                return [false, 'SnappyMail data directory could not be found or created.', 0];
+            }
+        }
+
+        $domainsDir = $this->ensureDomainsDir($dataPath);
+        $provisioned = 0;
+        $errors = [];
+
+        Domain::where('mail_enabled', true)->chunk(50, function ($domains) use (&$provisioned, &$errors) {
+            foreach ($domains as $domain) {
+                [$ok, $err] = $this->provisionDomain($domain);
+                if ($ok) {
+                    $provisioned++;
+                } else {
+                    $errors[] = "{$domain->domain}: {$err}";
+                }
+            }
+        });
+
+        return [true, null, $provisioned, $errors];
     }
 
     public function provisionDefault(?string $host = null): array
     {
         $dataPath = $this->dataPath();
         if (! $dataPath) {
-            return [false, 'SnappyMail data directory was not found.'];
+            $dataPath = $this->createDataPath();
+            if (! $dataPath) {
+                return [false, 'SnappyMail data directory could not be found or created.'];
+            }
         }
 
         $domainsDir = $this->ensureDomainsDir($dataPath);
@@ -60,7 +127,10 @@ class SnappyMailProvisioner
     {
         $dataPath = $this->dataPath();
         if (! $dataPath) {
-            return [false, 'SnappyMail data directory was not found.', 0];
+            $dataPath = $this->createDataPath();
+            if (! $dataPath) {
+                return [false, 'SnappyMail data directory could not be found or created.', 0];
+            }
         }
 
         $domainsDir = $this->ensureDomainsDir($dataPath);
@@ -184,6 +254,36 @@ class SnappyMailProvisioner
         foreach ($candidates as $candidate) {
             $path = rtrim((string) $candidate, '/');
             if (is_dir($path) && is_writable($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    private function createDataPath(): ?string
+    {
+        $candidates = array_filter([
+            env('STRATA_WEBMAIL_DATA_PATH'),
+            '/var/lib/snappymail',
+            '/var/www/webmail/data',
+        ]);
+
+        foreach ($candidates as $candidate) {
+            $path = rtrim((string) $candidate, '/');
+            if (! is_dir($path)) {
+                try {
+                    File::ensureDirectoryExists($path, 0755, true);
+                    @chmod($path, 0755);
+                    @chown($path, 'www-data');
+                    @chgrp($path, 'www-data');
+                } catch (\Throwable $e) {
+                    Log::warning("SnappyMailProvisioner: failed to create data dir {$path}: {$e->getMessage()}");
+                    continue;
+                }
+            }
+            if (is_writable($path)) {
+                Log::info("SnappyMailProvisioner: created data directory at {$path}");
                 return $path;
             }
         }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Domain;
 use App\Models\EmailAccount;
 use App\Models\EmailForwarder;
+use Illuminate\Support\Facades\Log;
 
 class MailProvisioner
 {
@@ -20,6 +21,7 @@ class MailProvisioner
             ]);
 
             if (! $response->successful()) {
+                Log::error("MailProvisioner: enableDomain failed for {$domain->domain}: {$response->body()}");
                 return [false, $response->body(), []];
             }
 
@@ -40,8 +42,10 @@ class MailProvisioner
 
             app(SnappyMailProvisioner::class)->provisionDomain($domain->refresh());
 
+            Log::info("MailProvisioner: mail enabled for {$domain->domain}");
             return [true, null, $data];
         } catch (\Throwable $e) {
+            Log::error("MailProvisioner: enableDomain exception for {$domain->domain}: {$e->getMessage()}");
             return [false, $e->getMessage(), []];
         }
     }
@@ -62,7 +66,17 @@ class MailProvisioner
             ]);
 
             if (! $response->successful()) {
+                Log::error("MailProvisioner: createMailbox failed for {$email}: {$response->body()}");
                 return [false, $response->body()];
+            }
+
+            // Verify the mailbox was actually created on the node
+            [$verified, $verifyError] = $this->verifyMailbox($domain, $email);
+            if (! $verified) {
+                Log::error("MailProvisioner: createMailbox verification failed for {$email}: {$verifyError}");
+                // Clean up the failed agent entry
+                AgentClient::for($domain->node)->delete("/mail/mailbox/{$email}");
+                return [false, $verifyError];
             }
 
             $mailbox = EmailAccount::create([
@@ -81,11 +95,36 @@ class MailProvisioner
                 if (! $synced) {
                     AgentClient::for($domain->node)->delete("/mail/mailbox/{$email}");
                     $mailbox->delete();
+                    Log::error("MailProvisioner: createMailbox sieve sync failed for {$email}: {$syncError}");
                     return [false, $syncError];
                 }
             }
 
+            // Ensure SnappyMail domain profile exists
+            [$snappyOk, $snappyErr] = app(SnappyMailProvisioner::class)->provisionForMailbox($mailbox);
+            if (! $snappyOk) {
+                Log::warning("MailProvisioner: createMailbox snappy provision warning for {$email}: {$snappyErr}");
+            }
+
+            Log::info("MailProvisioner: mailbox created {$email}");
             return [true, null];
+        } catch (\Throwable $e) {
+            Log::error("MailProvisioner: createMailbox exception for {$email}: {$e->getMessage()}");
+            return [false, $e->getMessage()];
+        }
+    }
+
+    /**
+     * Verify a mailbox exists on the node by checking the virtual user file.
+     */
+    public function verifyMailbox(Domain $domain, string $email): array
+    {
+        try {
+            $response = AgentClient::for($domain->node)->get("/mail/mailbox/{$email}");
+            if ($response->successful()) {
+                return [true, null];
+            }
+            return [false, $response->body() ?: 'Mailbox not found on node'];
         } catch (\Throwable $e) {
             return [false, $e->getMessage()];
         }
@@ -111,12 +150,15 @@ class MailProvisioner
         try {
             $response = AgentClient::for($mailbox->node)->delete("/mail/mailbox/{$mailbox->email}");
             if (! $response->successful()) {
+                Log::error("MailProvisioner: deleteMailbox failed for {$mailbox->email}: {$response->body()}");
                 return [false, $response->body()];
             }
 
             $mailbox->delete();
+            Log::info("MailProvisioner: mailbox deleted {$mailbox->email}");
             return [true, null];
         } catch (\Throwable $e) {
+            Log::error("MailProvisioner: deleteMailbox exception for {$mailbox->email}: {$e->getMessage()}");
             return [false, $e->getMessage()];
         }
     }
@@ -130,14 +172,17 @@ class MailProvisioner
             $client = AgentClient::for($mailbox->node);
 
             if ($mailbox->migration_reset_required) {
-                $create = $client->createMailbox([
+                $create = $client->post('/mail/mailbox', [
                     'email' => $mailbox->email,
                     'password' => $password,
                 ]);
 
                 if (! $create->successful()) {
-                    $update = $client->changeMailboxPassword($mailbox->email, $password);
+                    $update = $client->put("/mail/mailbox/{$mailbox->email}/password", [
+                        'password' => $password,
+                    ]);
                     if (! $update->successful()) {
+                        Log::error("MailProvisioner: changePassword failed for {$mailbox->email}: {$create->body()} / {$update->body()}");
                         return [false, $create->body() . ' / ' . $update->body()];
                     }
                 }
@@ -148,12 +193,16 @@ class MailProvisioner
                 }
 
                 $mailbox->update(['migration_reset_required' => false, 'active' => true]);
+                Log::info("MailProvisioner: password changed (with migration reset) for {$mailbox->email}");
                 return [true, null];
             }
 
-            $response = $client->changeMailboxPassword($mailbox->email, $password);
+            $response = $client->put("/mail/mailbox/{$mailbox->email}/password", [
+                'password' => $password,
+            ]);
 
             if (! $response->successful()) {
+                Log::error("MailProvisioner: changePassword failed for {$mailbox->email}: {$response->body()}");
                 return [false, $response->body()];
             }
 
@@ -161,8 +210,10 @@ class MailProvisioner
                 $mailbox->update(['migration_reset_required' => false, 'active' => true]);
             }
 
+            Log::info("MailProvisioner: password changed for {$mailbox->email}");
             return [true, null];
         } catch (\Throwable $e) {
+            Log::error("MailProvisioner: changePassword exception for {$mailbox->email}: {$e->getMessage()}");
             return [false, $e->getMessage()];
         }
     }
@@ -179,6 +230,7 @@ class MailProvisioner
             ]);
 
             if (! $response->successful()) {
+                Log::error("MailProvisioner: createForwarder failed for {$source}: {$response->body()}");
                 return [false, $response->body()];
             }
 
@@ -190,8 +242,10 @@ class MailProvisioner
                 'destination' => $destination,
             ]);
 
+            Log::info("MailProvisioner: forwarder created {$source} -> {$destination}");
             return [true, null];
         } catch (\Throwable $e) {
+            Log::error("MailProvisioner: createForwarder exception for {$source}: {$e->getMessage()}");
             return [false, $e->getMessage()];
         }
     }
@@ -209,12 +263,15 @@ class MailProvisioner
 
             $response = AgentClient::for($node)->delete("/mail/forwarder/{$forwarder->source}");
             if (! $response->successful()) {
+                Log::error("MailProvisioner: deleteForwarder failed for {$forwarder->source}: {$response->body()}");
                 return [false, $response->body()];
             }
 
             $forwarder->delete();
+            Log::info("MailProvisioner: forwarder deleted {$forwarder->source}");
             return [true, null];
         } catch (\Throwable $e) {
+            Log::error("MailProvisioner: deleteForwarder exception for {$forwarder->source}: {$e->getMessage()}");
             return [false, $e->getMessage()];
         }
     }

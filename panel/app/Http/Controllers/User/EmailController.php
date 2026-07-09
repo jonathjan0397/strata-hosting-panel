@@ -13,6 +13,7 @@ use App\Services\MailProvisioner;
 use App\Services\MailSieveProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -257,9 +258,13 @@ class EmailController extends Controller
             $data['quota_mb'] ?? 0
         );
 
-        return $success
-            ? back()->with('success', "{$data['local_part']}@{$domain->domain} created.")
-            : back()->with('error', "Mailbox creation failed: {$error}");
+        if (! $success) {
+            Log::error("User/EmailController: createMailbox failed for {$data['local_part']}@{$domain->domain}: {$error}");
+            return back()->with('error', "Mailbox creation failed: {$error}");
+        }
+
+        Log::info("User/EmailController: mailbox created {$data['local_part']}@{$domain->domain}");
+        return back()->with('success', "{$data['local_part']}@{$domain->domain} created.");
     }
 
     public function importMailboxes(Request $request, Domain $domain): RedirectResponse

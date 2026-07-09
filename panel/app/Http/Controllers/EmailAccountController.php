@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\Log;
 
 class EmailAccountController extends Controller
 {
@@ -101,6 +102,7 @@ class EmailAccountController extends Controller
         [$success, $error, $dns] = app(MailProvisioner::class)->enableDomain($domain);
 
         if (! $success) {
+            Log::error("EmailAccountController: enableDomain failed for {$domain->domain}: {$error}");
             return back()->with('error', "Mail setup failed: {$error}");
         }
 
@@ -187,9 +189,13 @@ class EmailAccountController extends Controller
             $data['quota_mb'] ?? 0
         );
 
-        return $success
-            ? back()->with('success', "{$data['local_part']}@{$domain->domain} created.")
-            : back()->with('error', "Mailbox creation failed: {$error}");
+        if (! $success) {
+            Log::error("EmailAccountController: mailbox creation failed for {$data['local_part']}@{$domain->domain}: {$error}");
+            return back()->with('error', "Mailbox creation failed: {$error}");
+        }
+
+        Log::info("EmailAccountController: mailbox created {$data['local_part']}@{$domain->domain}");
+        return back()->with('success', "{$data['local_part']}@{$domain->domain} created.");
     }
 
     public function changePassword(Request $request, EmailAccount $mailbox): RedirectResponse

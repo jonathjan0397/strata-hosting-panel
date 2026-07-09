@@ -12,6 +12,7 @@ use App\Services\AgentClient;
 use App\Services\DnsProvisioner;
 use App\Services\MailProvisioner;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -204,6 +205,7 @@ class EmailController extends Controller
         );
 
         if (! $success) {
+            Log::error("Admin/EmailController: createMailbox failed for {$data['local_part']}@{$domain->domain}: {$error}");
             return back()->with('error', "Mailbox creation failed: {$error}");
         }
 
@@ -211,6 +213,7 @@ class EmailController extends Controller
             'email' => $data['local_part'] . '@' . $domain->domain,
         ]);
 
+        Log::info("Admin/EmailController: mailbox created {$data['local_part']}@{$domain->domain}");
         return back()->with('success', "{$data['local_part']}@{$domain->domain} created.");
     }
 

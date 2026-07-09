@@ -8,7 +8,9 @@ use Illuminate\Console\Command;
 
 class ConfigureSnappyMail extends Command
 {
-    protected $signature = 'strata:webmail-configure {--domain= : Limit repair to one mail domain}';
+    protected $signature = 'strata:webmail-configure
+        {--domain= : Limit repair to one mail domain}
+        {--force : Force creation of missing data directory}';
 
     protected $description = 'Repair SnappyMail domain profiles for Strata-managed mail domains.';
 
@@ -26,27 +28,18 @@ class ConfigureSnappyMail extends Command
             $this->line("Repaired {$repaired} stale local SnappyMail profile(s).");
         }
 
-        $query = Domain::query()
-            ->with('node')
-            ->where('mail_enabled', true);
-
-        if ($domain = $this->option('domain')) {
-            $query->where('domain', $domain);
+        // Use provisionAll to create profiles for all mail-enabled domains
+        [$allOk, $allErr, $provisioned, $errors] = $snappyMail->provisionAll();
+        if (! $allOk) {
+            $this->warn("SnappyMail provisioning encountered issues: {$allErr}");
+        }
+        $this->line("Provisioned {$provisioned} domain profile(s).");
+        if (! empty($errors)) {
+            foreach ($errors as $e) {
+                $this->warn("  {$e}");
+            }
         }
 
-        $failed = 0;
-        $query->orderBy('domain')->each(function (Domain $domain) use ($snappyMail, &$failed): void {
-            [$ok, $error] = $snappyMail->provisionDomain($domain);
-
-            if ($ok) {
-                $this->line("✓ {$domain->domain}");
-                return;
-            }
-
-            $failed++;
-            $this->error("✗ {$domain->domain}: {$error}");
-        });
-
-        return $failed === 0 ? Command::SUCCESS : Command::FAILURE;
+        return empty($errors) ? Command::SUCCESS : Command::FAILURE;
     }
 }
