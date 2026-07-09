@@ -82,6 +82,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/email-accounts', [EmailAccountController::class, 'store'])->name('email-accounts.store');
         Route::put('/email-accounts/{mailbox}/password', [EmailAccountController::class, 'changePassword'])->name('email-accounts.password');
         Route::delete('/email-accounts/{mailbox}', [EmailAccountController::class, 'destroy'])->name('email-accounts.destroy');
+        Route::get('/email-accounts/deleted', [EmailAccountController::class, 'deleted'])->name('email-accounts.deleted');
+        Route::post('/email-accounts/{mailboxId}/restore', [EmailAccountController::class, 'restore'])->name('email-accounts.restore');
     });
 
     // User portal (also accessible by admin for testing/support)

@@ -213,6 +213,40 @@ class EmailAccountController extends Controller
             : back()->with('error', "Password change failed: {$error}");
     }
 
+    public function deleted(Request $request): Response
+    {
+        $domainIds = $this->domainQuery($request)->pluck('id');
+
+        return Inertia::render('Email/Accounts', [
+            'domains' => [],
+            'mailboxes' => [],
+            'forwarders' => [],
+            'role' => $request->user()->getRoleNames()->first(),
+            'deletedMailboxes' => EmailAccount::onlyTrashed()
+                ->with(['domain'])
+                ->whereIn('domain_id', $domainIds)
+                ->orderBy('deleted_at', 'desc')
+                ->get()
+                ->map(fn (EmailAccount $mailbox) => [
+                    'id' => $mailbox->id,
+                    'email' => $mailbox->email,
+                    'deleted_at' => $mailbox->deleted_at?->toDateTimeString(),
+                    'domain' => $mailbox->domain?->only(['id', 'domain']),
+                ]),
+        ]);
+    }
+
+    public function restore(Request $request, string $mailboxId): RedirectResponse
+    {
+        $mailbox = EmailAccount::onlyTrashed()->findOrFail($mailboxId);
+        $this->authorizeMailbox($request, $mailbox);
+
+        $mailbox->restore();
+
+        Log::info("EmailAccountController: mailbox restored {$mailbox->email}");
+        return back()->with('success', "{$mailbox->email} restored.");
+    }
+
     public function destroy(Request $request, EmailAccount $mailbox): RedirectResponse
     {
         $this->authorizeMailbox($request, $mailbox);

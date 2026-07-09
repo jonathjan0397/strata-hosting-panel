@@ -8,6 +8,7 @@ use App\Console\Commands\LicenseSync;
 use App\Console\Commands\MetricsAggregateTraffic;
 use App\Console\Commands\MalwareRunScheduled;
 use App\Console\Commands\NodeHealthCheck;
+use App\Console\Commands\PurgeEmailAccounts;
 use App\Console\Commands\RepairPhpSockets;
 use App\Console\Commands\SslRenew;
 use App\Console\Commands\SyncBackupDnsZones;
@@ -57,6 +58,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Queue due scheduled malware scans; the command skips accounts with active scans.
         $schedule->command(MalwareRunScheduled::class)->hourly();
+
+        // Purge email accounts soft-deleted more than 30 days ago.
+        $schedule->command(PurgeEmailAccounts::class)->dailyAt('00:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(TrustProxies::class);

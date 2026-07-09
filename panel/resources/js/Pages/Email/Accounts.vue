@@ -183,6 +183,38 @@
                     description="Create the first mailbox from a mail-enabled domain."
                 />
             </section>
+
+            <section v-if="deletedMailboxes.length" class="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
+                <div class="border-b border-gray-800 px-5 py-4">
+                    <h3 class="text-sm font-semibold text-gray-200">🗑 Deleted Mailboxes ({{ deletedMailboxes.length }})</h3>
+                </div>
+                <table class="min-w-full divide-y divide-gray-800">
+                    <thead>
+                        <tr>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Email</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Domain</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-500">Deleted At</th>
+                            <th class="px-5 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800">
+                        <tr v-for="mailbox in deletedMailboxes" :key="mailbox.id" class="hover:bg-gray-800/40">
+                            <td class="px-5 py-3 text-sm font-mono text-gray-400 line-through">{{ mailbox.email }}</td>
+                            <td class="px-5 py-3 text-sm text-gray-500">{{ mailbox.domain?.domain }}</td>
+                            <td class="px-5 py-3 text-sm text-gray-500">{{ mailbox.deleted_at }}</td>
+                            <td class="px-5 py-3 text-right">
+                                <ConfirmButton
+                                    :href="route('email-accounts.restore', mailbox.id)"
+                                    method="post"
+                                    label="Restore"
+                                    color="green"
+                                    :confirm-message="`Restore mailbox ${mailbox.email}?`"
+                                />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
         </div>
 
         <Teleport to="body">
@@ -227,6 +259,7 @@ const props = defineProps({
     mailboxes: { type: Array, default: () => [] },
     forwarders: { type: Array, default: () => [] },
     role: String,
+    deletedMailboxes: { type: Array, default: () => [] },
 });
 
 const enabledDomains = computed(() => props.domains.filter((domain) => domain.mail_enabled));
