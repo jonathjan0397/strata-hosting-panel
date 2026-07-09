@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.31] - 2026-07-08
+
+### Changed
+- Username auto-generation now produces shorter, more memorable usernames:
+  strips common words (the, my, app, www), thins vowels if >12 chars (Approach A),
+  falls back to abbreviating from first 3 domain segments for short prefixes (Approach B).
+  Example: `jonathanrcovington.hosted-tech.com` → `jrcvngtn`, `janesmithphotography.com` → `janesmith`.
+- Admin and reseller account creation forms auto-suggest a username from the
+  full name field, prefilled but editable.
+
 ## [1.0.30] - 2026-07-08
 
 ### Fixed
