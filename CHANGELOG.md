@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.32] - 2026-07-09
+
+### Added
+- Email account restore: soft-deleted mailboxes can now be viewed and restored
+  from the Email Accounts page. A new "🗑 Deleted Mailboxes" section shows
+  trashed accounts with email, domain, deletion date, and a Restore button.
+- `strata:purge-email-accounts` artisan command force-deletes records
+  soft-deleted more than 30 days ago. Runs daily at 00:00 via scheduler.
+
+### Fixed
+- Removed `verifyMailbox()` from `MailProvisioner::createMailbox()` — the Go
+  agent does not expose a GET endpoint for mailbox verification, causing every
+  mailbox creation to fail and roll back.
+
 ## [1.0.31] - 2026-07-08
 
 ### Changed
