@@ -243,12 +243,12 @@ class EmailController extends Controller
         }
 
         $data = $request->validate([
-            'local_part' => ['required', 'string', 'max:64', 'not_regex:/@/', 'regex:/^[a-zA-Z0-9._%+\-]+$/'],
+            'local_part' => ['required', 'string', 'max:64', 'not_regex:/@/', 'regex:/^[a-z0-9._%+\-]+$/'],
             'password' => ['required', 'string', 'min:8'],
             'quota_mb' => ['nullable', 'integer', 'min:0'],
         ], [
             'local_part.not_regex' => 'Enter only the mailbox name before the @ sign, not the full email address.',
-            'local_part.regex' => 'Mailbox names can only contain letters, numbers, dots, underscores, percent signs, plus signs, and hyphens.',
+            'local_part.regex' => 'Mailbox names must be lowercase and can only contain letters, numbers, dots, underscores, percent signs, plus signs, and hyphens.',
         ]);
 
         [$success, $error] = app(MailProvisioner::class)->createMailbox(

@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.30] - 2026-07-08
+
+### Fixed
+- Mailbox creation now rejects uppercase letters in local_part, preventing Dovecot
+  IMAP login failures caused by case-sensitive password file lookups vs SnappyMail's
+  lowerLogin setting. Validation added to all three email controllers with a clear
+  error message. MailProvisioner additionally lowercases as a safety net.
+- SnappyMail domain profiles are now provisioned during mailbox creation, not just
+  domain enablement, ensuring webmail works even if the initial provisionDomain()
+  was missed or the data directory was recreated.
+- Added SnappyMailProvisioner::createDataPath() fallback to auto-create the
+  SnappyMail data directory if missing, with proper www-data ownership.
+- Added agent verification step after mailbox creation — if the agent returns
+  success but the mailbox isn't confirmed on the node, the DB record is rolled back.
+
+### Added
+- `strata:mail-repair` artisan command: verifies all mailboxes against the agent
+  and re-provisions any that are missing, plus rebuilds all SnappyMail domain profiles.
+- `SnappyMailProvisioner::provisionAll()` and `provisionForMailbox()` for
+  comprehensive SnappyMail profile coverage.
+- Logging throughout MailProvisioner and all three email controllers to capture
+  agent failures and provisioning steps.
+
 ## [1.0.17] - 2026-04-18
 
 Release target: `1.0.17`.

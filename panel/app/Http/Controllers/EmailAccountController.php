@@ -161,7 +161,7 @@ class EmailAccountController extends Controller
     {
         $data = $request->validate([
             'domain_id' => ['required', 'integer'],
-            'local_part' => ['required', 'regex:/^[a-zA-Z0-9._%+\-]+$/', 'max:64'],
+            'local_part' => ['required', 'regex:/^[a-z0-9._%+\-]+$/', 'max:64'],
             'password' => ['required', 'string', 'min:8'],
             'quota_mb' => ['nullable', 'integer', 'min:0'],
         ]);
