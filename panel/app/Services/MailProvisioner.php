@@ -55,6 +55,7 @@ class MailProvisioner
      */
     public function createMailbox(Domain $domain, string $localPart, string $password, int $quotaMb = 0): array
     {
+        $localPart = strtolower($localPart);
         $email = "{$localPart}@{$domain->domain}";
 
         try {
