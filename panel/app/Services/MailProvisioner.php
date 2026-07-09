@@ -71,15 +71,6 @@ class MailProvisioner
                 return [false, $response->body()];
             }
 
-            // Verify the mailbox was actually created on the node
-            [$verified, $verifyError] = $this->verifyMailbox($domain, $email);
-            if (! $verified) {
-                Log::error("MailProvisioner: createMailbox verification failed for {$email}: {$verifyError}");
-                // Clean up the failed agent entry
-                AgentClient::for($domain->node)->delete("/mail/mailbox/{$email}");
-                return [false, $verifyError];
-            }
-
             $mailbox = EmailAccount::create([
                 'domain_id'  => $domain->id,
                 'account_id' => $domain->account_id,
@@ -118,19 +109,6 @@ class MailProvisioner
     /**
      * Verify a mailbox exists on the node by checking the virtual user file.
      */
-    public function verifyMailbox(Domain $domain, string $email): array
-    {
-        try {
-            $response = AgentClient::for($domain->node)->get("/mail/mailbox/{$email}");
-            if ($response->successful()) {
-                return [true, null];
-            }
-            return [false, $response->body() ?: 'Mailbox not found on node'];
-        } catch (\Throwable $e) {
-            return [false, $e->getMessage()];
-        }
-    }
-
     /**
      * Remove a soft-deleted mailbox row so the address can be recreated cleanly.
      */
