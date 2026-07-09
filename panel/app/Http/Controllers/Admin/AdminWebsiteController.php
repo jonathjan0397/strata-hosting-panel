@@ -201,9 +201,31 @@ class AdminWebsiteController extends Controller
 
     private function uniqueUsernameForDomain(string $domain): string
     {
-        $base = strtolower(preg_replace('/[^a-z0-9]/', '', explode('.', $domain)[0]));
-        $base = ltrim($base, '0123456789') ?: 'admin';
-        $base = substr($base, 0, 28);
+        $parts = explode('.', $domain);
+        $prefix = strtolower(preg_replace('/[^a-z0-9]/', '', $parts[0]));
+
+        // Approach A: strip common words and shorten
+        $common = ['the', 'my', 'app', 'www'];
+        $prefix = str_replace($common, '', $prefix);
+        $prefix = ltrim($prefix, '0123456789') ?: 'user';
+
+        if (strlen($prefix) > 12) {
+            $first = $prefix[0];
+            $rest = preg_replace('/[aeiou]/', '', substr($prefix, 1));
+            $prefix = $first . $rest;
+        }
+
+        // Fallback B: abbreviate from first 3 segments
+        if (strlen($prefix) < 4) {
+            $prefix = '';
+            foreach (array_slice($parts, 0, 3) as $seg) {
+                $clean = strtolower(preg_replace('/[^a-z0-9]/', '', $seg));
+                $prefix .= substr($clean, 0, 3);
+            }
+            $prefix = substr($prefix, 0, 12) ?: 'user';
+        }
+
+        $base = substr($prefix, 0, 28);
         $username = $base;
         $suffix = 1;
 

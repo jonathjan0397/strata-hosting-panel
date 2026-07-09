@@ -102,7 +102,7 @@
 
 <script setup>
 import { useForm, Link } from '@inertiajs/vue3';
-import { watch } from 'vue';
+import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import FormField from '@/Components/FormField.vue';
 
@@ -111,6 +111,12 @@ const props = defineProps({
     phpVersions: Array,
     packages: Array,
 });
+
+const autoSuggested = ref(false);
+
+function suggestUsername(name) {
+    return name.toLowerCase().replace(/[^a-z]/g, '').replace(/^(the|my|app|www)/, '').slice(0, 20) || '';
+}
 
 const form = useForm({
     name: '',
@@ -125,6 +131,21 @@ const form = useForm({
     max_domains: 0,
     max_email_accounts: 0,
     max_databases: 0,
+});
+
+watch(() => form.name, (name) => {
+    if (!name || (!autoSuggested.value && form.username)) return;
+    const suggested = suggestUsername(name);
+    if (suggested && (autoSuggested.value || !form.username)) {
+        form.username = suggested;
+        autoSuggested.value = true;
+    }
+});
+
+watch(() => form.username, (val) => {
+    if (val !== suggestUsername(form.name)) {
+        autoSuggested.value = false;
+    }
 });
 
 watch(() => form.hosting_package_id, (packageId) => {
